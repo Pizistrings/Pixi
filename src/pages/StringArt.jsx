@@ -14,41 +14,98 @@ import StepList from '@/components/string-art/StepList';
 import ImageUploader from '@/components/string-art/ImageUploader';
 
 export default function StringArt() {
-  const [image, setImage] = useState(null);
+  const [image, setImage] = useState(project?.source_image_url || null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(project?.current_step || 0);
   const [totalSteps, setTotalSteps] = useState(0);
-  const [mode, setMode] = useState('color'); // 'mono' or 'color'
   const [speed, setSpeed] = useState(10);
   const [soundEnabled, setSoundEnabled] = useState(false);
-  const [stringPaths, setStringPaths] = useState([]);
+  const [stringPaths, setStringPaths] = useState(project?.string_paths || []);
   const [colorLayers, setColorLayers] = useState([]);
-  const [numPins, setNumPins] = useState(200);
-  const [numStrings, setNumStrings] = useState(3000);
   const [isGenerated, setIsGenerated] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showColorDialog, setShowColorDialog] = useState(false);
+  const [showShapeDialog, setShowShapeDialog] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  
+  // Settings from project or defaults
+  const [shape, setShape] = useState(project?.settings?.shape || 'circle_240');
+  const [mode, setMode] = useState(project?.settings?.mode || 'multi');
+  const [steps, setSteps] = useState(project?.settings?.steps || 3000);
+  const [fade, setFade] = useState(project?.settings?.fade || 30);
+  const [minDistance, setMinDistance] = useState(project?.settings?.min_distance || 30);
+  const [colorRun, setColorRun] = useState(project?.settings?.color_run || 100);
+  const [thickness, setThickness] = useState(project?.settings?.thickness || 1);
+  const [selectedColors, setSelectedColors] = useState(project?.settings?.colors || [
+    { hex: '#000000', name: 'Black', brightness: 0, favorite: true },
+    { hex: '#f60404', name: '#f60404', brightness: -100, favorite: false },
+    { hex: '#f4fcfc', name: '#f4fcfc', brightness: -98, favorite: false }
+  ]);
   
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
-  const audioRef = useRef(null);
 
-  // Color configuration for CMYK-style string art
-  const colors = mode === 'mono' 
-    ? [{ name: 'Black', hex: '#1a1a1a', id: 'K' }]
-    : [
-        { name: 'Cyan', hex: '#00b4d8', id: 'C' },
-        { name: 'Magenta', hex: '#e63946', id: 'M' },
-        { name: 'Yellow', hex: '#ffd60a', id: 'Y' },
-        { name: 'Black', hex: '#1a1a1a', id: 'K' }
-      ];
+  // Update project mutation
+  const updateProjectMutation = useMutation({
+    mutationFn: (data) => base44.entities.Project.update(projectId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+    }
+  });
 
-  const handleImageUpload = (uploadedImage) => {
+  // Parse shape to get pin count
+  const getNumPins = () => {
+    if (shape.startsWith('circle_')) {
+      return parseInt(shape.split('_')[1]);
+    }
+    return 240;
+  };
+
+  // Prepare colors for rendering
+  const colors = mode === 'single' 
+    ? [selectedColors[0]]
+    : selectedColors;
+
+  const handleImageUpload = async (uploadedImage) => {
     setImage(uploadedImage);
     setIsGenerated(false);
     setStringPaths([]);
     setCurrentStep(0);
     setIsPlaying(false);
+    setShowUploadDialog(false);
+    
+    if (projectId) {
+      updateProjectMutation.mutate({ source_image_url: uploadedImage });
+    }
+  };
+
+  const saveProject = async () => {
+    if (!projectId) return;
+    
+    const canvas = canvasRef.current;
+    let thumbnailUrl = project?.thumbnail_url;
+    
+    if (canvas) {
+      thumbnailUrl = canvas.toDataURL();
+    }
+    
+    updateProjectMutation.mutate({
+      thumbnail_url: thumbnailUrl,
+      result_image_url: thumbnailUrl,
+      current_step: currentStep,
+      string_paths: stringPaths,
+      settings: {
+        shape,
+        mode,
+        steps,
+        fade,
+        min_distance: minDistance,
+        color_run: colorRun,
+        thickness,
+        colors: selectedColors
+      },
+      status: isGenerated ? 'completed' : 'draft'
+    });
   };
 
   const generateStringArt = useCallback(async () => {
@@ -58,12 +115,12 @@ export default function StringArt() {
     setCurrentStep(0);
     setIsPlaying(false);
     
-    // Simulate processing delay
     await new Promise(resolve => setTimeout(resolve, 500));
     
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const size = 400;
+    const numPins = getNumPins();
     canvas.width = size;
     canvas.height = size;
     
@@ -133,11 +190,11 @@ export default function StringArt() {
       }
     }
     
-    const activeColors = mode === 'mono' ? ['K'] : ['C', 'M', 'Y', 'K'];
-    const stringsPerColor = Math.floor(numStrings / activeColors.length);
+    const activeColors = mode === 'single' ? [0] : selectedColors.map((_, idx) => idx);
+    const stringsPerColor = Math.floor(steps / activeColors.length);
     
-    for (const colorId of activeColors) {
-      layerCounts[colorId] = 0;
+    for (const colorIdx of activeColors) {
+      layerCounts[colorIdx] = 0;
       let currentPin = 0;
       const usedConnections = new Set();
       
@@ -183,10 +240,10 @@ export default function StringArt() {
         paths.push({
           from: currentPin,
           to: bestPin,
-          color: colorId,
+          color: colorIdx,
           step: paths.length
         });
-        layerCounts[colorId]++;
+        layerCounts[colorIdx]++;
         
         // Subtract the drawn line from working data
         const x1 = pins[currentPin].x;
@@ -211,9 +268,10 @@ export default function StringArt() {
     }
     
     // Create color layers summary
-    const layers = colors.map(color => ({
+    const layers = colors.map((color, idx) => ({
       ...color,
-      count: layerCounts[color.id] || 0
+      id: idx,
+      count: layerCounts[idx] || 0
     }));
     
     setStringPaths(paths);
@@ -221,7 +279,10 @@ export default function StringArt() {
     setTotalSteps(paths.length);
     setIsGenerated(true);
     setIsProcessing(false);
-  }, [image, mode, numPins, numStrings, colors]);
+    
+    // Auto-save
+    setTimeout(() => saveProject(), 1000);
+  }, [image, mode, steps, selectedColors]);
 
   // Animation loop
   useEffect(() => {
@@ -260,8 +321,15 @@ export default function StringArt() {
 
   const getCurrentColor = () => {
     if (currentStep === 0 || !stringPaths[currentStep - 1]) return null;
-    const colorId = stringPaths[currentStep - 1].color;
-    return colors.find(c => c.id === colorId);
+    const colorIdx = stringPaths[currentStep - 1].color;
+    return colors[colorIdx];
+  };
+
+  const toggleFavorite = async () => {
+    if (!projectId) return;
+    updateProjectMutation.mutate({
+      is_favorite: !project?.is_favorite
+    });
   };
 
   const getElapsedTime = () => {
@@ -281,35 +349,163 @@ export default function StringArt() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5]">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Header */}
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
-        >
-          <h1 className="text-3xl font-light text-gray-900 tracking-tight mb-2">
-            String Art Generator
+    <div className="min-h-screen bg-white">
+      {/* Top Bar */}
+      <div className="border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <h1 className="text-lg font-medium text-gray-900">
+            {project?.title || 'String Art Project'}
           </h1>
-          <p className="text-gray-500 text-sm">
-            Transform your photos into beautiful thread art
-          </p>
-        </motion.div>
+          {projectId && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleFavorite}
+              className="h-8 w-8"
+            >
+              <Star className={`w-4 h-4 ${project?.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
+            </Button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={saveProject}
+            disabled={!projectId}
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Save
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={downloadCanvas}
+            disabled={!isGenerated}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export PNG
+          </Button>
+        </div>
+      </div>
 
+      <div className="p-6">
         {!image ? (
-          <ImageUploader onUpload={handleImageUpload} />
+          <div className="max-w-2xl mx-auto">
+            <Card className="border-2 border-dashed border-gray-300">
+              <CardContent className="p-12">
+                <div className="text-center">
+                  <div
+                    onClick={() => setShowUploadDialog(true)}
+                    className="w-24 h-24 mx-auto mb-6 bg-[#ff6b35] hover:bg-[#e55a2b] rounded-2xl flex items-center justify-center cursor-pointer transition-colors"
+                  >
+                    <Plus className="w-12 h-12 text-white" />
+                  </div>
+                  <h3 className="text-xl font-medium text-gray-900 mb-2">Project images</h3>
+                  <p className="text-gray-500 mb-4">Upload an image to get started</p>
+                  <div className="flex items-center gap-2 justify-center">
+                    <Switch
+                      id="reset-params"
+                      defaultChecked
+                    />
+                    <Label htmlFor="reset-params" className="text-sm text-gray-600">
+                      Reset parameters when image changes
+                    </Label>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Canvas Area */}
-            <div className="lg:col-span-2">
-              <Card className="bg-white border-0 shadow-sm overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Input Canvas */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-gray-700">Input canvas</h3>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowUploadDialog(true)}
+                    className="text-[#ff6b35] border-[#ff6b35]"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              <Card className="border-2 border-[#ff6b35] border-dashed">
+                <div className="aspect-square flex items-center justify-center p-8">
+                  <img src={image} alt="Input" className="max-w-full max-h-full rounded-lg" />
+                </div>
+              </Card>
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded bg-[#ff6b35]/20 flex items-center justify-center">
+                    <Settings className="w-4 h-4 text-[#ff6b35]" />
+                  </div>
+                  <Slider value={[50]} onValueChange={() => {}} className="flex-1" />
+                  <span className="text-sm text-gray-600 w-8 text-right">0</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-full bg-[#ff6b35]/20 flex items-center justify-center">
+                    <div className="w-2 h-2 rounded-full bg-[#ff6b35]" />
+                  </div>
+                  <Slider value={[50]} onValueChange={() => {}} className="flex-1" />
+                  <span className="text-sm text-gray-600 w-8 text-right">0</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[#ff6b35] font-bold text-lg w-6 text-center">C</span>
+                  <Slider value={[50]} onValueChange={() => {}} className="flex-1" />
+                  <span className="text-sm text-gray-600 w-8 text-right">0</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Output Canvas */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-gray-700">Output canvas</h3>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={generateStringArt}
+                    disabled={isProcessing}
+                    size="sm"
+                    className="bg-[#ff6b35] hover:bg-[#e55a2b] text-white"
+                  >
+                    <Play className="w-4 h-4 mr-2" />
+                    Generate
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              <Card className="border-2 border-gray-300 border-dashed">
                 <div className="p-6">
                   <StringArtCanvas
                     ref={canvasRef}
                     stringPaths={stringPaths}
                     currentStep={currentStep}
-                    numPins={numPins}
+                    numPins={getNumPins()}
                     colors={colors}
                     isProcessing={isProcessing}
                     sourceImage={image}

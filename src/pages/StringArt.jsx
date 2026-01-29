@@ -368,28 +368,94 @@ export default function StringArt() {
       </div>
 
       <div className="p-6">
-        {!image ? (
-          <div className="max-w-2xl mx-auto">
-            <Card className="border-2 border-dashed border-gray-300">
-              <CardContent className="p-12">
-                <div className="text-center">
-                  <div
-                    onClick={() => setShowUploadDialog(true)}
-                    className="w-24 h-24 mx-auto mb-6 bg-[#ff6b35] hover:bg-[#e55a2b] rounded-2xl flex items-center justify-center cursor-pointer transition-colors"
-                  >
-                    <Plus className="w-12 h-12 text-white" />
+        {!image || !isGenerated ? (
+          <div className="max-w-4xl mx-auto">
+            {!image ? (
+              <Card className="border-2 border-dashed border-gray-300 mb-6">
+                <CardContent className="p-12">
+                  <div className="text-center">
+                    <div
+                      onClick={() => setShowUploadDialog(true)}
+                      className="w-24 h-24 mx-auto mb-6 bg-[#ff6b35] hover:bg-[#e55a2b] rounded-2xl flex items-center justify-center cursor-pointer transition-colors"
+                    >
+                      <Plus className="w-12 h-12 text-white" />
+                    </div>
+                    <h3 className="text-xl font-medium text-gray-900 mb-2">UPLOAD</h3>
+                    <p className="text-gray-500 mb-6">Project images</p>
+                    <div className="flex items-center gap-2 justify-center">
+                      <Switch id="reset-params" defaultChecked />
+                      <Label htmlFor="reset-params" className="text-sm text-gray-600">
+                        Reset parameters when image changes
+                      </Label>
+                    </div>
                   </div>
-                  <h3 className="text-xl font-medium text-gray-900 mb-2">UPLOAD</h3>
-                  <p className="text-gray-500 mb-6">Project images</p>
-                  <div className="flex items-center gap-2 justify-center">
-                    <Switch id="reset-params" defaultChecked />
-                    <Label htmlFor="reset-params" className="text-sm text-gray-600">
-                      Reset parameters when image changes
-                    </Label>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="mb-6">
+                <CardContent className="p-6">
+                  <div className="flex gap-6">
+                    <img src={image} alt="Input" className="w-48 h-48 object-cover rounded-lg" />
+                    <div className="flex-1">
+                      <h3 className="font-medium mb-4">Configure Generation</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <Label className="text-xs mb-2 block">Shape</Label>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-between"
+                            onClick={() => setShowShapeDialog(true)}
+                          >
+                            <span>{shape.replace('_', ' ')}</span>
+                          </Button>
+                        </div>
+                        <div>
+                          <Label className="text-xs mb-2 block">Color mode</Label>
+                          <Tabs value={mode} onValueChange={setMode}>
+                            <TabsList className="grid w-full grid-cols-2">
+                              <TabsTrigger value="single">Single-color</TabsTrigger>
+                              <TabsTrigger value="multi">Multi-color</TabsTrigger>
+                            </TabsList>
+                          </Tabs>
+                        </div>
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label className="text-xs">Steps</Label>
+                            <span className="text-xs font-medium text-[#ff6b35]">{steps}</span>
+                          </div>
+                          <Slider value={[steps]} onValueChange={([v]) => setSteps(v)} min={1000} max={9000} step={100} />
+                        </div>
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => setShowColorDialog(true)}
+                        >
+                          <Palette className="w-4 h-4 mr-2" />
+                          Thread Colors ({selectedColors.length})
+                        </Button>
+                        <Button
+                          onClick={generateStringArt}
+                          disabled={isProcessing}
+                          className="w-full bg-[#ff6b35] hover:bg-[#e55a2b] text-white"
+                        >
+                          {isProcessing ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-4 h-4 mr-2" />
+                              Generate String Art
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

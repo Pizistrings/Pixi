@@ -18,9 +18,7 @@ export default function ColorPalette({ open, onOpenChange, selectedColors, onCol
     if (exists) {
       onColorsChange(selectedColors.filter(c => c.hex !== color.hex));
     } else {
-      if (selectedColors.length < 3) {
-        onColorsChange([...selectedColors, { ...color, brightness: 0, favorite: false }]);
-      }
+      onColorsChange([...selectedColors, { ...color, brightness: 0, favorite: false }]);
     }
   };
 
@@ -41,14 +39,12 @@ export default function ColorPalette({ open, onOpenChange, selectedColors, onCol
   };
 
   const addCustomColor = () => {
-    if (selectedColors.length < 3) {
-      onColorsChange([...selectedColors, {
-        hex: customColor,
-        name: customColor,
-        brightness: 0,
-        favorite: false
-      }]);
-    }
+    onColorsChange([...selectedColors, {
+      hex: customColor,
+      name: customColor,
+      brightness: 0,
+      favorite: false
+    }]);
   };
 
   const presetColors = [
@@ -87,23 +83,16 @@ export default function ColorPalette({ open, onOpenChange, selectedColors, onCol
               </div>
             </div>
             
-            <div className="flex gap-3 mb-4">
-              {[0, 1, 2].map((idx) => {
-                const color = selectedColors[idx];
-                return (
-                  <div
-                    key={idx}
-                    className={`w-12 h-12 rounded-full border-2 flex items-center justify-center ${
-                      color ? 'border-gray-300' : 'border-dashed border-gray-200'
-                    }`}
-                    style={{ backgroundColor: color?.hex || 'transparent' }}
-                  >
-                    {color && (
-                      <Check className="w-5 h-5 text-white drop-shadow" />
-                    )}
-                  </div>
-                );
-              })}
+            <div className="flex gap-3 mb-4 flex-wrap">
+              {selectedColors.map((color, idx) => (
+                <div
+                  key={idx}
+                  className="w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center"
+                  style={{ backgroundColor: color.hex }}
+                >
+                  <Check className="w-5 h-5 text-white drop-shadow" />
+                </div>
+              ))}
             </div>
 
             {showBrightnessControls && selectedColors.map((color) => (
@@ -192,7 +181,6 @@ export default function ColorPalette({ open, onOpenChange, selectedColors, onCol
               />
               <Button
                 onClick={addCustomColor}
-                disabled={selectedColors.length >= 3}
                 className="bg-[#ff6b35] hover:bg-[#e55a2b] text-white"
               >
                 <Plus className="w-4 h-4" />

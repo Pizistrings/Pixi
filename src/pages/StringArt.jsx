@@ -1,27 +1,43 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Download, Settings, RefreshCw } from 'lucide-react';
+import { Upload, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Download, Settings, RefreshCw, Image as ImageIcon, Trash2, FileText, Star, Plus, Palette } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { base44 } from '@/api/base44Client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import StringArtCanvas from '@/components/string-art/StringArtCanvas';
 import StepList from '@/components/string-art/StepList';
 import ImageUploader from '@/components/string-art/ImageUploader';
+import ShapeSelector from '@/components/string-art/ShapeSelector';
+import ColorPalette from '@/components/string-art/ColorPalette';
 
 export default function StringArt() {
-  const [image, setImage] = useState(project?.source_image_url || null);
+  const urlParams = new URLSearchParams(window.location.search);
+  const projectId = urlParams.get('projectId');
+  const queryClient = useQueryClient();
+
+  // Load project if ID is provided
+  const { data: project } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: () => base44.entities.Project.get(projectId),
+    enabled: !!projectId
+  });
+
+  const [image, setImage] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentStep, setCurrentStep] = useState(project?.current_step || 0);
+  const [currentStep, setCurrentStep] = useState(0);
   const [totalSteps, setTotalSteps] = useState(0);
   const [speed, setSpeed] = useState(10);
   const [soundEnabled, setSoundEnabled] = useState(false);
-  const [stringPaths, setStringPaths] = useState(project?.string_paths || []);
+  const [stringPaths, setStringPaths] = useState([]);
   const [colorLayers, setColorLayers] = useState([]);
   const [isGenerated, setIsGenerated] = useState(false);
   const [showColorDialog, setShowColorDialog] = useState(false);
@@ -29,14 +45,14 @@ export default function StringArt() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   
   // Settings from project or defaults
-  const [shape, setShape] = useState(project?.settings?.shape || 'circle_240');
-  const [mode, setMode] = useState(project?.settings?.mode || 'multi');
-  const [steps, setSteps] = useState(project?.settings?.steps || 3000);
-  const [fade, setFade] = useState(project?.settings?.fade || 30);
-  const [minDistance, setMinDistance] = useState(project?.settings?.min_distance || 30);
-  const [colorRun, setColorRun] = useState(project?.settings?.color_run || 100);
-  const [thickness, setThickness] = useState(project?.settings?.thickness || 1);
-  const [selectedColors, setSelectedColors] = useState(project?.settings?.colors || [
+  const [shape, setShape] = useState('circle_240');
+  const [mode, setMode] = useState('multi');
+  const [steps, setSteps] = useState(3000);
+  const [fade, setFade] = useState(30);
+  const [minDistance, setMinDistance] = useState(30);
+  const [colorRun, setColorRun] = useState(100);
+  const [thickness, setThickness] = useState(1);
+  const [selectedColors, setSelectedColors] = useState([
     { hex: '#000000', name: 'Black', brightness: 0, favorite: true },
     { hex: '#f60404', name: '#f60404', brightness: -100, favorite: false },
     { hex: '#f4fcfc', name: '#f4fcfc', brightness: -98, favorite: false }
@@ -44,6 +60,29 @@ export default function StringArt() {
   
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
+
+  // Load project data when available
+  useEffect(() => {
+    if (project) {
+      if (project.source_image_url) setImage(project.source_image_url);
+      if (project.current_step) setCurrentStep(project.current_step);
+      if (project.string_paths) {
+        setStringPaths(project.string_paths);
+        setIsGenerated(true);
+        setTotalSteps(project.string_paths.length);
+      }
+      if (project.settings) {
+        if (project.settings.shape) setShape(project.settings.shape);
+        if (project.settings.mode) setMode(project.settings.mode);
+        if (project.settings.steps) setSteps(project.settings.steps);
+        if (project.settings.fade) setFade(project.settings.fade);
+        if (project.settings.min_distance) setMinDistance(project.settings.min_distance);
+        if (project.settings.color_run) setColorRun(project.settings.color_run);
+        if (project.settings.thickness) setThickness(project.settings.thickness);
+        if (project.settings.colors) setSelectedColors(project.settings.colors);
+      }
+    }
+  }, [project]);
 
   // Update project mutation
   const updateProjectMutation = useMutation({
@@ -53,7 +92,6 @@ export default function StringArt() {
     }
   });
 
-  // Parse shape to get pin count
   const getNumPins = () => {
     if (shape.startsWith('circle_')) {
       return parseInt(shape.split('_')[1]);
@@ -61,10 +99,7 @@ export default function StringArt() {
     return 240;
   };
 
-  // Prepare colors for rendering
-  const colors = mode === 'single' 
-    ? [selectedColors[0]]
-    : selectedColors;
+  const colors = mode === 'single' ? [selectedColors[0]] : selectedColors;
 
   const handleImageUpload = async (uploadedImage) => {
     setImage(uploadedImage);
@@ -136,7 +171,6 @@ export default function StringArt() {
     ctx.drawImage(img, 0, 0, size, size);
     const imageData = ctx.getImageData(0, 0, size, size);
     
-    // Generate pin positions around the frame
     const pins = [];
     const centerX = size / 2;
     const centerY = size / 2;
@@ -151,44 +185,8 @@ export default function StringArt() {
       });
     }
     
-    // Generate string paths using a greedy algorithm
     const paths = [];
     const layerCounts = {};
-    
-    // Create working copy of image data for each color channel
-    const workingData = {
-      C: new Float32Array(size * size),
-      M: new Float32Array(size * size),
-      Y: new Float32Array(size * size),
-      K: new Float32Array(size * size)
-    };
-    
-    // Convert RGB to CMYK-like values
-    for (let i = 0; i < size * size; i++) {
-      const r = imageData.data[i * 4] / 255;
-      const g = imageData.data[i * 4 + 1] / 255;
-      const b = imageData.data[i * 4 + 2] / 255;
-      
-      const k = 1 - Math.max(r, g, b);
-      const c = k < 1 ? (1 - r - k) / (1 - k) : 0;
-      const m = k < 1 ? (1 - g - k) / (1 - k) : 0;
-      const y = k < 1 ? (1 - b - k) / (1 - k) : 0;
-      
-      workingData.K[i] = k;
-      workingData.C[i] = c * (1 - k);
-      workingData.M[i] = m * (1 - k);
-      workingData.Y[i] = y * (1 - k);
-    }
-    
-    // For monochrome, use grayscale
-    if (mode === 'mono') {
-      for (let i = 0; i < size * size; i++) {
-        const r = imageData.data[i * 4];
-        const g = imageData.data[i * 4 + 1];
-        const b = imageData.data[i * 4 + 2];
-        workingData.K[i] = 1 - (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-      }
-    }
     
     const activeColors = mode === 'single' ? [0] : selectedColors.map((_, idx) => idx);
     const stringsPerColor = Math.floor(steps / activeColors.length);
@@ -202,31 +200,31 @@ export default function StringArt() {
         let bestPin = -1;
         let bestScore = -Infinity;
         
-        // Find the best next pin
         for (let nextPin = 0; nextPin < numPins; nextPin++) {
           if (nextPin === currentPin) continue;
           
           const connectionKey = `${Math.min(currentPin, nextPin)}-${Math.max(currentPin, nextPin)}`;
           if (usedConnections.has(connectionKey)) continue;
           
-          // Calculate line score
           const x1 = pins[currentPin].x;
           const y1 = pins[currentPin].y;
           const x2 = pins[nextPin].x;
           const y2 = pins[nextPin].y;
           
           const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-          const steps = Math.ceil(dist);
+          const lineSteps = Math.ceil(dist);
           
           let score = 0;
-          for (let t = 0; t < steps; t++) {
-            const x = Math.floor(x1 + (x2 - x1) * t / steps);
-            const y = Math.floor(y1 + (y2 - y1) * t / steps);
+          for (let t = 0; t < lineSteps; t++) {
+            const x = Math.floor(x1 + (x2 - x1) * t / lineSteps);
+            const y = Math.floor(y1 + (y2 - y1) * t / lineSteps);
             if (x >= 0 && x < size && y >= 0 && y < size) {
-              score += workingData[colorId][y * size + x];
+              const pixelIdx = (y * size + x) * 4;
+              const brightness = (imageData.data[pixelIdx] + imageData.data[pixelIdx + 1] + imageData.data[pixelIdx + 2]) / 3;
+              score += 255 - brightness;
             }
           }
-          score /= steps;
+          score /= lineSteps;
           
           if (score > bestScore) {
             bestScore = score;
@@ -234,9 +232,8 @@ export default function StringArt() {
           }
         }
         
-        if (bestPin === -1 || bestScore < 0.01) break;
+        if (bestPin === -1 || bestScore < 5) break;
         
-        // Add the string path
         paths.push({
           from: currentPin,
           to: bestPin,
@@ -245,29 +242,12 @@ export default function StringArt() {
         });
         layerCounts[colorIdx]++;
         
-        // Subtract the drawn line from working data
-        const x1 = pins[currentPin].x;
-        const y1 = pins[currentPin].y;
-        const x2 = pins[bestPin].x;
-        const y2 = pins[bestPin].y;
-        const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-        const steps = Math.ceil(dist);
-        
-        for (let t = 0; t < steps; t++) {
-          const x = Math.floor(x1 + (x2 - x1) * t / steps);
-          const y = Math.floor(y1 + (y2 - y1) * t / steps);
-          if (x >= 0 && x < size && y >= 0 && y < size) {
-            workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.1);
-          }
-        }
-        
         const connectionKey = `${Math.min(currentPin, bestPin)}-${Math.max(currentPin, bestPin)}`;
         usedConnections.add(connectionKey);
         currentPin = bestPin;
       }
     }
     
-    // Create color layers summary
     const layers = colors.map((color, idx) => ({
       ...color,
       id: idx,
@@ -280,11 +260,9 @@ export default function StringArt() {
     setIsGenerated(true);
     setIsProcessing(false);
     
-    // Auto-save
     setTimeout(() => saveProject(), 1000);
-  }, [image, mode, steps, selectedColors]);
+  }, [image, mode, steps, selectedColors, shape]);
 
-  // Animation loop
   useEffect(() => {
     if (isPlaying && currentStep < totalSteps) {
       const interval = Math.max(1, 100 / speed);
@@ -384,7 +362,7 @@ export default function StringArt() {
             disabled={!isGenerated}
           >
             <Download className="w-4 h-4 mr-2" />
-            Export PNG
+            Export as PNG
           </Button>
         </div>
       </div>
@@ -401,13 +379,10 @@ export default function StringArt() {
                   >
                     <Plus className="w-12 h-12 text-white" />
                   </div>
-                  <h3 className="text-xl font-medium text-gray-900 mb-2">Project images</h3>
-                  <p className="text-gray-500 mb-4">Upload an image to get started</p>
+                  <h3 className="text-xl font-medium text-gray-900 mb-2">UPLOAD</h3>
+                  <p className="text-gray-500 mb-6">Project images</p>
                   <div className="flex items-center gap-2 justify-center">
-                    <Switch
-                      id="reset-params"
-                      defaultChecked
-                    />
+                    <Switch id="reset-params" defaultChecked />
                     <Label htmlFor="reset-params" className="text-sm text-gray-600">
                       Reset parameters when image changes
                     </Label>
@@ -432,18 +407,10 @@ export default function StringArt() {
                     <Upload className="w-4 h-4 mr-2" />
                     Upload
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                  >
-                    <ImageIcon className="w-4 h-4" />
+                  <Button variant="outline" size="icon" className="h-8 w-8">
+                    <Plus className="w-4 h-4" />
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                  >
+                  <Button variant="outline" size="icon" className="h-8 w-8">
                     <RefreshCw className="w-4 h-4" />
                   </Button>
                 </div>
@@ -453,27 +420,6 @@ export default function StringArt() {
                   <img src={image} alt="Input" className="max-w-full max-h-full rounded-lg" />
                 </div>
               </Card>
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded bg-[#ff6b35]/20 flex items-center justify-center">
-                    <Settings className="w-4 h-4 text-[#ff6b35]" />
-                  </div>
-                  <Slider value={[50]} onValueChange={() => {}} className="flex-1" />
-                  <span className="text-sm text-gray-600 w-8 text-right">0</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-full bg-[#ff6b35]/20 flex items-center justify-center">
-                    <div className="w-2 h-2 rounded-full bg-[#ff6b35]" />
-                  </div>
-                  <Slider value={[50]} onValueChange={() => {}} className="flex-1" />
-                  <span className="text-sm text-gray-600 w-8 text-right">0</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[#ff6b35] font-bold text-lg w-6 text-center">C</span>
-                  <Slider value={[50]} onValueChange={() => {}} className="flex-1" />
-                  <span className="text-sm text-gray-600 w-8 text-right">0</span>
-                </div>
-              </div>
             </div>
 
             {/* Output Canvas */}
@@ -490,11 +436,7 @@ export default function StringArt() {
                     <Play className="w-4 h-4 mr-2" />
                     Generate
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                  >
+                  <Button variant="outline" size="icon" className="h-8 w-8">
                     <Settings className="w-4 h-4" />
                   </Button>
                 </div>
@@ -512,7 +454,6 @@ export default function StringArt() {
                   />
                 </div>
                 
-                {/* Progress bar */}
                 {isGenerated && (
                   <div className="px-6 pb-2">
                     <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
@@ -524,41 +465,24 @@ export default function StringArt() {
                       />
                     </div>
                     <div className="flex justify-between mt-2 text-xs text-gray-400">
-                      <span className="text-[#ff6b35] font-medium">{currentStep.toLocaleString()} / {totalSteps.toLocaleString()}</span>
+                      <span className="text-[#ff6b35] font-medium">
+                        {currentStep} / {totalSteps}
+                      </span>
                       <span>⏱ {getElapsedTime()}</span>
                     </div>
                   </div>
                 )}
 
-                {/* Controls */}
                 <div className="px-6 pb-6">
                   <div className="flex items-center justify-center gap-2 bg-gray-50 rounded-lg p-3">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleReset}
-                      disabled={!isGenerated}
-                      className="hover:bg-white"
-                    >
+                    <Button variant="ghost" size="icon" onClick={handleReset} disabled={!isGenerated}>
                       <SkipBack className="w-4 h-4" />
                     </Button>
-                    
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handlePlayPause}
-                      disabled={!isGenerated}
-                      className="hover:bg-white w-12 h-12"
-                    >
-                      {isPlaying ? (
-                        <Pause className="w-5 h-5" />
-                      ) : (
-                        <Play className="w-5 h-5 ml-0.5" />
-                      )}
+                    <Button variant="ghost" size="icon" onClick={handlePlayPause} disabled={!isGenerated} className="w-12 h-12">
+                      {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
                     </Button>
-                    
                     <Select value={speed.toString()} onValueChange={(v) => setSpeed(Number(v))}>
-                      <SelectTrigger className="w-24 bg-white border-gray-200">
+                      <SelectTrigger className="w-24 bg-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -570,206 +494,112 @@ export default function StringArt() {
                         <SelectItem value="100">⏱ 100x</SelectItem>
                       </SelectContent>
                     </Select>
-                    
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setSoundEnabled(!soundEnabled)}
-                      disabled={!isGenerated}
-                      className="hover:bg-white"
-                    >
-                      {soundEnabled ? (
-                        <Volume2 className="w-4 h-4" />
-                      ) : (
-                        <VolumeX className="w-4 h-4" />
-                      )}
+                    <Button variant="ghost" size="icon" onClick={() => setSoundEnabled(!soundEnabled)} disabled={!isGenerated}>
+                      {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                     </Button>
-                    
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleSkipToEnd}
-                      disabled={!isGenerated}
-                      className="hover:bg-white"
-                    >
+                    <Button variant="ghost" size="icon" onClick={handleSkipToEnd} disabled={!isGenerated}>
                       <SkipForward className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
               </Card>
-
-              {/* Action buttons */}
-              <div className="flex gap-3 mt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setImage(null);
-                    setIsGenerated(false);
-                    setStringPaths([]);
-                  }}
-                  className="flex-1"
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  New Image
-                </Button>
-                
-                <Button
-                  onClick={generateStringArt}
-                  disabled={isProcessing}
-                  className="flex-1 bg-[#ff6b35] hover:bg-[#e55a2b] text-white"
-                >
-                  {isProcessing ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      {isGenerated ? 'Regenerate' : 'Generate'}
-                    </>
-                  )}
-                </Button>
-                
-                {isGenerated && (
-                  <Button
-                    variant="outline"
-                    onClick={downloadCanvas}
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Save
-                  </Button>
-                )}
-              </div>
             </div>
 
-            {/* Side Panel */}
-            <div className="space-y-4">
-              {/* Current Step Info */}
-              <Card className="bg-white border-0 shadow-sm p-6">
-                <h3 className="text-sm text-gray-500 mb-3">Current step</h3>
-                
-                {isGenerated ? (
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={currentStep}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="space-y-4"
-                    >
-                      <span className="text-5xl font-light text-gray-900">
-                        {currentStep}
-                      </span>
-                      
+            {/* Sidebar */}
+            <div className="lg:col-span-2 grid lg:grid-cols-3 gap-6">
+              {/* Current Step */}
+              <Card>
+                <CardContent className="p-6">
+                  <h3 className="text-sm text-gray-500 mb-3">Current step</h3>
+                  {isGenerated ? (
+                    <div>
+                      <div className="text-5xl font-light mb-4">{currentStep}</div>
                       {getCurrentColor() && (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2 text-[#ff6b35] text-sm">
-                            <span className="text-lg">⚠</span>
-                            <span className="font-medium">Change color!</span>
+                        <>
+                          <div className="text-[#ff6b35] text-sm mb-2">⚠ Change color!</div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-10 h-10 rounded-full" style={{ backgroundColor: getCurrentColor()?.hex }} />
+                            <span className="font-medium">{getCurrentColor()?.name}</span>
                           </div>
-                          
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-10 h-10 rounded-full shadow-inner"
-                              style={{ backgroundColor: getCurrentColor()?.hex }}
-                            />
-                            <span className="font-medium text-gray-700">
-                              {getCurrentColor()?.name}
-                            </span>
-                          </div>
-                        </div>
+                        </>
                       )}
-                    </motion.div>
-                  </AnimatePresence>
-                ) : (
-                  <div className="text-gray-400 text-sm">
-                    Generate string art to see progress
-                  </div>
-                )}
+                    </div>
+                  ) : (
+                    <p className="text-gray-400">Generate to see progress</p>
+                  )}
+                </CardContent>
               </Card>
 
               {/* Step List */}
-              <StepList
-                colorLayers={colorLayers}
-                currentStep={currentStep}
-                stringPaths={stringPaths}
-              />
+              <StepList colorLayers={colorLayers} currentStep={currentStep} stringPaths={stringPaths} />
 
-              {/* Settings */}
-              <Card className="bg-white border-0 shadow-sm p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm text-gray-500">Settings</h3>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowSettings(!showSettings)}
-                    className="h-8 w-8"
-                  >
-                    <Settings className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                <div className="space-y-4">
-                  {/* Mode Toggle */}
+              {/* Configuration */}
+              <Card>
+                <CardContent className="p-6 space-y-4">
                   <div>
-                    <Label className="text-xs text-gray-500 mb-2 block">Mode</Label>
+                    <Label className="text-xs mb-2 block">Shape</Label>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between"
+                      onClick={() => setShowShapeDialog(true)}
+                    >
+                      <span>{shape.replace('_', ' ')}</span>
+                    </Button>
+                  </div>
+                  <div>
+                    <Label className="text-xs mb-2 block">Color mode</Label>
                     <Tabs value={mode} onValueChange={setMode}>
                       <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="color">Color</TabsTrigger>
-                        <TabsTrigger value="mono">Monochrome</TabsTrigger>
+                        <TabsTrigger value="single">Single-color</TabsTrigger>
+                        <TabsTrigger value="multi">Multi-color</TabsTrigger>
                       </TabsList>
                     </Tabs>
                   </div>
-
-                  <AnimatePresence>
-                    {showSettings && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="space-y-4 overflow-hidden"
-                      >
-                        {/* Number of Pins */}
-                        <div>
-                          <div className="flex justify-between mb-2">
-                            <Label className="text-xs text-gray-500">Pins</Label>
-                            <span className="text-xs text-gray-700 font-medium">{numPins}</span>
-                          </div>
-                          <Slider
-                            value={[numPins]}
-                            onValueChange={([v]) => setNumPins(v)}
-                            min={100}
-                            max={300}
-                            step={10}
-                            className="w-full"
-                          />
-                        </div>
-
-                        {/* Number of Strings */}
-                        <div>
-                          <div className="flex justify-between mb-2">
-                            <Label className="text-xs text-gray-500">Strings</Label>
-                            <span className="text-xs text-gray-700 font-medium">{numStrings.toLocaleString()}</span>
-                          </div>
-                          <Slider
-                            value={[numStrings]}
-                            onValueChange={([v]) => setNumStrings(v)}
-                            min={1000}
-                            max={9000}
-                            step={500}
-                            className="w-full"
-                          />
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <Label className="text-xs">Steps</Label>
+                      <span className="text-xs font-medium text-[#ff6b35]">{steps}</span>
+                    </div>
+                    <Slider value={[steps]} onValueChange={([v]) => setSteps(v)} min={1000} max={9000} step={100} />
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setShowColorDialog(true)}
+                  >
+                    <Palette className="w-4 h-4 mr-2" />
+                    Colors ({selectedColors.length})
+                  </Button>
+                </CardContent>
               </Card>
             </div>
           </div>
         )}
       </div>
+
+      {/* Dialogs */}
+      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+        <DialogContent className="max-w-2xl">
+          <ImageUploader onUpload={handleImageUpload} />
+        </DialogContent>
+      </Dialog>
+
+      <ShapeSelector
+        open={showShapeDialog}
+        onOpenChange={setShowShapeDialog}
+        selected={shape}
+        onSelect={(s) => {
+          setShape(s);
+          setShowShapeDialog(false);
+        }}
+      />
+
+      <ColorPalette
+        open={showColorDialog}
+        onOpenChange={setShowColorDialog}
+        selectedColors={selectedColors}
+        onColorsChange={setSelectedColors}
+      />
     </div>
   );
 }

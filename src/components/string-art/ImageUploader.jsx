@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Upload, Image as ImageIcon, X } from 'lucide-react';
 import { Card } from "@/components/ui/card";

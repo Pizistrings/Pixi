@@ -47,8 +47,14 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
+import StringArt from './pages/StringArt';
 
-export const pagesConfig = {
-	Pages: {}
+
+export const PAGES = {
+    "StringArt": StringArt,
 }
 
+export const pagesConfig = {
+    mainPage: "StringArt",
+    Pages: PAGES,
+};

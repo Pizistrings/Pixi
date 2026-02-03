@@ -276,7 +276,7 @@ export default function StringArt() {
         }
       }
       
-      if (bestPin === -1 || bestScore < fade) break;
+      if (bestPin === -1) break;
       
       // Add the string
       paths.push({

@@ -150,11 +150,11 @@ export default function StringArt() {
     setCurrentStep(0);
     setIsPlaying(false);
     
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    const size = 400;
+    const size = 500;
     const numPins = getNumPins();
     canvas.width = size;
     canvas.height = size;
@@ -171,80 +171,142 @@ export default function StringArt() {
     ctx.drawImage(img, 0, 0, size, size);
     const imageData = ctx.getImageData(0, 0, size, size);
     
+    // Generate pins
     const pins = [];
     const centerX = size / 2;
     const centerY = size / 2;
-    const radius = (size / 2) - 10;
+    const radius = (size / 2) - 20;
     
     for (let i = 0; i < numPins; i++) {
       const angle = (2 * Math.PI * i) / numPins;
       pins.push({
-        x: centerX + radius * Math.cos(angle),
-        y: centerY + radius * Math.sin(angle),
+        x: Math.round(centerX + radius * Math.cos(angle)),
+        y: Math.round(centerY + radius * Math.sin(angle)),
         index: i
       });
     }
     
-    const paths = [];
-    const layerCounts = {};
+    // Create working image (grayscale)
+    const workingImage = new Uint8Array(size * size);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const idx = (y * size + x) * 4;
+        const r = imageData.data[idx];
+        const g = imageData.data[idx + 1];
+        const b = imageData.data[idx + 2];
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        workingImage[y * size + x] = 255 - gray; // Invert so dark = high value
+      }
+    }
     
-    const activeColors = mode === 'single' ? [0] : selectedColors.map((_, idx) => idx);
-    const stringsPerColor = Math.floor(steps / activeColors.length);
-    
-    for (const colorIdx of activeColors) {
-      layerCounts[colorIdx] = 0;
-      let currentPin = 0;
-      const usedConnections = new Set();
+    // Helper to get line pixels using Bresenham's algorithm
+    const getLinePixels = (x0, y0, x1, y1) => {
+      const pixels = [];
+      const dx = Math.abs(x1 - x0);
+      const dy = Math.abs(y1 - y0);
+      const sx = x0 < x1 ? 1 : -1;
+      const sy = y0 < y1 ? 1 : -1;
+      let err = dx - dy;
       
-      for (let s = 0; s < stringsPerColor; s++) {
-        let bestPin = -1;
-        let bestScore = -Infinity;
-        
-        for (let nextPin = 0; nextPin < numPins; nextPin++) {
-          if (nextPin === currentPin) continue;
-          
-          const connectionKey = `${Math.min(currentPin, nextPin)}-${Math.max(currentPin, nextPin)}`;
-          if (usedConnections.has(connectionKey)) continue;
-          
-          const x1 = pins[currentPin].x;
-          const y1 = pins[currentPin].y;
-          const x2 = pins[nextPin].x;
-          const y2 = pins[nextPin].y;
-          
-          const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-          const lineSteps = Math.ceil(dist);
-          
-          let score = 0;
-          for (let t = 0; t < lineSteps; t++) {
-            const x = Math.floor(x1 + (x2 - x1) * t / lineSteps);
-            const y = Math.floor(y1 + (y2 - y1) * t / lineSteps);
-            if (x >= 0 && x < size && y >= 0 && y < size) {
-              const pixelIdx = (y * size + x) * 4;
-              const brightness = (imageData.data[pixelIdx] + imageData.data[pixelIdx + 1] + imageData.data[pixelIdx + 2]) / 3;
-              score += 255 - brightness;
-            }
-          }
-          score /= lineSteps;
-          
-          if (score > bestScore) {
-            bestScore = score;
-            bestPin = nextPin;
-          }
+      let x = x0;
+      let y = y0;
+      
+      while (true) {
+        if (x >= 0 && x < size && y >= 0 && y < size) {
+          pixels.push({ x, y });
         }
         
-        if (bestPin === -1 || bestScore < 5) break;
+        if (x === x1 && y === y1) break;
         
-        paths.push({
-          from: currentPin,
-          to: bestPin,
-          color: colorIdx,
-          step: paths.length
-        });
-        layerCounts[colorIdx]++;
+        const e2 = 2 * err;
+        if (e2 > -dy) {
+          err -= dy;
+          x += sx;
+        }
+        if (e2 < dx) {
+          err += dx;
+          y += sy;
+        }
+      }
+      
+      return pixels;
+    };
+    
+    const paths = [];
+    const layerCounts = {};
+    const activeColors = mode === 'single' ? [0] : selectedColors.map((_, idx) => idx);
+    
+    // Initialize counts
+    activeColors.forEach(idx => layerCounts[idx] = 0);
+    
+    // Alternate between colors
+    let currentPin = Math.floor(Math.random() * numPins);
+    let colorIdx = 0;
+    let stringsInCurrentColor = 0;
+    
+    for (let s = 0; s < steps; s++) {
+      const currentColorIdx = activeColors[colorIdx];
+      
+      let bestPin = -1;
+      let bestScore = -1;
+      
+      // Try every pin as next destination
+      for (let nextPin = 0; nextPin < numPins; nextPin++) {
+        // Skip same pin and nearby pins (min distance)
+        const pinDist = Math.abs(nextPin - currentPin);
+        if (pinDist < minDistance && pinDist > numPins - minDistance) continue;
         
-        const connectionKey = `${Math.min(currentPin, bestPin)}-${Math.max(currentPin, bestPin)}`;
-        usedConnections.add(connectionKey);
-        currentPin = bestPin;
+        const linePixels = getLinePixels(
+          pins[currentPin].x,
+          pins[currentPin].y,
+          pins[nextPin].x,
+          pins[nextPin].y
+        );
+        
+        // Calculate score: sum of darkness along the line
+        let score = 0;
+        for (const pixel of linePixels) {
+          score += workingImage[pixel.y * size + pixel.x];
+        }
+        score = score / linePixels.length; // Average
+        
+        if (score > bestScore) {
+          bestScore = score;
+          bestPin = nextPin;
+        }
+      }
+      
+      if (bestPin === -1 || bestScore < fade) break;
+      
+      // Add the string
+      paths.push({
+        from: currentPin,
+        to: bestPin,
+        color: currentColorIdx,
+        step: paths.length
+      });
+      layerCounts[currentColorIdx]++;
+      
+      // Subtract the line from working image (darken those pixels)
+      const linePixels = getLinePixels(
+        pins[currentPin].x,
+        pins[currentPin].y,
+        pins[bestPin].x,
+        pins[bestPin].y
+      );
+      
+      for (const pixel of linePixels) {
+        const idx = pixel.y * size + pixel.x;
+        workingImage[idx] = Math.max(0, workingImage[idx] - colorRun);
+      }
+      
+      currentPin = bestPin;
+      stringsInCurrentColor++;
+      
+      // Switch color after colorRun strings
+      if (mode === 'multi' && stringsInCurrentColor >= colorRun) {
+        colorIdx = (colorIdx + 1) % activeColors.length;
+        stringsInCurrentColor = 0;
       }
     }
     
@@ -261,7 +323,7 @@ export default function StringArt() {
     setIsProcessing(false);
     
     setTimeout(() => saveProject(), 1000);
-  }, [image, mode, steps, selectedColors, shape]);
+  }, [image, mode, steps, selectedColors, shape, fade, minDistance, colorRun, getNumPins]);
 
   useEffect(() => {
     if (isPlaying && currentStep < totalSteps) {

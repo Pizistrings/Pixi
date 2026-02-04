@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { QRCodeSVG } from 'qrcode.react';
-import { Copy, Check, Mic, Square, Play, Pause, Download, Share2, Globe } from 'lucide-react';
+import { Copy, Check, Mic, Square, Play, Pause, Download, Share2, Globe, Trash2 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 
 export default function ShareDialog({ open, onOpenChange, project, onUpdate }) {

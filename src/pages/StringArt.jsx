@@ -28,10 +28,17 @@ export default function StringArt() {
   const [numStrings, setNumStrings] = useState(3000);
   const [lineWidth, setLineWidth] = useState(0.3);
   const [lineOpacity, setLineOpacity] = useState(0.15);
+  const [numColors, setNumColors] = useState(4);
+  const [selectedColors, setSelectedColors] = useState([
+    { name: 'Color 1', hex: '#00b4d8', id: 'C1' },
+    { name: 'Color 2', hex: '#e63946', id: 'C2' },
+    { name: 'Color 3', hex: '#ffd60a', id: 'C3' },
+    { name: 'Black', hex: '#1a1a1a', id: 'K' }
+  ]);
   const [colorDistribution, setColorDistribution] = useState({
-    C: 20,
-    M: 20,
-    Y: 20,
+    C1: 20,
+    C2: 20,
+    C3: 20,
     K: 40
   });
   const [isGenerated, setIsGenerated] = useState(false);
@@ -41,22 +48,84 @@ export default function StringArt() {
   const animationRef = useRef(null);
   const audioRef = useRef(null);
 
-  // Color configuration for CMYK-style string art
+  // Color configuration for string art
   const colors = mode === 'mono' 
     ? [{ name: 'Black', hex: '#1a1a1a', id: 'K' }]
-    : [
-        { name: 'Cyan', hex: '#00b4d8', id: 'C' },
-        { name: 'Magenta', hex: '#e63946', id: 'M' },
-        { name: 'Yellow', hex: '#ffd60a', id: 'Y' },
-        { name: 'Black', hex: '#1a1a1a', id: 'K' }
-      ];
+    : selectedColors.slice(0, numColors);
 
-  const handleImageUpload = (uploadedImage) => {
+  const extractColorsFromImage = async (imageSrc) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 100;
+    canvas.height = 100;
+    
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = imageSrc;
+    });
+    
+    ctx.drawImage(img, 0, 0, 100, 100);
+    const imageData = ctx.getImageData(0, 0, 100, 100);
+    
+    // Simple color clustering
+    const colorCounts = {};
+    for (let i = 0; i < imageData.data.length; i += 4) {
+      const r = Math.floor(imageData.data[i] / 32) * 32;
+      const g = Math.floor(imageData.data[i + 1] / 32) * 32;
+      const b = Math.floor(imageData.data[i + 2] / 32) * 32;
+      const key = `${r},${g},${b}`;
+      colorCounts[key] = (colorCounts[key] || 0) + 1;
+    }
+    
+    // Get top colors
+    const sortedColors = Object.entries(colorCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([key]) => {
+        const [r, g, b] = key.split(',').map(Number);
+        return { r, g, b };
+      });
+    
+    // Convert to hex and create color array
+    const extractedColors = sortedColors.map((color, idx) => ({
+      name: `Color ${idx + 1}`,
+      hex: `#${color.r.toString(16).padStart(2, '0')}${color.g.toString(16).padStart(2, '0')}${color.b.toString(16).padStart(2, '0')}`,
+      id: `C${idx + 1}`
+    }));
+    
+    // Always add black as last color
+    extractedColors.push({ name: 'Black', hex: '#1a1a1a', id: 'K' });
+    
+    return extractedColors;
+  };
+
+  const handleImageUpload = async (uploadedImage) => {
     setImage(uploadedImage);
     setIsGenerated(false);
     setStringPaths([]);
     setCurrentStep(0);
     setIsPlaying(false);
+    
+    // Auto-extract colors from image
+    try {
+      const extracted = await extractColorsFromImage(uploadedImage);
+      setSelectedColors(extracted);
+      
+      // Reset distribution based on number of colors
+      const newDistribution = {};
+      const colorCount = Math.min(numColors, extracted.length);
+      const evenSplit = Math.floor(80 / (colorCount - 1));
+      extracted.slice(0, colorCount).forEach((color, idx) => {
+        newDistribution[color.id] = idx === colorCount - 1 ? 40 : evenSplit;
+      });
+      setColorDistribution(newDistribution);
+    } catch (error) {
+      console.error('Failed to extract colors:', error);
+    }
   };
 
   const generateStringArt = useCallback(async () => {
@@ -87,17 +156,17 @@ export default function StringArt() {
     ctx.drawImage(img, 0, 0, size, size);
     const imageData = ctx.getImageData(0, 0, size, size);
     
-    // Generate pin positions around the frame
+    // Generate pin positions around the frame (circular)
     const pins = [];
     const centerX = size / 2;
     const centerY = size / 2;
-    const radius = (size / 2) - 10;
+    const radius = (size / 2) - 20; // More padding from edge
     
     for (let i = 0; i < numPins; i++) {
-      const angle = (2 * Math.PI * i) / numPins;
+      const angle = (2 * Math.PI * i) / numPins - Math.PI / 2; // Start from top
       pins.push({
-        x: centerX + radius * Math.cos(angle),
-        y: centerY + radius * Math.sin(angle),
+        x: Math.round(centerX + radius * Math.cos(angle)),
+        y: Math.round(centerY + radius * Math.sin(angle)),
         index: i
       });
     }
@@ -107,28 +176,33 @@ export default function StringArt() {
     const layerCounts = {};
     
     // Create working copy of image data for each color channel
-    const workingData = {
-      C: new Float32Array(size * size),
-      M: new Float32Array(size * size),
-      Y: new Float32Array(size * size),
-      K: new Float32Array(size * size)
-    };
+    const workingData = {};
+    colors.forEach(color => {
+      workingData[color.id] = new Float32Array(size * size);
+    });
     
-    // Convert RGB to CMYK-like values
+    // Calculate color similarity for each pixel
     for (let i = 0; i < size * size; i++) {
-      const r = imageData.data[i * 4] / 255;
-      const g = imageData.data[i * 4 + 1] / 255;
-      const b = imageData.data[i * 4 + 2] / 255;
+      const r = imageData.data[i * 4];
+      const g = imageData.data[i * 4 + 1];
+      const b = imageData.data[i * 4 + 2];
       
-      const k = 1 - Math.max(r, g, b);
-      const c = k < 1 ? (1 - r - k) / (1 - k) : 0;
-      const m = k < 1 ? (1 - g - k) / (1 - k) : 0;
-      const y = k < 1 ? (1 - b - k) / (1 - k) : 0;
-      
-      workingData.K[i] = k;
-      workingData.C[i] = c * (1 - k);
-      workingData.M[i] = m * (1 - k);
-      workingData.Y[i] = y * (1 - k);
+      colors.forEach(color => {
+        // Parse hex color
+        const targetR = parseInt(color.hex.slice(1, 3), 16);
+        const targetG = parseInt(color.hex.slice(3, 5), 16);
+        const targetB = parseInt(color.hex.slice(5, 7), 16);
+        
+        // Calculate color distance (inverted so closer = higher value)
+        const distance = Math.sqrt(
+          Math.pow(r - targetR, 2) +
+          Math.pow(g - targetG, 2) +
+          Math.pow(b - targetB, 2)
+        );
+        
+        // Convert to similarity (0-1 range)
+        workingData[color.id][i] = Math.max(0, 1 - distance / 441); // 441 = sqrt(255^2 * 3)
+      });
     }
     
     // For monochrome, use grayscale
@@ -141,7 +215,7 @@ export default function StringArt() {
       }
     }
     
-    const activeColors = mode === 'mono' ? ['K'] : ['C', 'M', 'Y', 'K'];
+    const activeColors = mode === 'mono' ? ['K'] : colors.map(c => c.id);
     
     // Calculate strings per color based on distribution
     const stringsPerColorMap = {};
@@ -521,6 +595,9 @@ export default function StringArt() {
                 colorDistribution={colorDistribution}
                 onColorDistributionChange={setColorDistribution}
                 totalStrings={numStrings}
+                selectedColors={selectedColors}
+                setSelectedColors={setSelectedColors}
+                numColors={numColors}
               />
 
               {/* Settings */}
@@ -588,6 +665,32 @@ export default function StringArt() {
                             className="w-full"
                           />
                         </div>
+
+                        {/* Number of Colors */}
+                        {mode === 'color' && (
+                          <div>
+                            <div className="flex justify-between mb-2">
+                              <Label className="text-xs text-gray-500">Number of Colors</Label>
+                              <span className="text-xs text-gray-700 font-medium">{numColors}</span>
+                            </div>
+                            <Slider
+                              value={[numColors]}
+                              onValueChange={([v]) => {
+                                setNumColors(v);
+                                const newDist = {};
+                                const evenSplit = Math.floor(80 / (v - 1));
+                                selectedColors.slice(0, v).forEach((color, idx) => {
+                                  newDist[color.id] = idx === v - 1 ? 40 : evenSplit;
+                                });
+                                setColorDistribution(newDist);
+                              }}
+                              min={2}
+                              max={Math.min(8, selectedColors.length)}
+                              step={1}
+                              className="w-full"
+                            />
+                          </div>
+                        )}
 
                         {/* Line Thickness */}
                         <div>

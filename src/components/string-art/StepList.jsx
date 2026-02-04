@@ -8,9 +8,12 @@ export default function StepList({
   currentStep, 
   stringPaths, 
   mode, 
-  colorDistribution, 
+  colorDistribution = {}, 
   onColorDistributionChange,
-  totalStrings 
+  totalStrings,
+  selectedColors = [],
+  setSelectedColors,
+  numColors = 4
 }) {
   // Calculate cumulative steps for each color
   const getStepRanges = () => {
@@ -113,22 +116,58 @@ export default function StepList({
         </div>
       )}
 
+      {/* Color Customization */}
+      {mode === 'color' && setSelectedColors && colorLayers.length === 0 && (
+        <div className="mt-6 pt-4 border-t border-gray-100">
+          <h4 className="text-xs text-gray-400 mb-3 uppercase tracking-wider">
+            Customize Colors
+          </h4>
+          <p className="text-xs text-gray-500 mb-4">
+            Auto-extracted from image. Click to change colors.
+          </p>
+          <div className="space-y-3">
+            {selectedColors.slice(0, numColors).map((color, idx) => (
+              <div key={color.id} className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={color.hex}
+                  onChange={(e) => {
+                    const newColors = [...selectedColors];
+                    newColors[idx] = { ...color, hex: e.target.value };
+                    setSelectedColors(newColors);
+                  }}
+                  className="w-10 h-10 rounded-lg cursor-pointer border-2 border-gray-200"
+                />
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={color.name}
+                    onChange={(e) => {
+                      const newColors = [...selectedColors];
+                      newColors[idx] = { ...color, name: e.target.value };
+                      setSelectedColors(newColors);
+                    }}
+                    className="w-full text-sm font-medium text-gray-700 bg-transparent border-none focus:outline-none"
+                  />
+                  <div className="text-xs text-gray-400 font-mono">{color.hex}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Color Distribution Controls */}
-      {mode === 'color' && onColorDistributionChange && (
+      {mode === 'color' && onColorDistributionChange && colorLayers.length === 0 && (
         <div className="mt-6 pt-4 border-t border-gray-100">
           <h4 className="text-xs text-gray-400 mb-3 uppercase tracking-wider">
             Lines Per Color
           </h4>
           <p className="text-xs text-gray-500 mb-4">
-            Adjust before generating. Black is great for details!
+            Adjust distribution before generating!
           </p>
           <div className="space-y-4">
-            {[
-              { id: 'C', name: 'Cyan', hex: '#00b4d8' },
-              { id: 'M', name: 'Magenta', hex: '#e63946' },
-              { id: 'Y', name: 'Yellow', hex: '#ffd60a' },
-              { id: 'K', name: 'Black', hex: '#1a1a1a' }
-            ].map(color => {
+            {selectedColors.slice(0, numColors).map(color => {
               const percent = colorDistribution[color.id];
               const estimatedLines = Math.floor((percent / 100) * totalStrings);
               

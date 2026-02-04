@@ -518,6 +518,62 @@ export default function StringArt() {
                 </div>
               </Card>
 
+              {/* Image Adjustments */}
+              {!isGenerated && (
+                <Card className="bg-white border-0 shadow-sm p-4 mt-4">
+                  <h3 className="text-sm font-medium text-gray-700 mb-4">Image Adjustments</h3>
+                  <div className="space-y-4">
+                    {/* Brightness */}
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <Label className="text-xs text-gray-500">Brightness</Label>
+                        <span className="text-xs text-gray-700 font-medium">{brightness}%</span>
+                      </div>
+                      <Slider
+                        value={[brightness]}
+                        onValueChange={([v]) => setBrightness(v)}
+                        min={50}
+                        max={150}
+                        step={5}
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Contrast */}
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <Label className="text-xs text-gray-500">Contrast</Label>
+                        <span className="text-xs text-gray-700 font-medium">{contrast}%</span>
+                      </div>
+                      <Slider
+                        value={[contrast]}
+                        onValueChange={([v]) => setContrast(v)}
+                        min={50}
+                        max={200}
+                        step={5}
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Sharpness */}
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <Label className="text-xs text-gray-500">Sharpness</Label>
+                        <span className="text-xs text-gray-700 font-medium">{sharpness}</span>
+                      </div>
+                      <Slider
+                        value={[sharpness]}
+                        onValueChange={([v]) => setSharpness(v)}
+                        min={0}
+                        max={10}
+                        step={1}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </Card>
+              )}
+
               {/* Action buttons */}
               <div className="flex gap-3 mt-4">
                 <Button
@@ -660,77 +716,6 @@ export default function StringArt() {
                       </TabsList>
                     </Tabs>
                   </div>
-
-                  {/* Image Adjustments Toggle */}
-                  <div className="pt-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowImageSettings(!showImageSettings)}
-                      className="w-full justify-between"
-                    >
-                      <span className="text-xs">Image Adjustments</span>
-                      <span className="text-xs">{showImageSettings ? '−' : '+'}</span>
-                    </Button>
-                  </div>
-
-                  <AnimatePresence>
-                    {showImageSettings && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="space-y-4 overflow-hidden"
-                      >
-                        {/* Brightness */}
-                        <div>
-                          <div className="flex justify-between mb-2">
-                            <Label className="text-xs text-gray-500">Brightness</Label>
-                            <span className="text-xs text-gray-700 font-medium">{brightness}%</span>
-                          </div>
-                          <Slider
-                            value={[brightness]}
-                            onValueChange={([v]) => setBrightness(v)}
-                            min={50}
-                            max={150}
-                            step={5}
-                            className="w-full"
-                          />
-                        </div>
-
-                        {/* Contrast */}
-                        <div>
-                          <div className="flex justify-between mb-2">
-                            <Label className="text-xs text-gray-500">Contrast</Label>
-                            <span className="text-xs text-gray-700 font-medium">{contrast}%</span>
-                          </div>
-                          <Slider
-                            value={[contrast]}
-                            onValueChange={([v]) => setContrast(v)}
-                            min={50}
-                            max={200}
-                            step={5}
-                            className="w-full"
-                          />
-                        </div>
-
-                        {/* Sharpness */}
-                        <div>
-                          <div className="flex justify-between mb-2">
-                            <Label className="text-xs text-gray-500">Sharpness</Label>
-                            <span className="text-xs text-gray-700 font-medium">{sharpness}</span>
-                          </div>
-                          <Slider
-                            value={[sharpness]}
-                            onValueChange={([v]) => setSharpness(v)}
-                            min={0}
-                            max={10}
-                            step={1}
-                            className="w-full"
-                          />
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
 
                   <AnimatePresence>
                     {showSettings && (

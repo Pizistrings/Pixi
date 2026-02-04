@@ -117,10 +117,10 @@ export default function StepList({
       )}
 
       {/* Color Customization */}
-      {mode === 'color' && setSelectedColors && colorLayers.length === 0 && (
+      {mode === 'color' && setSelectedColors && (
         <div className="mt-6 pt-4 border-t border-gray-100">
           <h4 className="text-xs text-gray-400 mb-3 uppercase tracking-wider">
-            Customize Colors
+            {colorLayers.length > 0 ? 'Edit Colors' : 'Customize Colors'}
           </h4>
           <div className="space-y-3">
             {selectedColors.slice(0, numColors).map((color, idx) => (
@@ -151,6 +151,11 @@ export default function StepList({
               </div>
             ))}
           </div>
+          {colorLayers.length > 0 && (
+            <p className="text-xs text-gray-500 mt-3">
+              Changes will apply on next generation
+            </p>
+          )}
         </div>
       )}
 

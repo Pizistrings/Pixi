@@ -30,15 +30,19 @@ export default function StringArt() {
   const [lineOpacity, setLineOpacity] = useState(0.15);
   const [numColors, setNumColors] = useState(4);
   const [selectedColors, setSelectedColors] = useState([
-    { name: 'Color 1', hex: '#00b4d8', id: 'C1' },
-    { name: 'Color 2', hex: '#e63946', id: 'C2' },
-    { name: 'Color 3', hex: '#ffd60a', id: 'C3' },
-    { name: 'Black', hex: '#1a1a1a', id: 'K' }
+    { name: 'Cyan', hex: '#00b4d8', id: 'C' },
+    { name: 'Magenta', hex: '#e63946', id: 'M' },
+    { name: 'Yellow', hex: '#ffd60a', id: 'Y' },
+    { name: 'Black', hex: '#1a1a1a', id: 'K' },
+    { name: 'Red', hex: '#dc2626', id: 'R' },
+    { name: 'Green', hex: '#16a34a', id: 'G' },
+    { name: 'Blue', hex: '#2563eb', id: 'B' },
+    { name: 'Orange', hex: '#ea580c', id: 'O' }
   ]);
   const [colorDistribution, setColorDistribution] = useState({
-    C1: 20,
-    C2: 20,
-    C3: 20,
+    C: 20,
+    M: 20,
+    Y: 20,
     K: 40
   });
   const [isGenerated, setIsGenerated] = useState(false);
@@ -53,79 +57,12 @@ export default function StringArt() {
     ? [{ name: 'Black', hex: '#1a1a1a', id: 'K' }]
     : selectedColors.slice(0, numColors);
 
-  const extractColorsFromImage = async (imageSrc) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = 100;
-    canvas.height = 100;
-    
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-      img.src = imageSrc;
-    });
-    
-    ctx.drawImage(img, 0, 0, 100, 100);
-    const imageData = ctx.getImageData(0, 0, 100, 100);
-    
-    // Simple color clustering
-    const colorCounts = {};
-    for (let i = 0; i < imageData.data.length; i += 4) {
-      const r = Math.floor(imageData.data[i] / 32) * 32;
-      const g = Math.floor(imageData.data[i + 1] / 32) * 32;
-      const b = Math.floor(imageData.data[i + 2] / 32) * 32;
-      const key = `${r},${g},${b}`;
-      colorCounts[key] = (colorCounts[key] || 0) + 1;
-    }
-    
-    // Get top colors
-    const sortedColors = Object.entries(colorCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([key]) => {
-        const [r, g, b] = key.split(',').map(Number);
-        return { r, g, b };
-      });
-    
-    // Convert to hex and create color array
-    const extractedColors = sortedColors.map((color, idx) => ({
-      name: `Color ${idx + 1}`,
-      hex: `#${color.r.toString(16).padStart(2, '0')}${color.g.toString(16).padStart(2, '0')}${color.b.toString(16).padStart(2, '0')}`,
-      id: `C${idx + 1}`
-    }));
-    
-    // Always add black as last color
-    extractedColors.push({ name: 'Black', hex: '#1a1a1a', id: 'K' });
-    
-    return extractedColors;
-  };
-
-  const handleImageUpload = async (uploadedImage) => {
+  const handleImageUpload = (uploadedImage) => {
     setImage(uploadedImage);
     setIsGenerated(false);
     setStringPaths([]);
     setCurrentStep(0);
     setIsPlaying(false);
-    
-    // Auto-extract colors from image
-    try {
-      const extracted = await extractColorsFromImage(uploadedImage);
-      setSelectedColors(extracted);
-      
-      // Reset distribution based on number of colors
-      const newDistribution = {};
-      const colorCount = Math.min(numColors, extracted.length);
-      const evenSplit = Math.floor(80 / (colorCount - 1));
-      extracted.slice(0, colorCount).forEach((color, idx) => {
-        newDistribution[color.id] = idx === colorCount - 1 ? 40 : evenSplit;
-      });
-      setColorDistribution(newDistribution);
-    } catch (error) {
-      console.error('Failed to extract colors:', error);
-    }
   };
 
   const generateStringArt = useCallback(async () => {
@@ -678,8 +615,9 @@ export default function StringArt() {
                               onValueChange={([v]) => {
                                 setNumColors(v);
                                 const newDist = {};
-                                const evenSplit = Math.floor(80 / (v - 1));
-                                selectedColors.slice(0, v).forEach((color, idx) => {
+                                const activeColors = selectedColors.slice(0, v);
+                                const evenSplit = Math.floor(60 / (v - 1));
+                                activeColors.forEach((color, idx) => {
                                   newDist[color.id] = idx === v - 1 ? 40 : evenSplit;
                                 });
                                 setColorDistribution(newDist);

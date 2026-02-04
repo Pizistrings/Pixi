@@ -122,9 +122,6 @@ export default function StepList({
           <h4 className="text-xs text-gray-400 mb-3 uppercase tracking-wider">
             Customize Colors
           </h4>
-          <p className="text-xs text-gray-500 mb-4">
-            Auto-extracted from image. Click to change colors.
-          </p>
           <div className="space-y-3">
             {selectedColors.slice(0, numColors).map((color, idx) => (
               <div key={color.id} className="flex items-center gap-3">
@@ -164,7 +161,7 @@ export default function StepList({
             Lines Per Color
           </h4>
           <p className="text-xs text-gray-500 mb-4">
-            Adjust distribution before generating!
+            Adjust before generating. More black = better details!
           </p>
           <div className="space-y-4">
             {selectedColors.slice(0, numColors).map(color => {

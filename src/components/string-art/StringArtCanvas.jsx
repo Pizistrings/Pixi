@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useRef, useState, useImperativeHandle } from 'react';
+import { forwardRef, useEffect, useRef, useState, useImperativeHandle } from 'react';
 import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 
@@ -64,6 +64,12 @@ const StringArtCanvas = forwardRef(({
       ctx.fill();
     });
 
+    // Create color map
+    const colorMap = {};
+    colors.forEach(c => {
+      colorMap[c.id] = c.hex;
+    });
+
     // Draw strings up to current step
     ctx.lineWidth = 0.3;
     ctx.globalAlpha = 0.15;
@@ -74,9 +80,7 @@ const StringArtCanvas = forwardRef(({
       const toPin = pins[path.to];
 
       if (fromPin && toPin) {
-        // Use color index directly
-        const color = colors[path.color];
-        ctx.strokeStyle = color?.hex || '#1a1a1a';
+        ctx.strokeStyle = colorMap[path.color] || '#1a1a1a';
         ctx.beginPath();
         ctx.moveTo(fromPin.x, fromPin.y);
         ctx.lineTo(toPin.x, toPin.y);

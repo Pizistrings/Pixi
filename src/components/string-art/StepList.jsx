@@ -1,7 +1,17 @@
 import { motion } from 'framer-motion';
 import { Card } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
+import { Label } from "@/components/ui/label";
 
-export default function StepList({ colorLayers, currentStep, stringPaths }) {
+export default function StepList({ 
+  colorLayers, 
+  currentStep, 
+  stringPaths, 
+  mode, 
+  colorDistribution, 
+  onColorDistributionChange,
+  totalStrings 
+}) {
   // Calculate cumulative steps for each color
   const getStepRanges = () => {
     let cumulative = 0;

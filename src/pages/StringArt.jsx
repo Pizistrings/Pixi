@@ -134,14 +134,25 @@ export default function StringArt() {
     }
     
     const activeColors = mode === 'mono' ? ['K'] : ['C', 'M', 'Y', 'K'];
-    const stringsPerColor = Math.floor(numStrings / activeColors.length);
+    
+    // Calculate strings per color based on distribution
+    const stringsPerColorMap = {};
+    if (mode === 'mono') {
+      stringsPerColorMap.K = numStrings;
+    } else {
+      const totalPercent = activeColors.reduce((sum, id) => sum + colorDistribution[id], 0);
+      activeColors.forEach(id => {
+        stringsPerColorMap[id] = Math.floor((colorDistribution[id] / totalPercent) * numStrings);
+      });
+    }
     
     for (const colorId of activeColors) {
+      const stringsForThisColor = stringsPerColorMap[colorId];
       layerCounts[colorId] = 0;
       let currentPin = 0;
       const usedConnections = new Set();
       
-      for (let s = 0; s < stringsPerColor; s++) {
+      for (let s = 0; s < stringsForThisColor; s++) {
         let bestPin = -1;
         let bestScore = -Infinity;
         
@@ -221,7 +232,7 @@ export default function StringArt() {
     setTotalSteps(paths.length);
     setIsGenerated(true);
     setIsProcessing(false);
-  }, [image, mode, numPins, numStrings, colors]);
+  }, [image, mode, numPins, numStrings, colors, colorDistribution]);
 
   // Animation loop
   useEffect(() => {
@@ -498,6 +509,10 @@ export default function StringArt() {
                 colorLayers={colorLayers}
                 currentStep={currentStep}
                 stringPaths={stringPaths}
+                mode={mode}
+                colorDistribution={colorDistribution}
+                onColorDistributionChange={setColorDistribution}
+                totalStrings={numStrings}
               />
 
               {/* Settings */}

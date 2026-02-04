@@ -51,9 +51,7 @@ export default function StringArt() {
   const [fade, setFade] = useState(30);
   const [minDistance, setMinDistance] = useState(30);
   const [colorRun, setColorRun] = useState(100);
-  const [thickness, setThickness] = useState(0.3);
-  const [lineOpacity, setLineOpacity] = useState(15);
-  const [darknessFactor, setDarknessFactor] = useState(20);
+  const [thickness, setThickness] = useState(1);
   const [selectedColors, setSelectedColors] = useState([
     { hex: '#000000', name: 'Black', brightness: 0, favorite: true },
     { hex: '#f60404', name: '#f60404', brightness: -100, favorite: false },
@@ -81,8 +79,6 @@ export default function StringArt() {
         if (project.settings.min_distance) setMinDistance(project.settings.min_distance);
         if (project.settings.color_run) setColorRun(project.settings.color_run);
         if (project.settings.thickness) setThickness(project.settings.thickness);
-        if (project.settings.line_opacity) setLineOpacity(project.settings.line_opacity);
-        if (project.settings.darkness_factor) setDarknessFactor(project.settings.darkness_factor);
         if (project.settings.colors) setSelectedColors(project.settings.colors);
       }
     }
@@ -105,52 +101,6 @@ export default function StringArt() {
 
   const colors = mode === 'single' ? [selectedColors[0]] : selectedColors;
 
-  const extractColorsFromImage = async (imageUrl) => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = 100;
-        canvas.height = 100;
-        ctx.drawImage(img, 0, 0, 100, 100);
-        const imageData = ctx.getImageData(0, 0, 100, 100);
-        
-        // Extract dominant colors using simple clustering
-        const colorMap = {};
-        for (let i = 0; i < imageData.data.length; i += 4) {
-          const r = imageData.data[i];
-          const g = imageData.data[i + 1];
-          const b = imageData.data[i + 2];
-          
-          // Group similar colors
-          const key = `${Math.floor(r/40)*40}-${Math.floor(g/40)*40}-${Math.floor(b/40)*40}`;
-          colorMap[key] = (colorMap[key] || 0) + 1;
-        }
-        
-        // Sort by frequency and get top colors
-        const sortedColors = Object.entries(colorMap)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 5)
-          .map(([key]) => {
-            const [r, g, b] = key.split('-').map(Number);
-            const hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-            return {
-              hex,
-              name: hex,
-              brightness: brightness > 128 ? -80 : -20,
-              favorite: false
-            };
-          });
-        
-        resolve(sortedColors);
-      };
-      img.src = imageUrl;
-    });
-  };
-
   const handleImageUpload = async (uploadedImage) => {
     setImage(uploadedImage);
     setIsGenerated(false);
@@ -158,12 +108,6 @@ export default function StringArt() {
     setCurrentStep(0);
     setIsPlaying(false);
     setShowUploadDialog(false);
-    
-    // Auto-detect colors from image
-    const detectedColors = await extractColorsFromImage(uploadedImage);
-    if (detectedColors.length > 0) {
-      setSelectedColors(detectedColors);
-    }
     
     if (projectId) {
       updateProjectMutation.mutate({ source_image_url: uploadedImage });
@@ -193,8 +137,6 @@ export default function StringArt() {
         min_distance: minDistance,
         color_run: colorRun,
         thickness,
-        line_opacity: lineOpacity,
-        darkness_factor: darknessFactor,
         colors: selectedColors
       },
       status: isGenerated ? 'completed' : 'draft'
@@ -244,30 +186,16 @@ export default function StringArt() {
       });
     }
     
-    // Create working images for each color channel
-    const workingImages = activeColors.map(() => new Uint8Array(size * size));
-    
-    // Initialize working images based on color similarity
+    // Create working image (grayscale)
+    const workingImage = new Uint8Array(size * size);
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
         const idx = (y * size + x) * 4;
         const r = imageData.data[idx];
         const g = imageData.data[idx + 1];
         const b = imageData.data[idx + 2];
-        
-        // For each color, calculate how well this pixel matches
-        activeColors.forEach((colorIdx, i) => {
-          const targetColor = colors[colorIdx];
-          const tr = parseInt(targetColor.hex.slice(1, 3), 16);
-          const tg = parseInt(targetColor.hex.slice(3, 5), 16);
-          const tb = parseInt(targetColor.hex.slice(5, 7), 16);
-          
-          // Color distance (inverse)
-          const colorDist = Math.sqrt((r-tr)**2 + (g-tg)**2 + (b-tb)**2);
-          const similarity = Math.max(0, 255 - colorDist);
-          
-          workingImages[i][y * size + x] = similarity;
-        });
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        workingImage[y * size + x] = 255 - gray; // Invert so dark = high value
       }
     }
     
@@ -318,7 +246,6 @@ export default function StringArt() {
     
     for (let s = 0; s < steps; s++) {
       const currentColorIdx = activeColors[colorIdx];
-      const workingImageIdx = colorIdx;
       
       let bestPin = -1;
       let bestScore = -1;
@@ -336,10 +263,10 @@ export default function StringArt() {
           pins[nextPin].y
         );
         
-        // Calculate score for current color channel
+        // Calculate score: sum of darkness along the line
         let score = 0;
         for (const pixel of linePixels) {
-          score += workingImages[workingImageIdx][pixel.y * size + pixel.x];
+          score += workingImage[pixel.y * size + pixel.x];
         }
         score = score / linePixels.length; // Average
         
@@ -360,7 +287,7 @@ export default function StringArt() {
       });
       layerCounts[currentColorIdx]++;
       
-      // Subtract the line from ALL working images (affects all color channels)
+      // Subtract the line from working image (darken those pixels)
       const linePixels = getLinePixels(
         pins[currentPin].x,
         pins[currentPin].y,
@@ -370,14 +297,7 @@ export default function StringArt() {
       
       for (const pixel of linePixels) {
         const idx = pixel.y * size + pixel.x;
-        // Reduce intensity in current color's working image more
-        workingImages[workingImageIdx][idx] = Math.max(0, workingImages[workingImageIdx][idx] - darknessFactor);
-        // Slightly reduce in other color channels too
-        activeColors.forEach((_, i) => {
-          if (i !== workingImageIdx) {
-            workingImages[i][idx] = Math.max(0, workingImages[i][idx] - (darknessFactor * 0.3));
-          }
-        });
+        workingImage[idx] = Math.max(0, workingImage[idx] - colorRun);
       }
       
       currentPin = bestPin;
@@ -403,7 +323,7 @@ export default function StringArt() {
     setIsProcessing(false);
     
     setTimeout(() => saveProject(), 1000);
-  }, [image, mode, steps, selectedColors, shape, fade, minDistance, colorRun, darknessFactor, getNumPins]);
+  }, [image, mode, steps, selectedColors, shape, fade, minDistance, colorRun, getNumPins]);
 
   useEffect(() => {
     if (isPlaying && currentStep < totalSteps) {
@@ -575,55 +495,6 @@ export default function StringArt() {
                           <Palette className="w-4 h-4 mr-2" />
                           Thread Colors ({selectedColors.length})
                         </Button>
-                        
-                        <div className="pt-2 border-t">
-                          <Label className="text-xs text-gray-500 mb-3 block">Advanced Settings</Label>
-                          
-                          <div className="space-y-3">
-                            <div>
-                              <div className="flex justify-between mb-2">
-                                <Label className="text-xs">Line Thickness</Label>
-                                <span className="text-xs font-medium text-[#ff6b35]">{thickness.toFixed(1)}</span>
-                              </div>
-                              <Slider value={[thickness]} onValueChange={([v]) => setThickness(v)} min={0.1} max={2} step={0.1} />
-                            </div>
-                            
-                            <div>
-                              <div className="flex justify-between mb-2">
-                                <Label className="text-xs">Line Opacity</Label>
-                                <span className="text-xs font-medium text-[#ff6b35]">{lineOpacity}%</span>
-                              </div>
-                              <Slider value={[lineOpacity]} onValueChange={([v]) => setLineOpacity(v)} min={5} max={50} step={1} />
-                            </div>
-                            
-                            <div>
-                              <div className="flex justify-between mb-2">
-                                <Label className="text-xs">Min Pin Distance</Label>
-                                <span className="text-xs font-medium text-[#ff6b35]">{minDistance}</span>
-                              </div>
-                              <Slider value={[minDistance]} onValueChange={([v]) => setMinDistance(v)} min={10} max={80} step={5} />
-                            </div>
-                            
-                            <div>
-                              <div className="flex justify-between mb-2">
-                                <Label className="text-xs">Darkness Factor</Label>
-                                <span className="text-xs font-medium text-[#ff6b35]">{darknessFactor}</span>
-                              </div>
-                              <Slider value={[darknessFactor]} onValueChange={([v]) => setDarknessFactor(v)} min={5} max={50} step={1} />
-                            </div>
-                            
-                            {mode === 'multi' && (
-                              <div>
-                                <div className="flex justify-between mb-2">
-                                  <Label className="text-xs">Color Switch Rate</Label>
-                                  <span className="text-xs font-medium text-[#ff6b35]">{colorRun}</span>
-                                </div>
-                                <Slider value={[colorRun]} onValueChange={([v]) => setColorRun(v)} min={20} max={200} step={10} />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        
                         <Button
                           onClick={generateStringArt}
                           disabled={isProcessing}
@@ -708,8 +579,6 @@ export default function StringArt() {
                     colors={colors}
                     isProcessing={isProcessing}
                     sourceImage={image}
-                    thickness={thickness}
-                    lineOpacity={lineOpacity}
                   />
                 </div>
                 
@@ -829,50 +698,6 @@ export default function StringArt() {
                     <Palette className="w-4 h-4 mr-2" />
                     Colors ({selectedColors.length})
                   </Button>
-                  
-                  <div className="pt-4 border-t space-y-3">
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <Label className="text-xs">Thickness</Label>
-                        <span className="text-xs font-medium text-[#ff6b35]">{thickness.toFixed(1)}</span>
-                      </div>
-                      <Slider value={[thickness]} onValueChange={([v]) => setThickness(v)} min={0.1} max={2} step={0.1} />
-                    </div>
-                    
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <Label className="text-xs">Opacity</Label>
-                        <span className="text-xs font-medium text-[#ff6b35]">{lineOpacity}%</span>
-                      </div>
-                      <Slider value={[lineOpacity]} onValueChange={([v]) => setLineOpacity(v)} min={5} max={50} step={1} />
-                    </div>
-                    
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <Label className="text-xs">Pin Gap</Label>
-                        <span className="text-xs font-medium text-[#ff6b35]">{minDistance}</span>
-                      </div>
-                      <Slider value={[minDistance]} onValueChange={([v]) => setMinDistance(v)} min={10} max={80} step={5} />
-                    </div>
-                    
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <Label className="text-xs">Darkness</Label>
-                        <span className="text-xs font-medium text-[#ff6b35]">{darknessFactor}</span>
-                      </div>
-                      <Slider value={[darknessFactor]} onValueChange={([v]) => setDarknessFactor(v)} min={5} max={50} step={1} />
-                    </div>
-                    
-                    {mode === 'multi' && (
-                      <div>
-                        <div className="flex justify-between mb-2">
-                          <Label className="text-xs">Color Rate</Label>
-                          <span className="text-xs font-medium text-[#ff6b35]">{colorRun}</span>
-                        </div>
-                        <Slider value={[colorRun]} onValueChange={([v]) => setColorRun(v)} min={20} max={200} step={10} />
-                      </div>
-                    )}
-                  </div>
                 </CardContent>
               </Card>
             </div>

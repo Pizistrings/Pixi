@@ -51,7 +51,9 @@ export default function StringArt() {
   const [fade, setFade] = useState(30);
   const [minDistance, setMinDistance] = useState(30);
   const [colorRun, setColorRun] = useState(100);
-  const [thickness, setThickness] = useState(1);
+  const [thickness, setThickness] = useState(0.3);
+  const [lineOpacity, setLineOpacity] = useState(15);
+  const [darknessFactor, setDarknessFactor] = useState(20);
   const [selectedColors, setSelectedColors] = useState([
     { hex: '#000000', name: 'Black', brightness: 0, favorite: true },
     { hex: '#f60404', name: '#f60404', brightness: -100, favorite: false },
@@ -79,6 +81,8 @@ export default function StringArt() {
         if (project.settings.min_distance) setMinDistance(project.settings.min_distance);
         if (project.settings.color_run) setColorRun(project.settings.color_run);
         if (project.settings.thickness) setThickness(project.settings.thickness);
+        if (project.settings.line_opacity) setLineOpacity(project.settings.line_opacity);
+        if (project.settings.darkness_factor) setDarknessFactor(project.settings.darkness_factor);
         if (project.settings.colors) setSelectedColors(project.settings.colors);
       }
     }
@@ -137,6 +141,8 @@ export default function StringArt() {
         min_distance: minDistance,
         color_run: colorRun,
         thickness,
+        line_opacity: lineOpacity,
+        darkness_factor: darknessFactor,
         colors: selectedColors
       },
       status: isGenerated ? 'completed' : 'draft'
@@ -297,7 +303,7 @@ export default function StringArt() {
       
       for (const pixel of linePixels) {
         const idx = pixel.y * size + pixel.x;
-        workingImage[idx] = Math.max(0, workingImage[idx] - colorRun);
+        workingImage[idx] = Math.max(0, workingImage[idx] - darknessFactor);
       }
       
       currentPin = bestPin;
@@ -323,7 +329,7 @@ export default function StringArt() {
     setIsProcessing(false);
     
     setTimeout(() => saveProject(), 1000);
-  }, [image, mode, steps, selectedColors, shape, fade, minDistance, colorRun, getNumPins]);
+  }, [image, mode, steps, selectedColors, shape, fade, minDistance, colorRun, darknessFactor, getNumPins]);
 
   useEffect(() => {
     if (isPlaying && currentStep < totalSteps) {
@@ -495,6 +501,55 @@ export default function StringArt() {
                           <Palette className="w-4 h-4 mr-2" />
                           Thread Colors ({selectedColors.length})
                         </Button>
+                        
+                        <div className="pt-2 border-t">
+                          <Label className="text-xs text-gray-500 mb-3 block">Advanced Settings</Label>
+                          
+                          <div className="space-y-3">
+                            <div>
+                              <div className="flex justify-between mb-2">
+                                <Label className="text-xs">Line Thickness</Label>
+                                <span className="text-xs font-medium text-[#ff6b35]">{thickness.toFixed(1)}</span>
+                              </div>
+                              <Slider value={[thickness]} onValueChange={([v]) => setThickness(v)} min={0.1} max={2} step={0.1} />
+                            </div>
+                            
+                            <div>
+                              <div className="flex justify-between mb-2">
+                                <Label className="text-xs">Line Opacity</Label>
+                                <span className="text-xs font-medium text-[#ff6b35]">{lineOpacity}%</span>
+                              </div>
+                              <Slider value={[lineOpacity]} onValueChange={([v]) => setLineOpacity(v)} min={5} max={50} step={1} />
+                            </div>
+                            
+                            <div>
+                              <div className="flex justify-between mb-2">
+                                <Label className="text-xs">Min Pin Distance</Label>
+                                <span className="text-xs font-medium text-[#ff6b35]">{minDistance}</span>
+                              </div>
+                              <Slider value={[minDistance]} onValueChange={([v]) => setMinDistance(v)} min={10} max={80} step={5} />
+                            </div>
+                            
+                            <div>
+                              <div className="flex justify-between mb-2">
+                                <Label className="text-xs">Darkness Factor</Label>
+                                <span className="text-xs font-medium text-[#ff6b35]">{darknessFactor}</span>
+                              </div>
+                              <Slider value={[darknessFactor]} onValueChange={([v]) => setDarknessFactor(v)} min={5} max={50} step={1} />
+                            </div>
+                            
+                            {mode === 'multi' && (
+                              <div>
+                                <div className="flex justify-between mb-2">
+                                  <Label className="text-xs">Color Switch Rate</Label>
+                                  <span className="text-xs font-medium text-[#ff6b35]">{colorRun}</span>
+                                </div>
+                                <Slider value={[colorRun]} onValueChange={([v]) => setColorRun(v)} min={20} max={200} step={10} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
                         <Button
                           onClick={generateStringArt}
                           disabled={isProcessing}
@@ -579,6 +634,8 @@ export default function StringArt() {
                     colors={colors}
                     isProcessing={isProcessing}
                     sourceImage={image}
+                    thickness={thickness}
+                    lineOpacity={lineOpacity}
                   />
                 </div>
                 
@@ -698,6 +755,50 @@ export default function StringArt() {
                     <Palette className="w-4 h-4 mr-2" />
                     Colors ({selectedColors.length})
                   </Button>
+                  
+                  <div className="pt-4 border-t space-y-3">
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <Label className="text-xs">Thickness</Label>
+                        <span className="text-xs font-medium text-[#ff6b35]">{thickness.toFixed(1)}</span>
+                      </div>
+                      <Slider value={[thickness]} onValueChange={([v]) => setThickness(v)} min={0.1} max={2} step={0.1} />
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <Label className="text-xs">Opacity</Label>
+                        <span className="text-xs font-medium text-[#ff6b35]">{lineOpacity}%</span>
+                      </div>
+                      <Slider value={[lineOpacity]} onValueChange={([v]) => setLineOpacity(v)} min={5} max={50} step={1} />
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <Label className="text-xs">Pin Gap</Label>
+                        <span className="text-xs font-medium text-[#ff6b35]">{minDistance}</span>
+                      </div>
+                      <Slider value={[minDistance]} onValueChange={([v]) => setMinDistance(v)} min={10} max={80} step={5} />
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <Label className="text-xs">Darkness</Label>
+                        <span className="text-xs font-medium text-[#ff6b35]">{darknessFactor}</span>
+                      </div>
+                      <Slider value={[darknessFactor]} onValueChange={([v]) => setDarknessFactor(v)} min={5} max={50} step={1} />
+                    </div>
+                    
+                    {mode === 'multi' && (
+                      <div>
+                        <div className="flex justify-between mb-2">
+                          <Label className="text-xs">Color Rate</Label>
+                          <span className="text-xs font-medium text-[#ff6b35]">{colorRun}</span>
+                        </div>
+                        <Slider value={[colorRun]} onValueChange={([v]) => setColorRun(v)} min={20} max={200} step={10} />
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </div>

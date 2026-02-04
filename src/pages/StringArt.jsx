@@ -45,8 +45,14 @@ export default function StringArt() {
     Y: 20,
     K: 40
   });
+  const [shape, setShape] = useState('circle'); // 'circle', 'square', 'rectangle'
+  const [brightness, setBrightness] = useState(100);
+  const [contrast, setContrast] = useState(100);
+  const [sharpness, setSharpness] = useState(0);
+  const [cropArea, setCropArea] = useState({ x: 0, y: 0, width: 100, height: 100 });
   const [isGenerated, setIsGenerated] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showImageSettings, setShowImageSettings] = useState(false);
   
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -90,22 +96,101 @@ export default function StringArt() {
       img.src = image;
     });
     
-    ctx.drawImage(img, 0, 0, size, size);
+    // Apply crop
+    const cropX = (img.width * cropArea.x) / 100;
+    const cropY = (img.height * cropArea.y) / 100;
+    const cropW = (img.width * cropArea.width) / 100;
+    const cropH = (img.height * cropArea.height) / 100;
+    
+    ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
+    ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, size, size);
+    
+    // Apply sharpness
+    if (sharpness > 0) {
+      const imageData = ctx.getImageData(0, 0, size, size);
+      const data = imageData.data;
+      const factor = sharpness / 10;
+      
+      for (let i = 0; i < data.length; i += 4) {
+        const index = i / 4;
+        const x = index % size;
+        const y = Math.floor(index / size);
+        
+        if (x > 0 && x < size - 1 && y > 0 && y < size - 1) {
+          for (let c = 0; c < 3; c++) {
+            const center = data[i + c];
+            const neighbors = 
+              data[((y - 1) * size + x) * 4 + c] +
+              data[((y + 1) * size + x) * 4 + c] +
+              data[(y * size + (x - 1)) * 4 + c] +
+              data[(y * size + (x + 1)) * 4 + c];
+            data[i + c] = Math.max(0, Math.min(255, center + factor * (center - neighbors / 4)));
+          }
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+    }
+    
     const imageData = ctx.getImageData(0, 0, size, size);
     
-    // Generate pin positions around the frame (circular)
+    // Generate pin positions based on shape
     const pins = [];
     const centerX = size / 2;
     const centerY = size / 2;
-    const radius = (size / 2) - 20; // More padding from edge
+    const padding = 20;
     
-    for (let i = 0; i < numPins; i++) {
-      const angle = (2 * Math.PI * i) / numPins - Math.PI / 2; // Start from top
-      pins.push({
-        x: Math.round(centerX + radius * Math.cos(angle)),
-        y: Math.round(centerY + radius * Math.sin(angle)),
-        index: i
-      });
+    if (shape === 'circle') {
+      const radius = (size / 2) - padding;
+      for (let i = 0; i < numPins; i++) {
+        const angle = (2 * Math.PI * i) / numPins;
+        pins.push({
+          x: Math.round(centerX + radius * Math.cos(angle)),
+          y: Math.round(centerY + radius * Math.sin(angle)),
+          index: i
+        });
+      }
+    } else if (shape === 'square') {
+      const sideLength = size - (padding * 2);
+      const pinsPerSide = Math.floor(numPins / 4);
+      
+      for (let i = 0; i < numPins; i++) {
+        const side = Math.floor(i / pinsPerSide);
+        const posOnSide = (i % pinsPerSide) / pinsPerSide;
+        
+        if (side === 0) { // Top
+          pins.push({ x: Math.round(padding + posOnSide * sideLength), y: padding, index: i });
+        } else if (side === 1) { // Right
+          pins.push({ x: size - padding, y: Math.round(padding + posOnSide * sideLength), index: i });
+        } else if (side === 2) { // Bottom
+          pins.push({ x: Math.round(size - padding - posOnSide * sideLength), y: size - padding, index: i });
+        } else { // Left
+          pins.push({ x: padding, y: Math.round(size - padding - posOnSide * sideLength), index: i });
+        }
+      }
+    } else if (shape === 'rectangle') {
+      const width = size - (padding * 2);
+      const height = (size * 0.7) - (padding * 2);
+      const offsetY = (size - height - padding * 2) / 2;
+      
+      const perimeter = 2 * (width + height);
+      const pinsTop = Math.floor((width / perimeter) * numPins);
+      const pinsRight = Math.floor((height / perimeter) * numPins);
+      const pinsBottom = pinsTop;
+      const pinsLeft = numPins - pinsTop - pinsRight - pinsBottom;
+      
+      let pinIndex = 0;
+      for (let i = 0; i < pinsTop; i++, pinIndex++) {
+        pins.push({ x: Math.round(padding + (i / pinsTop) * width), y: padding + offsetY, index: pinIndex });
+      }
+      for (let i = 0; i < pinsRight; i++, pinIndex++) {
+        pins.push({ x: size - padding, y: Math.round(padding + offsetY + (i / pinsRight) * height), index: pinIndex });
+      }
+      for (let i = 0; i < pinsBottom; i++, pinIndex++) {
+        pins.push({ x: Math.round(size - padding - (i / pinsBottom) * width), y: padding + offsetY + height, index: pinIndex });
+      }
+      for (let i = 0; i < pinsLeft; i++, pinIndex++) {
+        pins.push({ x: padding, y: Math.round(padding + offsetY + height - (i / pinsLeft) * height), index: pinIndex });
+      }
     }
     
     // Generate string paths using a greedy algorithm
@@ -249,7 +334,7 @@ export default function StringArt() {
     setTotalSteps(paths.length);
     setIsGenerated(true);
     setIsProcessing(false);
-  }, [image, mode, numPins, numStrings, colors, colorDistribution]);
+  }, [image, mode, numPins, numStrings, colors, colorDistribution, shape, brightness, contrast, sharpness, cropArea]);
 
   // Animation loop
   useEffect(() => {
@@ -343,6 +428,7 @@ export default function StringArt() {
                     sourceImage={image}
                     lineWidth={lineWidth}
                     lineOpacity={lineOpacity}
+                    shape={shape}
                   />
                 </div>
                 
@@ -552,6 +638,18 @@ export default function StringArt() {
                 </div>
 
                 <div className="space-y-4">
+                  {/* Shape Selection */}
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-2 block">Shape</Label>
+                    <Tabs value={shape} onValueChange={setShape}>
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="circle">Circle</TabsTrigger>
+                        <TabsTrigger value="square">Square</TabsTrigger>
+                        <TabsTrigger value="rectangle">Rectangle</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
+
                   {/* Mode Toggle */}
                   <div>
                     <Label className="text-xs text-gray-500 mb-2 block">Mode</Label>
@@ -562,6 +660,77 @@ export default function StringArt() {
                       </TabsList>
                     </Tabs>
                   </div>
+
+                  {/* Image Adjustments Toggle */}
+                  <div className="pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowImageSettings(!showImageSettings)}
+                      className="w-full justify-between"
+                    >
+                      <span className="text-xs">Image Adjustments</span>
+                      <span className="text-xs">{showImageSettings ? '−' : '+'}</span>
+                    </Button>
+                  </div>
+
+                  <AnimatePresence>
+                    {showImageSettings && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-4 overflow-hidden"
+                      >
+                        {/* Brightness */}
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label className="text-xs text-gray-500">Brightness</Label>
+                            <span className="text-xs text-gray-700 font-medium">{brightness}%</span>
+                          </div>
+                          <Slider
+                            value={[brightness]}
+                            onValueChange={([v]) => setBrightness(v)}
+                            min={50}
+                            max={150}
+                            step={5}
+                            className="w-full"
+                          />
+                        </div>
+
+                        {/* Contrast */}
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label className="text-xs text-gray-500">Contrast</Label>
+                            <span className="text-xs text-gray-700 font-medium">{contrast}%</span>
+                          </div>
+                          <Slider
+                            value={[contrast]}
+                            onValueChange={([v]) => setContrast(v)}
+                            min={50}
+                            max={200}
+                            step={5}
+                            className="w-full"
+                          />
+                        </div>
+
+                        {/* Sharpness */}
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label className="text-xs text-gray-500">Sharpness</Label>
+                            <span className="text-xs text-gray-700 font-medium">{sharpness}</span>
+                          </div>
+                          <Slider
+                            value={[sharpness]}
+                            onValueChange={([v]) => setSharpness(v)}
+                            min={0}
+                            max={10}
+                            step={1}
+                            className="w-full"
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   <AnimatePresence>
                     {showSettings && (

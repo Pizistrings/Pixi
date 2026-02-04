@@ -22,18 +22,64 @@ const StringArtCanvas = forwardRef(({
     const newPins = [];
     const centerX = size / 2;
     const centerY = size / 2;
-    const radius = (size / 2) - 15;
+    const padding = 15;
 
-    for (let i = 0; i < numPins; i++) {
-      const angle = (2 * Math.PI * i) / numPins;
-      newPins.push({
-        x: centerX + radius * Math.cos(angle),
-        y: centerY + radius * Math.sin(angle),
-        index: i
-      });
+    if (shape === 'circle') {
+      const radius = (size / 2) - padding;
+      for (let i = 0; i < numPins; i++) {
+        const angle = (2 * Math.PI * i) / numPins;
+        newPins.push({
+          x: centerX + radius * Math.cos(angle),
+          y: centerY + radius * Math.sin(angle),
+          index: i
+        });
+      }
+    } else if (shape === 'square') {
+      const sideLength = size - (padding * 2);
+      const pinsPerSide = Math.floor(numPins / 4);
+      
+      for (let i = 0; i < numPins; i++) {
+        const side = Math.floor(i / pinsPerSide);
+        const posOnSide = (i % pinsPerSide) / pinsPerSide;
+        
+        if (side === 0) {
+          newPins.push({ x: padding + posOnSide * sideLength, y: padding, index: i });
+        } else if (side === 1) {
+          newPins.push({ x: size - padding, y: padding + posOnSide * sideLength, index: i });
+        } else if (side === 2) {
+          newPins.push({ x: size - padding - posOnSide * sideLength, y: size - padding, index: i });
+        } else {
+          newPins.push({ x: padding, y: size - padding - posOnSide * sideLength, index: i });
+        }
+      }
+    } else if (shape === 'rectangle') {
+      const width = size - (padding * 2);
+      const height = (size * 0.7) - (padding * 2);
+      const offsetY = (size - height - padding * 2) / 2;
+      
+      const perimeter = 2 * (width + height);
+      const pinsTop = Math.floor((width / perimeter) * numPins);
+      const pinsRight = Math.floor((height / perimeter) * numPins);
+      const pinsBottom = pinsTop;
+      const pinsLeft = numPins - pinsTop - pinsRight - pinsBottom;
+      
+      let pinIndex = 0;
+      for (let i = 0; i < pinsTop; i++, pinIndex++) {
+        newPins.push({ x: padding + (i / pinsTop) * width, y: padding + offsetY, index: pinIndex });
+      }
+      for (let i = 0; i < pinsRight; i++, pinIndex++) {
+        newPins.push({ x: size - padding, y: padding + offsetY + (i / pinsRight) * height, index: pinIndex });
+      }
+      for (let i = 0; i < pinsBottom; i++, pinIndex++) {
+        newPins.push({ x: size - padding - (i / pinsBottom) * width, y: padding + offsetY + height, index: pinIndex });
+      }
+      for (let i = 0; i < pinsLeft; i++, pinIndex++) {
+        newPins.push({ x: padding, y: padding + offsetY + height - (i / pinsLeft) * height, index: pinIndex });
+      }
     }
+    
     setPins(newPins);
-  }, [numPins, size]);
+  }, [numPins, size, shape]);
 
   // Draw string art
   useEffect(() => {
@@ -52,8 +98,19 @@ const StringArtCanvas = forwardRef(({
     ctx.beginPath();
     const centerX = size / 2;
     const centerY = size / 2;
-    const radius = (size / 2) - 10;
-    ctx.arc(centerX, centerY, radius + 5, 0, 2 * Math.PI);
+    
+    if (shape === 'circle') {
+      const radius = (size / 2) - 10;
+      ctx.arc(centerX, centerY, radius + 5, 0, 2 * Math.PI);
+    } else if (shape === 'square') {
+      const sideLength = size - 20;
+      ctx.rect(10, 10, sideLength + 10, sideLength + 10);
+    } else if (shape === 'rectangle') {
+      const width = size - 20;
+      const height = (size * 0.7);
+      const offsetY = (size - height) / 2;
+      ctx.rect(10, offsetY, width + 10, height + 10);
+    }
     ctx.stroke();
 
     // Draw pins as small dots

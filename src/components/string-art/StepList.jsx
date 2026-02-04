@@ -113,30 +113,115 @@ export default function StepList({
         </div>
       )}
 
-      {/* Color Legend */}
+      {/* Color Distribution Controls */}
+      {mode === 'color' && onColorDistributionChange && (
+        <div className="mt-6 pt-4 border-t border-gray-100">
+          <h4 className="text-xs text-gray-400 mb-3 uppercase tracking-wider">
+            Lines Per Color
+          </h4>
+          <p className="text-xs text-gray-500 mb-4">
+            Adjust before generating. Black is great for details!
+          </p>
+          <div className="space-y-4">
+            {[
+              { id: 'C', name: 'Cyan', hex: '#00b4d8' },
+              { id: 'M', name: 'Magenta', hex: '#e63946' },
+              { id: 'Y', name: 'Yellow', hex: '#ffd60a' },
+              { id: 'K', name: 'Black', hex: '#1a1a1a' }
+            ].map(color => {
+              const percent = colorDistribution[color.id];
+              const estimatedLines = Math.floor((percent / 100) * totalStrings);
+              
+              return (
+                <div key={color.id}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full shadow-inner"
+                        style={{ backgroundColor: color.hex }}
+                      />
+                      <Label className="text-xs text-gray-600">{color.name}</Label>
+                    </div>
+                    <span className="text-xs text-gray-700 font-medium">
+                      {percent}% · ~{estimatedLines.toLocaleString()}
+                    </span>
+                  </div>
+                  <Slider
+                    value={[percent]}
+                    onValueChange={([v]) => {
+                      onColorDistributionChange(prev => ({
+                        ...prev,
+                        [color.id]: v
+                      }));
+                    }}
+                    min={5}
+                    max={70}
+                    step={5}
+                    className="w-full"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Generated Results */}
       {colorLayers.length > 0 && (
         <div className="mt-6 pt-4 border-t border-gray-100">
-          <h4 className="text-xs text-gray-400 mb-3 uppercase tracking-wider">Colors</h4>
-          <div className="space-y-2">
-            {colorLayers.map((layer, idx) => (
-              <div
-                key={layer.id}
-                className={`flex items-center justify-between py-1 transition-opacity ${
-                  idx === currentColorIndex ? 'opacity-100' : 'opacity-50'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-4 h-4 rounded-full shadow-inner"
-                    style={{ backgroundColor: layer.hex }}
-                  />
-                  <span className="text-sm text-gray-700">{layer.name}</span>
+          <h4 className="text-xs text-gray-400 mb-3 uppercase tracking-wider">
+            {colorLayers.length > 1 ? 'Generated Separation' : 'Progress'}
+          </h4>
+          <div className="space-y-3">
+            {colorLayers.map((layer, idx) => {
+              const isActive = idx === currentColorIndex;
+              const progress = isActive ? 
+                Math.round(((currentStep - layersWithRanges[idx].startStep) / layer.count) * 100) : 
+                (idx < currentColorIndex ? 100 : 0);
+              
+              return (
+                <div
+                  key={layer.id}
+                  className={`border rounded-lg p-3 transition-all ${
+                    isActive ? 'border-gray-300 bg-gray-50' : 'border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-4 h-4 rounded-full shadow-inner"
+                        style={{ backgroundColor: layer.hex }}
+                      />
+                      <span className={`text-sm ${isActive ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+                        {layer.name}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500 font-mono">
+                      {layer.count.toLocaleString()} lines
+                    </span>
+                  </div>
+                  
+                  {colorLayers.length > 1 && (
+                    <>
+                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mb-1">
+                        <div 
+                          className="h-full transition-all duration-300"
+                          style={{ 
+                            backgroundColor: layer.hex,
+                            width: `${progress}%`,
+                            opacity: 0.7
+                          }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-400">
+                        <span>Steps {layersWithRanges[idx].startStep + 1}-{layersWithRanges[idx].endStep}</span>
+                        <span>{progress}%</span>
+                      </div>
+                    </>
+                  )}
                 </div>
-                <span className="text-xs text-gray-400 font-mono">
-                  {layer.count.toLocaleString()}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

@@ -26,8 +26,6 @@ export default function StringArt() {
   const [colorLayers, setColorLayers] = useState([]);
   const [numPins, setNumPins] = useState(200);
   const [numStrings, setNumStrings] = useState(3000);
-  const [lineWidth, setLineWidth] = useState(0.3);
-  const [lineOpacity, setLineOpacity] = useState(0.15);
   const [isGenerated, setIsGenerated] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   
@@ -140,7 +138,8 @@ export default function StringArt() {
     
     for (const colorId of activeColors) {
       layerCounts[colorId] = 0;
-      let currentPin = Math.floor(Math.random() * numPins);
+      let currentPin = 0;
+      const usedConnections = new Set();
       
       for (let s = 0; s < stringsPerColor; s++) {
         let bestPin = -1;
@@ -150,9 +149,8 @@ export default function StringArt() {
         for (let nextPin = 0; nextPin < numPins; nextPin++) {
           if (nextPin === currentPin) continue;
           
-          // Skip nearby pins (minimum distance of 20)
-          const pinDist = Math.abs(nextPin - currentPin);
-          if (pinDist < 20 && pinDist > numPins - 20) continue;
+          const connectionKey = `${Math.min(currentPin, nextPin)}-${Math.max(currentPin, nextPin)}`;
+          if (usedConnections.has(connectionKey)) continue;
           
           // Calculate line score
           const x1 = pins[currentPin].x;
@@ -179,7 +177,7 @@ export default function StringArt() {
           }
         }
         
-        if (bestPin === -1) break;
+        if (bestPin === -1 || bestScore < 0.01) break;
         
         // Add the string path
         paths.push({
@@ -202,10 +200,12 @@ export default function StringArt() {
           const x = Math.floor(x1 + (x2 - x1) * t / steps);
           const y = Math.floor(y1 + (y2 - y1) * t / steps);
           if (x >= 0 && x < size && y >= 0 && y < size) {
-            workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
+            workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.1);
           }
         }
         
+        const connectionKey = `${Math.min(currentPin, bestPin)}-${Math.max(currentPin, bestPin)}`;
+        usedConnections.add(connectionKey);
         currentPin = bestPin;
       }
     }
@@ -313,8 +313,6 @@ export default function StringArt() {
                     colors={colors}
                     isProcessing={isProcessing}
                     sourceImage={image}
-                    lineWidth={lineWidth}
-                    lineOpacity={lineOpacity}
                   />
                 </div>
                 
@@ -564,38 +562,6 @@ export default function StringArt() {
                             min={1000}
                             max={9000}
                             step={500}
-                            className="w-full"
-                          />
-                        </div>
-
-                        {/* Line Thickness */}
-                        <div>
-                          <div className="flex justify-between mb-2">
-                            <Label className="text-xs text-gray-500">Line Thickness</Label>
-                            <span className="text-xs text-gray-700 font-medium">{lineWidth.toFixed(1)}px</span>
-                          </div>
-                          <Slider
-                            value={[lineWidth]}
-                            onValueChange={([v]) => setLineWidth(v)}
-                            min={0.1}
-                            max={2}
-                            step={0.1}
-                            className="w-full"
-                          />
-                        </div>
-
-                        {/* Line Opacity */}
-                        <div>
-                          <div className="flex justify-between mb-2">
-                            <Label className="text-xs text-gray-500">Line Opacity</Label>
-                            <span className="text-xs text-gray-700 font-medium">{Math.round(lineOpacity * 100)}%</span>
-                          </div>
-                          <Slider
-                            value={[lineOpacity]}
-                            onValueChange={([v]) => setLineOpacity(v)}
-                            min={0.05}
-                            max={0.5}
-                            step={0.05}
                             className="w-full"
                           />
                         </div>

@@ -8,9 +8,7 @@ const StringArtCanvas = forwardRef(({
   numPins, 
   colors,
   isProcessing,
-  sourceImage,
-  lineWidth = 0.3,
-  lineOpacity = 0.15
+  sourceImage
 }, ref) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -73,8 +71,8 @@ const StringArtCanvas = forwardRef(({
     });
 
     // Draw strings up to current step
-    ctx.lineWidth = lineWidth;
-    ctx.globalAlpha = lineOpacity;
+    ctx.lineWidth = 0.3;
+    ctx.globalAlpha = 0.15;
 
     for (let i = 0; i < currentStep && i < stringPaths.length; i++) {
       const path = stringPaths[i];
@@ -117,7 +115,7 @@ const StringArtCanvas = forwardRef(({
         ctx.fill();
       }
     }
-  }, [stringPaths, currentStep, pins, colors, size, lineWidth, lineOpacity]);
+  }, [stringPaths, currentStep, pins, colors, size]);
 
   return (
     <div ref={containerRef} className="relative aspect-square w-full max-w-[500px] mx-auto">

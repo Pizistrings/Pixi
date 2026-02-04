@@ -48,12 +48,10 @@
  * The mainPage value must match a key in the PAGES object exactly.
  */
 import StringArt from './pages/StringArt';
-import SharedProject from './pages/SharedProject';
 
 
 export const PAGES = {
     "StringArt": StringArt,
-    "SharedProject": SharedProject,
 }
 
 export const pagesConfig = {

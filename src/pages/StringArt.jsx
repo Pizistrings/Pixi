@@ -26,6 +26,8 @@ export default function StringArt() {
   const [colorLayers, setColorLayers] = useState([]);
   const [numPins, setNumPins] = useState(200);
   const [numStrings, setNumStrings] = useState(3000);
+  const [lineWidth, setLineWidth] = useState(0.3);
+  const [lineOpacity, setLineOpacity] = useState(0.15);
   const [isGenerated, setIsGenerated] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   
@@ -311,6 +313,8 @@ export default function StringArt() {
                     colors={colors}
                     isProcessing={isProcessing}
                     sourceImage={image}
+                    lineWidth={lineWidth}
+                    lineOpacity={lineOpacity}
                   />
                 </div>
                 
@@ -560,6 +564,38 @@ export default function StringArt() {
                             min={1000}
                             max={9000}
                             step={500}
+                            className="w-full"
+                          />
+                        </div>
+
+                        {/* Line Thickness */}
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label className="text-xs text-gray-500">Line Thickness</Label>
+                            <span className="text-xs text-gray-700 font-medium">{lineWidth.toFixed(1)}px</span>
+                          </div>
+                          <Slider
+                            value={[lineWidth]}
+                            onValueChange={([v]) => setLineWidth(v)}
+                            min={0.1}
+                            max={2}
+                            step={0.1}
+                            className="w-full"
+                          />
+                        </div>
+
+                        {/* Line Opacity */}
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label className="text-xs text-gray-500">Line Opacity</Label>
+                            <span className="text-xs text-gray-700 font-medium">{Math.round(lineOpacity * 100)}%</span>
+                          </div>
+                          <Slider
+                            value={[lineOpacity]}
+                            onValueChange={([v]) => setLineOpacity(v)}
+                            min={0.05}
+                            max={0.5}
+                            step={0.05}
                             className="w-full"
                           />
                         </div>

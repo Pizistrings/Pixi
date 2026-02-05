@@ -259,14 +259,34 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
+    // Define black line ranges
+    const firstBlackLines = 1500;
+    const lastBlackLines = 500;
+    const totalColorLines = numStrings - firstBlackLines - lastBlackLines;
+    
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
-      // Switch color if we've reached the run length
-      if (mode !== 'mono' && stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-        currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-        stringsInCurrentRun = 0;
-      }
+      let colorId;
       
-      const colorId = activeColors[currentColorIndex];
+      // First 1500 lines are black
+      if (totalStringsDrawn < firstBlackLines) {
+        colorId = 'K';
+      }
+      // Last lines are black for details
+      else if (totalStringsDrawn >= numStrings - lastBlackLines) {
+        colorId = 'K';
+      }
+      // Middle section uses color distribution
+      else if (mode !== 'mono') {
+        // Switch color if we've reached the run length
+        if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+          currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+          stringsInCurrentRun = 0;
+        }
+        colorId = activeColors[currentColorIndex];
+        stringsInCurrentRun++;
+      } else {
+        colorId = 'K';
+      }
       
       let bestPin = -1;
       let bestScore = -Infinity;

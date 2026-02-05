@@ -512,16 +512,82 @@ export default function StringArt() {
     } : { r: 0, g: 0, b: 0 };
   };
 
-  const generateQRCode = () => {
-    // Generate shareable pattern data
+  const generateQRCode = async () => {
+    if (!canvasRef.current) return;
+    
+    const QRCode = (await import('qrcode')).default;
+    
+    // Get the current canvas image as base64
+    const canvasImage = canvasRef.current.toDataURL('image/jpeg', 0.7);
+    
+    // Create shareable pattern data
     const patternData = {
+      image: canvasImage,
       colors: colorLayers,
       shape,
       numPins,
-      paths: stringPaths.slice(0, 100) // Sample data
+      totalSteps: totalSteps,
+      paths: stringPaths,
+      mode
     };
-    const dataUrl = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(patternData))}`;
-    window.open(dataUrl, '_blank');
+    
+    // Encode data and create shareable URL
+    const encodedData = btoa(JSON.stringify(patternData));
+    const shareUrl = `${window.location.origin}${window.location.pathname}#/pattern/${encodedData}`;
+    
+    // Generate QR code
+    const qrCanvas = document.createElement('canvas');
+    await QRCode.toCanvas(qrCanvas, shareUrl, { width: 300 });
+    
+    // Open QR code in new window
+    const qrWindow = window.open('', '_blank');
+    qrWindow.document.write(`
+      <html>
+        <head>
+          <title>String Art Pattern QR Code</title>
+          <style>
+            body {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              margin: 0;
+              font-family: system-ui, -apple-system, sans-serif;
+              background: #f5f5f5;
+            }
+            .container {
+              background: white;
+              padding: 2rem;
+              border-radius: 1rem;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+              text-align: center;
+            }
+            h1 {
+              margin: 0 0 1rem 0;
+              font-size: 1.5rem;
+              color: #333;
+            }
+            p {
+              margin: 0.5rem 0;
+              color: #666;
+              font-size: 0.9rem;
+            }
+            canvas {
+              margin: 1rem 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>String Art Pattern</h1>
+            <p>Scan this QR code to view and follow the pattern</p>
+            ${qrCanvas.outerHTML}
+            <p><small>${totalSteps.toLocaleString()} steps • ${colorLayers.length} colors</small></p>
+          </div>
+        </body>
+      </html>
+    `);
   };
 
   // Voice commands

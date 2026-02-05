@@ -51,6 +51,7 @@ import Editor from './pages/Editor';
 import Home from './pages/Home';
 import Knitting from './pages/Knitting';
 import StringArt from './pages/StringArt';
+import PatternView from './pages/PatternView';
 
 
 export const PAGES = {
@@ -58,6 +59,7 @@ export const PAGES = {
     "Home": Home,
     "Knitting": Knitting,
     "StringArt": StringArt,
+    "PatternView": PatternView,
 }
 
 export const pagesConfig = {

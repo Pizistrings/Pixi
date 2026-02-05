@@ -13,7 +13,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StringArtCanvas from '@/components/string-art/StringArtCanvas';
 import StepList from '@/components/string-art/StepList';
 import ImageUploader from '@/components/string-art/ImageUploader';
-import ImageCropper from '@/components/string-art/ImageCropper';
+import ImagePrep from '@/components/string-art/ImagePrep';
 
 export default function StringArt() {
   const [image, setImage] = useState(null);
@@ -721,12 +721,19 @@ export default function StringArt() {
           <ImageUploader onUpload={handleImageUpload} />
         ) : showCropper ? (
           <div className="max-w-2xl mx-auto">
-            <ImageCropper
+            <ImagePrep
               image={image}
               shape={shape}
               cropArea={cropArea}
+              brightness={brightness}
+              contrast={contrast}
+              sharpness={sharpness}
+              onImageChange={setImage}
               onCropChange={setCropArea}
-              onCropComplete={() => setShowCropper(false)}
+              onBrightnessChange={setBrightness}
+              onContrastChange={setContrast}
+              onSharpnessChange={setSharpness}
+              onComplete={() => setShowCropper(false)}
             />
           </div>
         ) : (

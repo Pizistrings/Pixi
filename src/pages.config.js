@@ -50,16 +50,16 @@
 import Editor from './pages/Editor';
 import Home from './pages/Home';
 import Knitting from './pages/Knitting';
-import StringArt from './pages/StringArt';
 import PatternView from './pages/PatternView';
+import StringArt from './pages/StringArt';
 
 
 export const PAGES = {
     "Editor": Editor,
     "Home": Home,
     "Knitting": Knitting,
-    "StringArt": StringArt,
     "PatternView": PatternView,
+    "StringArt": StringArt,
 }
 
 export const pagesConfig = {

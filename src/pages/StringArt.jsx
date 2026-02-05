@@ -515,84 +515,114 @@ export default function StringArt() {
   const generateQRCode = async () => {
     if (!canvasRef.current) return;
     
-    const QRCode = (await import('qrcode')).default;
-    const { base44 } = await import('@/api/base44Client');
-    
-    // Upload the canvas image
-    const blob = await new Promise(resolve => canvasRef.current.toBlob(resolve, 'image/jpeg', 0.7));
-    const imageFile = new File([blob], 'string-art.jpg', { type: 'image/jpeg' });
-    const { file_url } = await base44.integrations.Core.UploadFile({ file: imageFile });
-    
-    // Create pattern data
-    const patternData = {
-      img: file_url,
-      colors: colorLayers.map(c => ({ n: c.name, h: c.hex, c: c.count, id: c.id })),
-      pins: numPins,
-      total: totalSteps,
-      paths: stringPaths.map(p => ({ f: p.from, t: p.to, c: p.color }))
-    };
-    
-    // Upload pattern data as JSON file
-    const jsonBlob = new Blob([JSON.stringify(patternData)], { type: 'application/json' });
-    const jsonFile = new File([jsonBlob], 'pattern.json', { type: 'application/json' });
-    const { file_url: patternUrl } = await base44.integrations.Core.UploadFile({ file: jsonFile });
-    
-    // Create short shareable URL
-    const shareUrl = `${window.location.origin}${window.location.pathname}#pattern/${encodeURIComponent(patternUrl)}`;
-    
-    // Generate QR code
-    const qrCanvas = document.createElement('canvas');
-    await QRCode.toCanvas(qrCanvas, shareUrl, { width: 300, margin: 2 });
-    
-    // Open QR code in new window
-    const qrWindow = window.open('', '_blank');
-    qrWindow.document.write(`
-      <html>
-        <head>
-          <title>String Art Pattern QR Code</title>
-          <style>
-            body {
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-              min-height: 100vh;
-              margin: 0;
-              font-family: system-ui, -apple-system, sans-serif;
-              background: #f5f5f5;
-            }
-            .container {
-              background: white;
-              padding: 2rem;
-              border-radius: 1rem;
-              box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-              text-align: center;
-            }
-            h1 {
-              margin: 0 0 1rem 0;
-              font-size: 1.5rem;
-              color: #333;
-            }
-            p {
-              margin: 0.5rem 0;
-              color: #666;
-              font-size: 0.9rem;
-            }
-            canvas {
-              margin: 1rem 0;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>String Art Pattern</h1>
-            <p>Scan this QR code to view and follow the pattern</p>
-            ${qrCanvas.outerHTML}
-            <p><small>${totalSteps.toLocaleString()} steps • ${colorLayers.length} colors</small></p>
-          </div>
-        </body>
-      </html>
-    `);
+    try {
+      const QRCode = (await import('qrcode')).default;
+      const { base44 } = await import('@/api/base44Client');
+      
+      // Upload the canvas image
+      const blob = await new Promise(resolve => canvasRef.current.toBlob(resolve, 'image/jpeg', 0.7));
+      const imageFile = new File([blob], 'string-art.jpg', { type: 'image/jpeg' });
+      const { file_url } = await base44.integrations.Core.UploadFile({ file: imageFile });
+      
+      // Create pattern data
+      const patternData = {
+        img: file_url,
+        colors: colorLayers.map(c => ({ n: c.name, h: c.hex, c: c.count, id: c.id })),
+        pins: numPins,
+        total: totalSteps,
+        paths: stringPaths.map(p => ({ f: p.from, t: p.to, c: p.color }))
+      };
+      
+      // Upload pattern data as JSON file
+      const jsonBlob = new Blob([JSON.stringify(patternData)], { type: 'application/json' });
+      const jsonFile = new File([jsonBlob], 'pattern.json', { type: 'application/json' });
+      const { file_url: patternUrl } = await base44.integrations.Core.UploadFile({ file: jsonFile });
+      
+      // Create short shareable URL
+      const shareUrl = `${window.location.origin}${window.location.pathname}#pattern/${encodeURIComponent(patternUrl)}`;
+      
+      // Generate QR code
+      const qrCanvas = document.createElement('canvas');
+      await QRCode.toCanvas(qrCanvas, shareUrl, { width: 300, margin: 2, errorCorrectionLevel: 'L' });
+      
+      // Open QR code in new window
+      const qrWindow = window.open('', '_blank');
+      qrWindow.document.write(`
+        <html>
+          <head>
+            <title>String Art Pattern QR Code</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                font-family: system-ui, -apple-system, sans-serif;
+                background: #f5f5f5;
+                padding: 1rem;
+              }
+              .container {
+                background: white;
+                padding: 2rem;
+                border-radius: 1rem;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                text-align: center;
+                max-width: 400px;
+                width: 100%;
+              }
+              h1 {
+                margin: 0 0 1rem 0;
+                font-size: 1.5rem;
+                color: #333;
+              }
+              p {
+                margin: 0.5rem 0;
+                color: #666;
+                font-size: 0.9rem;
+              }
+              canvas {
+                margin: 1rem 0;
+                max-width: 100%;
+                height: auto;
+              }
+              .voice-note {
+                background: #fff3cd;
+                padding: 1rem;
+                border-radius: 0.5rem;
+                margin-top: 1rem;
+                font-size: 0.85rem;
+                text-align: left;
+              }
+              .voice-note strong { color: #856404; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>🧵 String Art Pattern</h1>
+              <p>Scan this QR code to view and follow the pattern on your phone</p>
+              ${qrCanvas.outerHTML}
+              <p><small>${totalSteps.toLocaleString()} steps • ${colorLayers.length} colors</small></p>
+              <div class="voice-note">
+                <strong>📱 Voice Control Enabled!</strong>
+                <p>Use voice commands on your phone:</p>
+                <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                  <li>"Next step"</li>
+                  <li>"Color next"</li>
+                  <li>"Play" / "Pause"</li>
+                </ul>
+                <p style="margin-top: 0.5rem;"><small>Delay: 1-10 seconds (adjustable in settings)</small></p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error('QR generation error:', error);
+      alert('Failed to generate QR code. The pattern might be too large.');
+    }
   };
 
   // Voice commands

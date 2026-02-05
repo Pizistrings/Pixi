@@ -53,12 +53,12 @@ export default function StringArt() {
   const [isGenerated, setIsGenerated] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showImageSettings, setShowImageSettings] = useState(false);
-  const [colorConfidenceThreshold, setColorConfidenceThreshold] = useState(0.35);
+  const [colorConfidenceThreshold, setColorConfidenceThreshold] = useState(0.30);
   const [globalColorIntensity, setGlobalColorIntensity] = useState(0.35);
-  const [desaturation, setDesaturation] = useState(50);
+  const [desaturation, setDesaturation] = useState(45);
   const [colorInfluenceWeight, setColorInfluenceWeight] = useState(60);
   const [channelWeights, setChannelWeights] = useState({
-    K: 60, C: 15, M: 15, Y: 10,
+    K: 60, C: 12, M: 12, Y: 12,
     R: 30, G: 20, B: 20
   });
   
@@ -264,9 +264,11 @@ export default function StringArt() {
             const channelWeight = channelWeights[color.id] || 25;
             colorPresence = similarity * saturation * (channelWeight / 100) * globalColorIntensity;
             
-            // Apply color confidence threshold
-            if (colorPresence < colorConfidenceThreshold) {
+            // Hard block only below 0.15 - reduce priority for weak colors but don't block
+            if (colorPresence < 0.15) {
               colorPresence = 0;
+            } else if (colorPresence < colorConfidenceThreshold) {
+              colorPresence *= 0.6; // Reduce priority, don't block completely
             }
           }
           
@@ -307,15 +309,48 @@ export default function StringArt() {
     
     const activeColors = mode === 'mono' ? ['K'] : colors.map(c => c.id);
     
-    // Calculate strings per color based on distribution
+    // Calculate strings per color based on distribution with quotas
     const stringsPerColorMap = {};
     if (mode === 'mono') {
       stringsPerColorMap.K = numStrings;
     } else {
       const totalPercent = activeColors.reduce((sum, id) => sum + colorDistribution[id], 0);
       activeColors.forEach(id => {
-        stringsPerColorMap[id] = Math.floor((colorDistribution[id] / totalPercent) * numStrings);
+        const targetPercent = colorDistribution[id] / totalPercent;
+        stringsPerColorMap[id] = Math.floor(targetPercent * numStrings);
       });
+      
+      // Apply channel quotas to prevent overpowering
+      const quotas = {
+        K: 0.65,  // Max 65% for black
+        Y: 0.15,  // Max 15% for yellow
+        C: 0.12,
+        M: 0.12,
+        R: 0.15,
+        G: 0.10,
+        B: 0.10
+      };
+      
+      activeColors.forEach(id => {
+        const maxAllowed = Math.floor(numStrings * (quotas[id] || 0.15));
+        stringsPerColorMap[id] = Math.min(stringsPerColorMap[id], maxAllowed);
+      });
+    }
+    
+    // Failsafe: ensure at least some color strings if in color mode
+    if (mode === 'color') {
+      let totalColorStrings = 0;
+      activeColors.forEach(id => {
+        if (id !== 'K') totalColorStrings += stringsPerColorMap[id];
+      });
+      
+      if (totalColorStrings < numStrings * 0.25) {
+        // Boost color allocation
+        const colorIds = activeColors.filter(id => id !== 'K');
+        colorIds.forEach(id => {
+          stringsPerColorMap[id] = Math.max(stringsPerColorMap[id], Math.floor(numStrings * 0.08));
+        });
+      }
     }
     
     for (const colorId of activeColors) {
@@ -346,6 +381,8 @@ export default function StringArt() {
           
           let score = 0;
           let maxIntensity = 0;
+          let avgIntensity = 0;
+          let sampleCount = 0;
           
           for (let t = 0; t < steps; t++) {
             const x = Math.floor(x1 + (x2 - x1) * t / steps);
@@ -353,13 +390,35 @@ export default function StringArt() {
             if (x >= 0 && x < size && y >= 0 && y < size) {
               const idx = y * size + x;
               const localColorIntensity = colorIntensityMaps[colorId][idx];
-              const pixelScore = workingData[colorId][idx] * (localColorIntensity * (colorInfluenceWeight / 100));
               
-              score += pixelScore;
+              // Color-aware scoring: intensity × influence weight
+              const pixelScore = workingData[colorId][idx] * localColorIntensity * (colorInfluenceWeight / 100);
+              
+              // Dynamic black balance: reduce black dominance in colorful areas
+              let finalScore = pixelScore;
+              if (colorId === 'K' && mode === 'color') {
+                // Check if other colors are strong here
+                let maxOtherColor = 0;
+                activeColors.forEach(otherId => {
+                  if (otherId !== 'K') {
+                    maxOtherColor = Math.max(maxOtherColor, colorIntensityMaps[otherId][idx]);
+                  }
+                });
+                
+                // If color is strong (>0.35), reduce black priority
+                if (maxOtherColor > 0.35) {
+                  finalScore *= 0.7;
+                }
+              }
+              
+              score += finalScore;
               maxIntensity = Math.max(maxIntensity, localColorIntensity);
+              avgIntensity += localColorIntensity;
+              sampleCount++;
             }
           }
           score /= steps;
+          avgIntensity = sampleCount > 0 ? avgIntensity / sampleCount : 0;
           
           if (score > bestScore) {
             bestScore = score;
@@ -369,7 +428,7 @@ export default function StringArt() {
         
         if (bestPin === -1) break;
         
-        // Calculate adaptive opacity for this line
+        // Calculate adaptive opacity with guaranteed visibility
         const x1 = pins[currentPin].x;
         const y1 = pins[currentPin].y;
         const x2 = pins[bestPin].x;
@@ -389,13 +448,19 @@ export default function StringArt() {
         }
         avgColorStrength = sampleCount > 0 ? avgColorStrength / sampleCount : 0;
         
+        // Adaptive opacity with guaranteed visibility
+        const baseOpacity = 0.014;
+        const opacityMultiplier = avgColorStrength * globalColorIntensity;
+        const clampedMultiplier = Math.max(0.35, Math.min(1.0, opacityMultiplier));
+        const finalOpacity = baseOpacity * clampedMultiplier;
+        
         // Add the string path with adaptive opacity
         paths.push({
           from: currentPin,
           to: bestPin,
           color: colorId,
           step: paths.length,
-          opacity: Math.max(0.015, avgColorStrength * 0.3)
+          opacity: Math.max(finalOpacity, 0.012) // Guaranteed minimum visibility
         });
         layerCounts[colorId]++;
         
@@ -931,7 +996,7 @@ export default function StringArt() {
                         step={0.05}
                         className="w-full"
                       />
-                      <p className="text-xs text-gray-400 mt-1">Higher = less noise, purer colors</p>
+                      <p className="text-xs text-gray-400 mt-1">Hard block below 0.15, reduce priority below this</p>
                     </div>
 
                     {/* Global Color Intensity */}

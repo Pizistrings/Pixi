@@ -245,14 +245,19 @@ export default function StringArt() {
     let currentPin = Math.floor(Math.random() * numPins);
     
     // Define line ranges with phase-based distribution
-    const colorPhaseEnd = Math.min(7000, numStrings);      // Phase 1: Lines 1-7k (80% colors, 20% black)
-    const structurePhaseStart = Math.min(7000, numStrings); // Phase 2: Lines 7k-9k (20% colors, 80% black)
+    const blackPhaseEnd = Math.min(1000, numStrings);       // Phase 1: Lines 1-1k (100% black)
+    const colorPhaseEnd = Math.min(8000, numStrings);       // Phase 2: Lines 2k-8k (80% colors, 20% black)
+    const finalBlackPhaseStart = Math.min(8000, numStrings); // Phase 3: Lines 8k-9k (100% black)
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      // Phase 1 (Lines 1-7k): 80% colors, 20% black
-      if (totalStringsDrawn < colorPhaseEnd) {
+      // Phase 1 (Lines 1-1k): 100% black
+      if (totalStringsDrawn < blackPhaseEnd) {
+        colorId = 'K';
+      }
+      // Phase 2 (Lines 2k-8k): 80% colors, 20% black
+      else if (totalStringsDrawn < colorPhaseEnd) {
         if (mode !== 'mono' && Math.random() > 0.2) {
           if (stringsInCurrentRun >= colorRunLength) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
@@ -264,18 +269,9 @@ export default function StringArt() {
           colorId = 'K';
         }
       }
-      // Phase 2 (Lines 7k-9k): 20% colors, 80% black
-      else if (totalStringsDrawn >= structurePhaseStart) {
-        if (mode !== 'mono' && Math.random() > 0.8) {
-          if (stringsInCurrentRun >= colorRunLength) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
-        }
+      // Phase 3 (Lines 8k-9k): 100% black
+      else if (totalStringsDrawn >= finalBlackPhaseStart) {
+        colorId = 'K';
       } else {
         colorId = 'K';
       }

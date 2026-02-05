@@ -259,54 +259,31 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // Define line ranges
-    const firstMixedLines = 1000;
-    const lastOutlineLines = Math.min(8000, Math.floor(numStrings * 0.8)); // Last 7-9k lines
+    // Define black line ranges
+    const firstBlackLines = 1500;
+    const lastBlackLines = 500;
+    const totalColorLines = numStrings - firstBlackLines - lastBlackLines;
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      // First 1000 lines: 75% black, 25% colors
-      if (totalStringsDrawn < firstMixedLines) {
-        if (mode !== 'mono' && Math.random() > 0.75) {
-          // Use color
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
-        }
+      // First 1500 lines are black
+      if (totalStringsDrawn < firstBlackLines) {
+        colorId = 'K';
       }
-      // Last 7-9k lines: more black for outline/details (60% black, 40% colors)
-      else if (totalStringsDrawn >= numStrings - lastOutlineLines) {
-        if (mode !== 'mono' && Math.random() > 0.6) {
-          // Use color
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
-        }
+      // Last lines are black for details
+      else if (totalStringsDrawn >= numStrings - lastBlackLines) {
+        colorId = 'K';
       }
-      // Middle section: more colors, less black (30% black, 70% colors)
+      // Middle section uses color distribution
       else if (mode !== 'mono') {
-        if (Math.random() > 0.3) {
-          // Use color distribution
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
+        // Switch color if we've reached the run length
+        if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+          currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+          stringsInCurrentRun = 0;
         }
+        colorId = activeColors[currentColorIndex];
+        stringsInCurrentRun++;
       } else {
         colorId = 'K';
       }
@@ -391,11 +368,10 @@ export default function StringArt() {
     setIsProcessing(false);
   }, [image, mode, numPins, numStrings, colors, colorDistribution, shape, brightness, contrast, sharpness, cropArea, minPinDistance]);
 
-  // Animation loop - 60 seconds total duration
+  // Animation loop
   useEffect(() => {
     if (isPlaying && currentStep < totalSteps) {
-      // Calculate interval to complete in 60 seconds
-      const interval = (60000 / totalSteps);
+      const interval = Math.max(1, 100 / speed);
       animationRef.current = setTimeout(() => {
         setCurrentStep(prev => Math.min(prev + 1, totalSteps));
       }, interval);
@@ -408,7 +384,7 @@ export default function StringArt() {
         clearTimeout(animationRef.current);
       }
     };
-  }, [isPlaying, currentStep, totalSteps]);
+  }, [isPlaying, currentStep, totalSteps, speed]);
 
   const handlePlayPause = () => {
     if (currentStep >= totalSteps) {
@@ -434,9 +410,10 @@ export default function StringArt() {
   };
 
   const getElapsedTime = () => {
-    // Calculate elapsed time based on 60-second total duration
-    const seconds = Math.floor((currentStep / totalSteps) * 60);
-    return `${seconds}s / 60s`;
+    const seconds = Math.floor(currentStep / speed);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes} minute${minutes !== 1 ? 's' : ''} ${remainingSeconds} second${remainingSeconds !== 1 ? 's' : ''}`;
   };
 
   const downloadCanvas = () => {
@@ -817,9 +794,19 @@ export default function StringArt() {
                       )}
                     </Button>
                     
-                    <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-md border border-gray-200">
-                      <span className="text-xs text-gray-500">60s</span>
-                    </div>
+                    <Select value={speed.toString()} onValueChange={(v) => setSpeed(Number(v))}>
+                      <SelectTrigger className="w-24 bg-white border-gray-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">⏱ 1x</SelectItem>
+                        <SelectItem value="5">⏱ 5x</SelectItem>
+                        <SelectItem value="10">⏱ 10x</SelectItem>
+                        <SelectItem value="25">⏱ 25x</SelectItem>
+                        <SelectItem value="50">⏱ 50x</SelectItem>
+                        <SelectItem value="100">⏱ 100x</SelectItem>
+                      </SelectContent>
+                    </Select>
                     
                     <Button
                       variant="ghost"

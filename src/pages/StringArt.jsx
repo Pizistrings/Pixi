@@ -407,73 +407,17 @@ export default function StringArt() {
     const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF();
     
-    // Page 1: Pattern Overview
-    pdf.setFontSize(20);
-    pdf.text('String Art Pattern', 105, 20, { align: 'center' });
-    
-    // Add canvas image
-    if (canvasRef.current) {
-      const imgData = canvasRef.current.toDataURL('image/png');
-      pdf.addImage(imgData, 'PNG', 15, 30, 90, 90);
-    }
-    
-    // Current Step Info (right side)
-    pdf.setFontSize(12);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text('Current step', 120, 40);
-    pdf.setFontSize(48);
-    pdf.text(currentStep.toString(), 120, 70);
-    
-    // Step list preview
-    pdf.setFontSize(10);
-    pdf.text('Step list', 160, 40);
-    const recentSteps = stringPaths.slice(Math.max(0, currentStep - 4), currentStep + 4);
-    recentSteps.forEach((path, idx) => {
-      const y = 50 + (idx * 8);
-      const step = Math.max(0, currentStep - 4) + idx + 1;
-      const color = colorLayers.find(l => l.id === path.color);
-      if (color) {
-        const rgb = hexToRgb(color.hex);
-        pdf.setFillColor(rgb.r, rgb.g, rgb.b);
-        pdf.circle(162, y - 2, 2, 'F');
-        pdf.setTextColor(0, 0, 0);
-        pdf.text(step.toString(), 167, y);
-      }
-    });
-    
-    // Color info
-    pdf.setFontSize(12);
-    pdf.text('Colors:', 120, 130);
-    colorLayers.forEach((layer, idx) => {
-      const y = 140 + (idx * 15);
-      const rgb = hexToRgb(layer.hex);
-      pdf.setFillColor(rgb.r, rgb.g, rgb.b);
-      pdf.circle(125, y - 3, 4, 'F');
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(`${layer.name}`, 135, y);
-      pdf.setFontSize(10);
-      pdf.text(`${layer.count} lines`, 135, y + 5);
-      pdf.setFontSize(12);
-    });
-    
-    pdf.text(`Total: ${totalSteps} steps`, 120, 140 + (colorLayers.length * 15) + 10);
-    
-    // Page 2+: Detailed Instructions
-    let currentY = 20;
-    let currentPage = 1;
-    let stepCounter = 1;
-    
-    // Group steps by color
-    const colorGroups = [];
-    let currentColorGroup = null;
+    // Group consecutive color runs
+    const colorRuns = [];
+    let currentRun = null;
     
     stringPaths.forEach((path, idx) => {
-      if (!currentColorGroup || currentColorGroup.colorId !== path.color) {
-        if (currentColorGroup) {
-          colorGroups.push(currentColorGroup);
+      if (!currentRun || currentRun.colorId !== path.color) {
+        if (currentRun) {
+          colorRuns.push(currentRun);
         }
         const color = colorLayers.find(l => l.id === path.color);
-        currentColorGroup = {
+        currentRun = {
           colorId: path.color,
           colorName: color?.name || 'Unknown',
           colorHex: color?.hex || '#000000',
@@ -481,78 +425,76 @@ export default function StringArt() {
           steps: []
         };
       }
-      currentColorGroup.steps.push({ from: path.from, to: path.to, stepNum: idx + 1 });
+      currentRun.steps.push({ 
+        stepNum: idx + 1, 
+        fromPin: path.from, 
+        toPin: path.to 
+      });
     });
-    if (currentColorGroup) {
-      colorGroups.push(currentColorGroup);
+    if (currentRun) {
+      colorRuns.push(currentRun);
     }
     
-    // Add new page for instructions
-    pdf.addPage();
-    currentPage++;
+    // Start PDF generation
+    let currentY = 20;
     
-    pdf.setFontSize(18);
-    pdf.text('Step-by-Step Instructions', 105, 20, { align: 'center' });
-    currentY = 35;
-    
-    colorGroups.forEach((group, groupIdx) => {
-      const rgb = hexToRgb(group.colorHex);
-      const endStep = group.startStep + group.steps.length - 1;
+    colorRuns.forEach((run, runIdx) => {
+      const rgb = hexToRgb(run.colorHex);
+      const endStep = run.startStep + run.steps.length - 1;
       
       // Check if we need a new page
-      if (currentY > 250) {
+      if (currentY > 260) {
         pdf.addPage();
-        currentPage++;
         currentY = 20;
       }
       
-      // Color header
+      // Color header with circle
       pdf.setFillColor(rgb.r, rgb.g, rgb.b);
-      pdf.circle(20, currentY - 2, 4, 'F');
-      pdf.setTextColor(rgb.r, rgb.g, rgb.b);
+      pdf.circle(15, currentY, 5, 'F');
       pdf.setFontSize(14);
-      pdf.text(group.colorName, 30, currentY);
-      currentY += 8;
+      pdf.setTextColor(rgb.r, rgb.g, rgb.b);
+      pdf.text(run.colorName, 25, currentY + 4);
+      currentY += 12;
       
-      pdf.setTextColor(0, 0, 0);
-      pdf.setFontSize(12);
-      pdf.text(`Steps ${group.startStep}-${endStep}`, 20, currentY);
-      currentY += 8;
+      // Step range
+      pdf.setFontSize(11);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Steps ${run.startStep}-${endStep}`, 15, currentY);
+      currentY += 10;
       
       // Print steps in columns
-      pdf.setFontSize(9);
-      const stepsPerRow = 5;
-      const colWidth = 35;
+      pdf.setFontSize(10);
+      pdf.setTextColor(0, 0, 0);
+      const itemsPerRow = 6;
+      const colWidth = 30;
       
-      group.steps.forEach((step, idx) => {
-        const col = idx % stepsPerRow;
-        const row = Math.floor(idx / stepsPerRow);
-        const x = 20 + (col * colWidth);
+      run.steps.forEach((step, idx) => {
+        const col = idx % itemsPerRow;
+        const row = Math.floor(idx / itemsPerRow);
+        const x = 15 + (col * colWidth);
         const y = currentY + (row * 6);
         
-        // Check if we need a new page
+        // Check if we need a new page mid-section
         if (y > 270) {
           pdf.addPage();
-          currentPage++;
           currentY = 20;
           
-          // Reprint color header on new page
+          // Reprint color header
           pdf.setFillColor(rgb.r, rgb.g, rgb.b);
-          pdf.circle(20, currentY - 2, 4, 'F');
-          pdf.setTextColor(rgb.r, rgb.g, rgb.b);
+          pdf.circle(15, currentY, 5, 'F');
           pdf.setFontSize(14);
-          pdf.text(group.colorName + ' (cont.)', 30, currentY);
-          currentY += 8;
+          pdf.setTextColor(rgb.r, rgb.g, rgb.b);
+          pdf.text(run.colorName, 25, currentY + 4);
+          currentY += 12;
+          pdf.setFontSize(10);
           pdf.setTextColor(0, 0, 0);
-          pdf.setFontSize(9);
-          
           return;
         }
         
-        pdf.text(`${step.stepNum} → ${step.to}`, x, y);
+        pdf.text(`${step.stepNum} - ${step.toPin}`, x, y);
       });
       
-      currentY += Math.ceil(group.steps.length / stepsPerRow) * 6 + 10;
+      currentY += Math.ceil(run.steps.length / itemsPerRow) * 6 + 15;
     });
     
     pdf.save('string-art-pattern.pdf');

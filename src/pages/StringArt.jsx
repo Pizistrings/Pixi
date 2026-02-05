@@ -287,93 +287,59 @@ export default function StringArt() {
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
-      const progress = totalStringsDrawn / numStrings;
       
-      // First 1000 lines: 70% black + 30% colors placed where image has detail
-      if (totalStringsDrawn < firstColorLines) {
-        let shouldUseColor = false;
-        
-        // Check image content to place colors strategically
-        const testPin = Math.floor(Math.random() * numPins);
-        if (testPin < numPins) {
-          // Calculate average color presence at this pin location
-          let colorPresence = 0;
-          activeColors.forEach(colorId => {
-            if (colorId !== 'K' && workingData[colorId]) {
-              colorPresence += workingData[colorId][testPin] || 0;
-            }
-          });
-          colorPresence = colorPresence / (activeColors.length - 1);
-          
-          // Use colors where image has strong color information (70% black, 30% colors)
-          shouldUseColor = Math.random() < (0.3 + colorPresence * 0.2);
-        } else {
-          shouldUseColor = Math.random() < 0.3; // Default 30% colors
-        }
-        
-        if (shouldUseColor) {
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
-        }
-      }
-      // 1k-5k lines: Gradually increase colors based on image content
-      else if (totalStringsDrawn < midColorStart) {
-        // Sample pixels along the line to determine black usage
-        let shouldUseColor = false;
-        
-        // Use color where image has detail (high working data values)
-        const nextPin = Math.floor(Math.random() * numPins);
-        if (nextPin < numPins && nextPin < workingData[activeColors[0]]?.length) {
-          const sampleValue = workingData[activeColors[currentColorIndex]]?.[nextPin] || 0;
-          // Use colors where there's color detail in the image
-          shouldUseColor = sampleValue > (0.5 * blackAdjustment);
-        } else {
-          shouldUseColor = Math.random() < 0.4; // Default 40% colors
-        }
-        
-        if (shouldUseColor) {
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
-        }
-      }
-      // 5k-7k lines: 70% colors, 30% black
-      else if (totalStringsDrawn >= midColorStart && totalStringsDrawn < midColorEnd) {
-        const shouldUseBlack = Math.random() < 0.3; // 30% black
-        if (shouldUseBlack) {
-          colorId = 'K';
-        } else {
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        }
-      }
-      // 8k-9k lines: 100% solid black
-      else if (totalStringsDrawn >= solidBlackStart) {
+      // Standard separation: Black → Red → Yellow → White → Black → Image-based fill
+      if (totalStringsDrawn < firstBlackLines) {
+        // First 1.5k: Pure black for base structure
         colorId = 'K';
       }
-      // 7k-8k: transition back to black
-      else {
-        const shouldUseColor = Math.random() < 0.2;
-        if (shouldUseColor) {
-          colorId = activeColors[Math.floor(Math.random() * activeColors.length)];
+      else if (totalStringsDrawn < firstBlackLines + redLines && colorSeparationOrder.includes('R')) {
+        // Next 1.5k: Red layer
+        colorId = 'R';
+      }
+      else if (totalStringsDrawn < firstBlackLines + redLines + yellowLines && colorSeparationOrder.includes('Y')) {
+        // Next 1.5k: Yellow layer
+        colorId = 'Y';
+      }
+      else if (totalStringsDrawn < firstBlackLines + redLines + yellowLines + whiteLines && colorSeparationOrder.includes('W')) {
+        // Next 1.5k: White layer
+        colorId = 'W';
+      }
+      else if (totalStringsDrawn < firstBlackLines + redLines + yellowLines + whiteLines + secondBlackLines) {
+        // Next 1k: Black again for separation and details
+        colorId = 'K';
+      }
+      else if (totalStringsDrawn < imageFillStart) {
+        // Transition zone: Mix with some structure
+        colorId = Math.random() < 0.5 ? 'K' : (activeColors[Math.floor(Math.random() * activeColors.length)]);
+      }
+      else if (totalStringsDrawn < solidBlackStart) {
+        // 7k-8.5k: Fill with additional colors based on image content
+        if (additionalColors.length > 0) {
+          // For additional colors, use image data to place them intelligently
+          let bestColor = additionalColors[0];
+          let bestScore = -Infinity;
+          
+          // Find which additional color matches best at a test pin
+          const testPin = Math.floor(Math.random() * numPins);
+          if (testPin < numPins) {
+            additionalColors.forEach(cId => {
+              const score = workingData[cId]?.[testPin] || 0;
+              if (score > bestScore) {
+                bestScore = score;
+                bestColor = cId;
+              }
+            });
+          }
+          
+          colorId = bestColor;
         } else {
           colorId = 'K';
         }
+      }
+      else {
+        // 8.5k+: Final black for outline
+        colorId = 'K';
       }
       
       let bestPin = -1;

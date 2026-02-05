@@ -8,8 +8,6 @@ export default function StepList({
   currentStep, 
   stringPaths, 
   mode, 
-  colorDistribution = {}, 
-  onColorDistributionChange,
   totalStrings,
   selectedColors = [],
   setSelectedColors,
@@ -156,52 +154,7 @@ export default function StepList({
         </div>
       )}
 
-      {/* Color Distribution Controls */}
-      {mode === 'color' && onColorDistributionChange && colorLayers.length === 0 && (
-        <div className="mt-6 pt-4 border-t border-gray-100">
-          <h4 className="text-xs text-gray-400 mb-3 uppercase tracking-wider">
-            Color Run (Lines Per Color Block)
-          </h4>
-          <p className="text-xs text-gray-500 mb-4">
-            Control how many lines to draw before switching colors (50-250)
-          </p>
-          <div className="space-y-4">
-            {selectedColors.slice(0, numColors).map(color => {
-              const lines = colorDistribution[color.id] || 100;
-              
-              return (
-                <div key={color.id}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full shadow-inner"
-                        style={{ backgroundColor: color.hex }}
-                      />
-                      <Label className="text-xs text-gray-600">{color.name}</Label>
-                    </div>
-                    <span className="text-xs text-gray-700 font-medium">
-                      {lines} lines/block
-                    </span>
-                  </div>
-                  <Slider
-                    value={[lines]}
-                    onValueChange={([v]) => {
-                      onColorDistributionChange(prev => ({
-                        ...prev,
-                        [color.id]: v
-                      }));
-                    }}
-                    min={50}
-                    max={250}
-                    step={10}
-                    className="w-full"
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+
 
       {/* Generated Results - Editable Colors */}
       {colorLayers.length > 0 && (

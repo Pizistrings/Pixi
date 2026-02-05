@@ -1048,7 +1048,10 @@ export default function StringArt() {
                   {/* Shape Selection */}
                   <div>
                     <Label className="text-xs text-gray-500 mb-2 block">Shape</Label>
-                    <Tabs value={shape} onValueChange={setShape}>
+                    <Tabs value={shape} onValueChange={(s) => {
+                      setShape(s);
+                      setShowCropper(true);
+                    }}>
                       <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="circle">Circle</TabsTrigger>
                         <TabsTrigger value="square">Square</TabsTrigger>

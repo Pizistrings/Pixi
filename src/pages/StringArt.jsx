@@ -271,11 +271,19 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
+    // Define standard color separation order: Black → Red → Yellow → White → Black → Others based on image
+    const colorSeparationOrder = ['K', 'R', 'Y', 'W']; // Standard separation
+    const additionalColors = activeColors.filter(c => !colorSeparationOrder.includes(c));
+    const fullColorOrder = [...colorSeparationOrder, ...additionalColors];
+    
     // Define color line ranges
-    const firstColorLines = 1000;
-    const midColorStart = 5000;
-    const midColorEnd = 7000;
-    const solidBlackStart = 8000;
+    const firstBlackLines = 1500;      // First 1.5k: Black only for base structure
+    const redLines = 1500;              // Next 1.5k: Red
+    const yellowLines = 1500;           // Next 1.5k: Yellow
+    const whiteLines = 1500;            // Next 1.5k: White
+    const secondBlackLines = 1000;      // Next 1k: Black for separation/details
+    const imageFillStart = 7000;        // 7k+: Fill with colors based on image content
+    const solidBlackStart = 8500;
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;

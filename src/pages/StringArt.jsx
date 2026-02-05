@@ -13,7 +13,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StringArtCanvas from '@/components/string-art/StringArtCanvas';
 import StepList from '@/components/string-art/StepList';
 import ImageUploader from '@/components/string-art/ImageUploader';
-import ImagePrep from '@/components/string-art/ImagePrep';
 
 export default function StringArt() {
   const [image, setImage] = useState(null);
@@ -41,7 +40,12 @@ export default function StringArt() {
     { name: 'Blue', hex: '#2563eb', id: 'B' },
     { name: 'Orange', hex: '#ea580c', id: 'O' }
   ]);
-  const [colorRunLength, setColorRunLength] = useState(100);
+  const [colorDistribution, setColorDistribution] = useState({
+    C: 100,
+    M: 100,
+    Y: 100,
+    K: 150
+  });
   const [shape, setShape] = useState('circle'); // 'circle', 'square', 'rectangle'
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
@@ -54,8 +58,6 @@ export default function StringArt() {
   const [voiceDelay, setVoiceDelay] = useState(3);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [minPinDistance, setMinPinDistance] = useState(30);
-  const [showCropper, setShowCropper] = useState(false);
-  const [colorSeparationRatio, setColorSeparationRatio] = useState(23.33);
   
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -77,7 +79,6 @@ export default function StringArt() {
 
   const generateStringArt = useCallback(async () => {
     if (!image) return;
-    setIsGenerated(false);
     
     setIsProcessing(true);
     setCurrentStep(0);
@@ -244,27 +245,32 @@ export default function StringArt() {
     
     const activeColors = mode === 'mono' ? ['K'] : colors.map(c => c.id);
     
+    // Use color run to alternate between colors
+    const colorRunLengths = {};
+    if (mode === 'mono') {
+      colorRunLengths.K = numStrings;
+    } else {
+      activeColors.forEach(id => {
+        colorRunLengths[id] = colorDistribution[id] || 100;
+      });
+    }
+    
     let currentColorIndex = 0;
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // Define line ranges with phase-based distribution
-    const blackPhaseEnd = Math.min(1000, numStrings);       // Phase 1: Lines 1-1k (100% black)
-    const colorPhaseEnd = Math.min(7000, numStrings);       // Phase 2: Lines 2k-7k (90% colors, 10% black)
-    const finalColorPhaseStart = Math.min(7000, numStrings); // Phase 3: Lines 8k-9k (10% colors, 90% black)
+    // Define line ranges
+    const firstMixedLines = 1000;
+    const lastOutlineLines = Math.min(8000, Math.floor(numStrings * 0.8)); // Last 7-9k lines
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      // Phase 1 (Lines 1-1k): 100% black
-      if (totalStringsDrawn < blackPhaseEnd) {
-        colorId = 'K';
-      }
-      // Phase 2 (Lines 2k-7k): Adjustable color/black ratio
-      else if (totalStringsDrawn < colorPhaseEnd) {
-        const colorThreshold = colorSeparationRatio / 100;
-        if (mode !== 'mono' && Math.random() < colorThreshold) {
-          if (stringsInCurrentRun >= colorRunLength) {
+      // First 1000 lines: 75% black, 25% colors
+      if (totalStringsDrawn < firstMixedLines) {
+        if (mode !== 'mono' && Math.random() > 0.75) {
+          // Use color
+          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;
           }
@@ -274,9 +280,33 @@ export default function StringArt() {
           colorId = 'K';
         }
       }
-      // Phase 3 (Lines 8k-9k): 100% black
-      else if (totalStringsDrawn >= finalColorPhaseStart) {
-        colorId = 'K';
+      // Last 7-9k lines: more black for outline/details (60% black, 40% colors)
+      else if (totalStringsDrawn >= numStrings - lastOutlineLines) {
+        if (mode !== 'mono' && Math.random() > 0.6) {
+          // Use color
+          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+            stringsInCurrentRun = 0;
+          }
+          colorId = activeColors[currentColorIndex];
+          stringsInCurrentRun++;
+        } else {
+          colorId = 'K';
+        }
+      }
+      // Middle section: more colors, less black (30% black, 70% colors)
+      else if (mode !== 'mono') {
+        if (Math.random() > 0.3) {
+          // Use color distribution
+          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+            stringsInCurrentRun = 0;
+          }
+          colorId = activeColors[currentColorIndex];
+          stringsInCurrentRun++;
+        } else {
+          colorId = 'K';
+        }
       } else {
         colorId = 'K';
       }
@@ -359,7 +389,7 @@ export default function StringArt() {
     setTotalSteps(paths.length);
     setIsGenerated(true);
     setIsProcessing(false);
-  }, [image, mode, numPins, numStrings, colors, colorRunLength, shape, brightness, contrast, sharpness, cropArea, minPinDistance, colorSeparationRatio]);
+  }, [image, mode, numPins, numStrings, colors, colorDistribution, shape, brightness, contrast, sharpness, cropArea, minPinDistance]);
 
   // Animation loop - 60 seconds total duration
   useEffect(() => {
@@ -703,14 +733,6 @@ export default function StringArt() {
     setColorLayers(updatedLayers);
   };
 
-  // Edit color line count
-  const handleColorCountChange = (colorId, newCount) => {
-    const updatedLayers = colorLayers.map(layer => 
-      layer.id === colorId ? { ...layer, count: newCount } : layer
-    );
-    setColorLayers(updatedLayers);
-  };
-
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -730,23 +752,6 @@ export default function StringArt() {
 
         {!image ? (
           <ImageUploader onUpload={handleImageUpload} />
-        ) : showCropper ? (
-          <div className="max-w-2xl mx-auto">
-            <ImagePrep
-              image={image}
-              shape={shape}
-              cropArea={cropArea}
-              brightness={brightness}
-              contrast={contrast}
-              sharpness={sharpness}
-              onImageChange={setImage}
-              onCropChange={setCropArea}
-              onBrightnessChange={setBrightness}
-              onContrastChange={setContrast}
-              onSharpnessChange={setSharpness}
-              onComplete={() => setShowCropper(false)}
-            />
-          </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Canvas Area */}
@@ -878,14 +883,6 @@ export default function StringArt() {
                 </Button>
                 
                 <Button
-                  variant="outline"
-                  onClick={() => setShowCropper(true)}
-                  className="flex-1"
-                >
-                  🖼️ Crop Image
-                </Button>
-                
-                <Button
                   onClick={generateStringArt}
                   disabled={isProcessing}
                   className="flex-1 bg-[#ff6b35] hover:bg-[#e55a2b] text-white"
@@ -1011,12 +1008,13 @@ export default function StringArt() {
                 currentStep={currentStep}
                 stringPaths={stringPaths}
                 mode={mode}
+                colorDistribution={colorDistribution}
+                onColorDistributionChange={setColorDistribution}
                 totalStrings={numStrings}
                 selectedColors={selectedColors}
                 setSelectedColors={setSelectedColors}
                 numColors={numColors}
                 onEditColor={handleEditColor}
-                onColorCountChange={handleColorCountChange}
                 isGenerated={isGenerated}
               />
 
@@ -1067,10 +1065,7 @@ export default function StringArt() {
                   {/* Shape Selection */}
                   <div>
                     <Label className="text-xs text-gray-500 mb-2 block">Shape</Label>
-                    <Tabs value={shape} onValueChange={(s) => {
-                      setShape(s);
-                      setShowCropper(true);
-                    }}>
+                    <Tabs value={shape} onValueChange={setShape}>
                       <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="circle">Circle</TabsTrigger>
                         <TabsTrigger value="square">Square</TabsTrigger>
@@ -1273,39 +1268,6 @@ export default function StringArt() {
                             step={5}
                             className="w-full"
                           />
-                        </div>
-
-                        {/* Color Run Length */}
-                        <div>
-                          <div className="flex justify-between mb-2">
-                            <Label className="text-xs text-gray-500">Color Run Length</Label>
-                            <span className="text-xs text-gray-700 font-medium">{colorRunLength}</span>
-                          </div>
-                          <Slider
-                            value={[colorRunLength]}
-                            onValueChange={([v]) => setColorRunLength(v)}
-                            min={50}
-                            max={250}
-                            step={10}
-                            className="w-full"
-                          />
-                        </div>
-
-                        {/* Color Separation Ratio */}
-                        <div>
-                          <div className="flex justify-between mb-2">
-                            <Label className="text-xs text-gray-500">Color Separation (Phase 2)</Label>
-                            <span className="text-xs text-gray-700 font-medium">{colorSeparationRatio.toFixed(1)}%</span>
-                          </div>
-                          <Slider
-                            value={[colorSeparationRatio]}
-                            onValueChange={([v]) => setColorSeparationRatio(v)}
-                            min={0}
-                            max={100}
-                            step={0.1}
-                            className="w-full"
-                          />
-                          <p className="text-xs text-gray-400 mt-2">Colors in lines 2-7k phase</p>
                         </div>
                       </motion.div>
                     )}

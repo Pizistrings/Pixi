@@ -8,13 +8,14 @@ export default function StepList({
   currentStep, 
   stringPaths, 
   mode, 
+  colorDistribution = {}, 
+  onColorDistributionChange,
   totalStrings,
   selectedColors = [],
   setSelectedColors,
   numColors = 4,
   onEditColor,
-  isGenerated = false,
-  onColorCountChange
+  isGenerated = false
 }) {
   // Calculate cumulative steps for each color
   const getStepRanges = () => {
@@ -155,7 +156,52 @@ export default function StepList({
         </div>
       )}
 
-
+      {/* Color Distribution Controls */}
+      {mode === 'color' && onColorDistributionChange && colorLayers.length === 0 && (
+        <div className="mt-6 pt-4 border-t border-gray-100">
+          <h4 className="text-xs text-gray-400 mb-3 uppercase tracking-wider">
+            Color Run (Lines Per Color Block)
+          </h4>
+          <p className="text-xs text-gray-500 mb-4">
+            Control how many lines to draw before switching colors (50-250)
+          </p>
+          <div className="space-y-4">
+            {selectedColors.slice(0, numColors).map(color => {
+              const lines = colorDistribution[color.id] || 100;
+              
+              return (
+                <div key={color.id}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full shadow-inner"
+                        style={{ backgroundColor: color.hex }}
+                      />
+                      <Label className="text-xs text-gray-600">{color.name}</Label>
+                    </div>
+                    <span className="text-xs text-gray-700 font-medium">
+                      {lines} lines/block
+                    </span>
+                  </div>
+                  <Slider
+                    value={[lines]}
+                    onValueChange={([v]) => {
+                      onColorDistributionChange(prev => ({
+                        ...prev,
+                        [color.id]: v
+                      }));
+                    }}
+                    min={50}
+                    max={250}
+                    step={10}
+                    className="w-full"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Generated Results - Editable Colors */}
       {colorLayers.length > 0 && (
@@ -197,7 +243,7 @@ export default function StepList({
                   
                   {colorLayers.length > 1 && (
                     <>
-                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mb-2">
+                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mb-1">
                         <div 
                           className="h-full transition-all duration-300"
                           style={{ 
@@ -207,25 +253,9 @@ export default function StepList({
                           }}
                         />
                       </div>
-                      <div className="flex justify-between text-xs text-gray-400 mb-2">
+                      <div className="flex justify-between text-xs text-gray-400">
                         <span>Steps {layersWithRanges[idx].startStep + 1}-{layersWithRanges[idx].endStep}</span>
                         <span>{progress}%</span>
-                      </div>
-                      
-                      {/* Editable line count slider */}
-                      <div className="mt-2">
-                        <div className="flex justify-between mb-1">
-                          <Label className="text-xs text-gray-500">Line count</Label>
-                          <span className="text-xs text-gray-700 font-medium">{layer.count}</span>
-                        </div>
-                        <Slider
-                          value={[layer.count]}
-                          onValueChange={([v]) => onColorCountChange?.(layer.id, v)}
-                          min={10}
-                          max={totalStrings}
-                          step={10}
-                          className="w-full"
-                        />
                       </div>
                     </>
                   )}

@@ -33,6 +33,12 @@ export default function PatternView() {
             paths: decoded.paths.map(p => ({ from: p.f, to: p.t, color: p.c }))
           };
           setPattern(fullPattern);
+          
+          // Resume last step from localStorage
+          const savedStep = localStorage.getItem('stringArtStep');
+          if (savedStep) {
+            setCurrentStep(parseInt(savedStep));
+          }
         })
         .catch(e => {
           console.error('Failed to load pattern data:', e);
@@ -40,6 +46,75 @@ export default function PatternView() {
         });
     }
   }, [data]);
+
+  // Save progress
+  useEffect(() => {
+    if (pattern && currentStep > 0) {
+      localStorage.setItem('stringArtStep', currentStep.toString());
+    }
+  }, [currentStep, pattern]);
+
+  // Voice announcement
+  useEffect(() => {
+    if (!voiceEnabled || !pattern || currentStep === lastAnnouncedStep || currentStep === 0) return;
+    
+    const announcementTimer = setTimeout(() => {
+      if ('speechSynthesis' in window) {
+        // Cancel any ongoing speech
+        window.speechSynthesis.cancel();
+        
+        const currentPath = pattern.paths[currentStep - 1];
+        if (!currentPath) return;
+        
+        const currentColor = pattern.colors.find(c => c.id === currentPath.color);
+        const previousPath = pattern.paths[currentStep - 2];
+        
+        let text = '';
+        
+        // Check if color changed
+        if (!previousPath || previousPath.color !== currentPath.color) {
+          text = `Change color to ${currentColor?.name || 'unknown'}. `;
+        }
+        
+        text += `From pin ${currentPath.from} to pin ${currentPath.to}`;
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        
+        utteranceRef.current = utterance;
+        window.speechSynthesis.speak(utterance);
+        
+        setLastAnnouncedStep(currentStep);
+      }
+    }, voiceDelay * 1000);
+    
+    return () => clearTimeout(announcementTimer);
+  }, [currentStep, voiceEnabled, voiceDelay, pattern, lastAnnouncedStep]);
+
+  // Keep screen awake
+  useEffect(() => {
+    let wakeLock = null;
+    
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (err) {
+        console.log('Wake lock failed:', err);
+      }
+    };
+    
+    requestWakeLock();
+    
+    return () => {
+      if (wakeLock) {
+        wakeLock.release();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (isPlaying && pattern && currentStep < pattern.totalSteps) {

@@ -517,27 +517,29 @@ export default function StringArt() {
     
     const QRCode = (await import('qrcode')).default;
     
-    // Get the current canvas image as base64
-    const canvasImage = canvasRef.current.toDataURL('image/jpeg', 0.7);
+    // Upload the canvas image first
+    const blob = await new Promise(resolve => canvasRef.current.toBlob(resolve, 'image/jpeg', 0.7));
+    const file = new File([blob], 'string-art.jpg', { type: 'image/jpeg' });
     
-    // Create shareable pattern data
+    const { base44 } = await import('@/api/base44Client');
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    
+    // Create compact shareable pattern data with essential info only
     const patternData = {
-      image: canvasImage,
-      colors: colorLayers,
-      shape,
-      numPins,
-      totalSteps: totalSteps,
-      paths: stringPaths,
-      mode
+      img: file_url,
+      colors: colorLayers.map(c => ({ n: c.name, h: c.hex, c: c.count, id: c.id })),
+      pins: numPins,
+      total: totalSteps,
+      paths: stringPaths.map(p => ({ f: p.from, t: p.to, c: p.color }))
     };
     
     // Encode data and create shareable URL
     const encodedData = btoa(JSON.stringify(patternData));
-    const shareUrl = `${window.location.origin}${window.location.pathname}#/pattern/${encodedData}`;
+    const shareUrl = `${window.location.origin}${window.location.pathname}#pattern/${encodedData}`;
     
     // Generate QR code
     const qrCanvas = document.createElement('canvas');
-    await QRCode.toCanvas(qrCanvas, shareUrl, { width: 300 });
+    await QRCode.toCanvas(qrCanvas, shareUrl, { width: 300, margin: 2 });
     
     // Open QR code in new window
     const qrWindow = window.open('', '_blank');

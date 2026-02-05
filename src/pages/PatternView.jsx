@@ -15,7 +15,15 @@ export default function PatternView() {
     if (data) {
       try {
         const decoded = JSON.parse(atob(data));
-        setPattern(decoded);
+        // Transform compact format back to full format
+        const fullPattern = {
+          image: decoded.img,
+          colors: decoded.colors.map(c => ({ name: c.n, hex: c.h, count: c.c, id: c.id })),
+          numPins: decoded.pins,
+          totalSteps: decoded.total,
+          paths: decoded.paths.map(p => ({ from: p.f, to: p.t, color: p.c }))
+        };
+        setPattern(fullPattern);
       } catch (e) {
         console.error('Failed to decode pattern data');
       }

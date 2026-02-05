@@ -259,11 +259,11 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // Define color line ranges with mixed approach
+    // Define color line ranges
     const firstColorLines = 1000;
-    const lastOutlineLines = 8000;
-    const midSectionLines = numStrings - firstColorLines - lastOutlineLines;
-    const colorOnlyIds = mode === 'mono' ? ['K'] : activeColors.filter(id => id !== 'K');
+    const midColorStart = 5000;
+    const midColorEnd = 7000;
+    const solidBlackStart = 8000;
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
@@ -277,9 +277,9 @@ export default function StringArt() {
         colorId = activeColors[currentColorIndex];
         stringsInCurrentRun++;
       }
-      // Middle section: more colors with black
-      else if (totalStringsDrawn < firstColorLines + midSectionLines) {
-        const shouldUseBlack = Math.random() < 0.3; // 30% black
+      // 1k-5k lines: more balanced with colors
+      else if (totalStringsDrawn < midColorStart) {
+        const shouldUseBlack = Math.random() < 0.3;
         if (shouldUseBlack) {
           colorId = 'K';
         } else {
@@ -291,9 +291,27 @@ export default function StringArt() {
           stringsInCurrentRun++;
         }
       }
-      // Last 7-9k lines: mostly black with outline emphasis
+      // 5k-7k lines: 90% colors, 10% black
+      else if (totalStringsDrawn >= midColorStart && totalStringsDrawn < midColorEnd) {
+        const shouldUseBlack = Math.random() < 0.1; // 10% black
+        if (shouldUseBlack) {
+          colorId = 'K';
+        } else {
+          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+            stringsInCurrentRun = 0;
+          }
+          colorId = activeColors[currentColorIndex];
+          stringsInCurrentRun++;
+        }
+      }
+      // 8k-9k lines: 100% solid black
+      else if (totalStringsDrawn >= solidBlackStart) {
+        colorId = 'K';
+      }
+      // 7k-8k: transition back to black
       else {
-        const shouldUseColor = Math.random() < 0.15; // 15% color for detail
+        const shouldUseColor = Math.random() < 0.2;
         if (shouldUseColor) {
           colorId = activeColors[Math.floor(Math.random() * activeColors.length)];
         } else {

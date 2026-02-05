@@ -541,7 +541,8 @@ export default function StringArt() {
     const shareUrl = `${window.location.origin}${window.location.pathname}#pattern/${encodeURIComponent(patternUrl)}`;
     
     // Generate QR code
-    const qrDataUrl = await QRCode.toDataURL(shareUrl, { width: 300, margin: 2 });
+    const qrCanvas = document.createElement('canvas');
+    await QRCode.toCanvas(qrCanvas, shareUrl, { width: 300, margin: 2 });
     
     // Open QR code in new window
     const qrWindow = window.open('', '_blank');
@@ -577,7 +578,7 @@ export default function StringArt() {
               color: #666;
               font-size: 0.9rem;
             }
-            img {
+            canvas {
               margin: 1rem 0;
             }
           </style>
@@ -586,7 +587,7 @@ export default function StringArt() {
           <div class="container">
             <h1>String Art Pattern</h1>
             <p>Scan this QR code to view and follow the pattern</p>
-            <img src="${qrDataUrl}" alt="QR Code" />
+            ${qrCanvas.outerHTML}
             <p><small>${totalSteps.toLocaleString()} steps • ${colorLayers.length} colors</small></p>
           </div>
         </body>

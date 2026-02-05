@@ -335,7 +335,6 @@ export default function StringArt() {
         step: paths.length
       });
       layerCounts[colorId] = (layerCounts[colorId] || 0) + 1;
-      stringsInCurrentRun++;
       
       // Subtract the drawn line from working data
       const x1 = pins[currentPin].x;

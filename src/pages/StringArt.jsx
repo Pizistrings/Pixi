@@ -259,31 +259,54 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // Define black line ranges
-    const firstBlackLines = 1500;
-    const lastBlackLines = 500;
-    const totalColorLines = numStrings - firstBlackLines - lastBlackLines;
+    // Define line ranges
+    const firstMixedLines = 1000;
+    const lastOutlineLines = Math.min(8000, Math.floor(numStrings * 0.8)); // Last 7-9k lines
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      // First 1500 lines are black
-      if (totalStringsDrawn < firstBlackLines) {
-        colorId = 'K';
-      }
-      // Last lines are black for details
-      else if (totalStringsDrawn >= numStrings - lastBlackLines) {
-        colorId = 'K';
-      }
-      // Middle section uses color distribution
-      else if (mode !== 'mono') {
-        // Switch color if we've reached the run length
-        if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-          currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-          stringsInCurrentRun = 0;
+      // First 1000 lines: 75% black, 25% colors
+      if (totalStringsDrawn < firstMixedLines) {
+        if (mode !== 'mono' && Math.random() > 0.75) {
+          // Use color
+          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+            stringsInCurrentRun = 0;
+          }
+          colorId = activeColors[currentColorIndex];
+          stringsInCurrentRun++;
+        } else {
+          colorId = 'K';
         }
-        colorId = activeColors[currentColorIndex];
-        stringsInCurrentRun++;
+      }
+      // Last 7-9k lines: more black for outline/details (60% black, 40% colors)
+      else if (totalStringsDrawn >= numStrings - lastOutlineLines) {
+        if (mode !== 'mono' && Math.random() > 0.6) {
+          // Use color
+          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+            stringsInCurrentRun = 0;
+          }
+          colorId = activeColors[currentColorIndex];
+          stringsInCurrentRun++;
+        } else {
+          colorId = 'K';
+        }
+      }
+      // Middle section: more colors, less black (30% black, 70% colors)
+      else if (mode !== 'mono') {
+        if (Math.random() > 0.3) {
+          // Use color distribution
+          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+            stringsInCurrentRun = 0;
+          }
+          colorId = activeColors[currentColorIndex];
+          stringsInCurrentRun++;
+        } else {
+          colorId = 'K';
+        }
       } else {
         colorId = 'K';
       }

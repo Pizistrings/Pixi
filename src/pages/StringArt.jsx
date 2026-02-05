@@ -703,6 +703,14 @@ export default function StringArt() {
     setColorLayers(updatedLayers);
   };
 
+  // Edit color line count
+  const handleColorCountChange = (colorId, newCount) => {
+    const updatedLayers = colorLayers.map(layer => 
+      layer.id === colorId ? { ...layer, count: newCount } : layer
+    );
+    setColorLayers(updatedLayers);
+  };
+
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -1008,6 +1016,7 @@ export default function StringArt() {
                 setSelectedColors={setSelectedColors}
                 numColors={numColors}
                 onEditColor={handleEditColor}
+                onColorCountChange={handleColorCountChange}
                 isGenerated={isGenerated}
               />
 

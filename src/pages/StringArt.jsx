@@ -260,17 +260,15 @@ export default function StringArt() {
     let currentPin = Math.floor(Math.random() * numPins);
     
     // Define line ranges with specific breakpoints
-    const range1End = Math.min(2000, numStrings);          // Lines 1-2k: 50% black
-    const range2Start = 2000;
-    const range2End = Math.min(7000, numStrings);          // Lines 3-7k: colors focus
-    const range3Start = Math.min(7000, numStrings);        // Lines 8-9k: 80% black
+    const colorEnd = Math.min(7000, numStrings);           // Lines 1-7k: colors focus
+    const outlineStart = Math.min(7000, numStrings);       // Lines 7-9k: 80% black
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      // Lines 1-2k: 50% black, 50% colors
-      if (totalStringsDrawn < range1End) {
-        if (mode !== 'mono' && Math.random() > 0.5) {
+      // Lines 1-7k: minimize black, emphasize colors (10% black, 90% colors)
+      if (totalStringsDrawn < colorEnd) {
+        if (mode !== 'mono' && Math.random() > 0.1) {
           if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;
@@ -281,21 +279,8 @@ export default function StringArt() {
           colorId = 'K';
         }
       }
-      // Lines 3-7k: emphasize 3 colors (15% black, 85% colors)
-      else if (totalStringsDrawn >= range2Start && totalStringsDrawn < range2End) {
-        if (mode !== 'mono' && Math.random() > 0.15) {
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
-        }
-      }
-      // Lines 8-9k: 80% black for color separation
-      else if (totalStringsDrawn >= range3Start) {
+      // Lines 7-9k: 80% black for outline and separation
+      else if (totalStringsDrawn >= outlineStart) {
         if (mode !== 'mono' && Math.random() > 0.8) {
           if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;

@@ -13,7 +13,8 @@ export default function StepList({
   setSelectedColors,
   numColors = 4,
   onEditColor,
-  isGenerated = false
+  isGenerated = false,
+  onColorCountChange
 }) {
   // Calculate cumulative steps for each color
   const getStepRanges = () => {
@@ -196,7 +197,7 @@ export default function StepList({
                   
                   {colorLayers.length > 1 && (
                     <>
-                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mb-1">
+                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mb-2">
                         <div 
                           className="h-full transition-all duration-300"
                           style={{ 
@@ -206,9 +207,25 @@ export default function StepList({
                           }}
                         />
                       </div>
-                      <div className="flex justify-between text-xs text-gray-400">
+                      <div className="flex justify-between text-xs text-gray-400 mb-2">
                         <span>Steps {layersWithRanges[idx].startStep + 1}-{layersWithRanges[idx].endStep}</span>
                         <span>{progress}%</span>
+                      </div>
+                      
+                      {/* Editable line count slider */}
+                      <div className="mt-2">
+                        <div className="flex justify-between mb-1">
+                          <Label className="text-xs text-gray-500">Line count</Label>
+                          <span className="text-xs text-gray-700 font-medium">{layer.count}</span>
+                        </div>
+                        <Slider
+                          value={[layer.count]}
+                          onValueChange={([v]) => onColorCountChange?.(layer.id, v)}
+                          min={10}
+                          max={totalStrings}
+                          step={10}
+                          className="w-full"
+                        />
                       </div>
                     </>
                   )}

@@ -259,29 +259,15 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // Define line ranges with specific breakpoints
-    const range1End = Math.min(1000, numStrings);          // Lines 1-1k: 80% black, 20% colors
-    const range2End = Math.min(7000, numStrings);          // Lines 1k-7k: 80% colors, 20% black
-    const outlineStart = Math.min(8000, numStrings);       // Lines 8-10k: 80% black, 20% colors
+    // Define line ranges with phase-based distribution
+    const colorPhaseEnd = Math.min(7000, numStrings);      // Phase 1: Lines 1-7k (80% colors, 20% black)
+    const structurePhaseStart = Math.min(7000, numStrings); // Phase 2: Lines 7k-9k (20% colors, 80% black)
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      // Lines 1-1k: 80% black, 20% colors
-      if (totalStringsDrawn < range1End) {
-        if (mode !== 'mono' && Math.random() > 0.8) {
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
-        }
-      }
-      // Lines 1k-7k: 80% colors, 20% black
-      else if (totalStringsDrawn < range2End) {
+      // Phase 1 (Lines 1-7k): 80% colors, 20% black
+      if (totalStringsDrawn < colorPhaseEnd) {
         if (mode !== 'mono' && Math.random() > 0.2) {
           if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
@@ -293,8 +279,8 @@ export default function StringArt() {
           colorId = 'K';
         }
       }
-      // Lines 8-10k: 80% black, 20% colors for outline
-      else if (totalStringsDrawn >= outlineStart) {
+      // Phase 2 (Lines 7k-9k): 20% colors, 80% black
+      else if (totalStringsDrawn >= structurePhaseStart) {
         if (mode !== 'mono' && Math.random() > 0.8) {
           if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;

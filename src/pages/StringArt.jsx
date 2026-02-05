@@ -55,6 +55,7 @@ export default function StringArt() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [minPinDistance, setMinPinDistance] = useState(30);
   const [showCropper, setShowCropper] = useState(false);
+  const [colorSeparationRatio, setColorSeparationRatio] = useState(23.33);
   
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -76,6 +77,7 @@ export default function StringArt() {
 
   const generateStringArt = useCallback(async () => {
     if (!image) return;
+    setIsGenerated(false);
     
     setIsProcessing(true);
     setCurrentStep(0);
@@ -258,9 +260,10 @@ export default function StringArt() {
       if (totalStringsDrawn < blackPhaseEnd) {
         colorId = 'K';
       }
-      // Phase 2 (Lines 2k-7k): 90% colors, 10% black
+      // Phase 2 (Lines 2k-7k): Adjustable color/black ratio
       else if (totalStringsDrawn < colorPhaseEnd) {
-        if (mode !== 'mono' && Math.random() > 0.1) {
+        const colorThreshold = colorSeparationRatio / 100;
+        if (mode !== 'mono' && Math.random() < colorThreshold) {
           if (stringsInCurrentRun >= colorRunLength) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;
@@ -271,18 +274,9 @@ export default function StringArt() {
           colorId = 'K';
         }
       }
-      // Phase 3 (Lines 8k-9k): 10% colors, 90% black
+      // Phase 3 (Lines 8k-9k): 100% black
       else if (totalStringsDrawn >= finalColorPhaseStart) {
-        if (mode !== 'mono' && Math.random() > 0.9) {
-          if (stringsInCurrentRun >= colorRunLength) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
-        }
+        colorId = 'K';
       } else {
         colorId = 'K';
       }
@@ -365,7 +359,7 @@ export default function StringArt() {
     setTotalSteps(paths.length);
     setIsGenerated(true);
     setIsProcessing(false);
-  }, [image, mode, numPins, numStrings, colors, colorRunLength, shape, brightness, contrast, sharpness, cropArea, minPinDistance]);
+  }, [image, mode, numPins, numStrings, colors, colorRunLength, shape, brightness, contrast, sharpness, cropArea, minPinDistance, colorSeparationRatio]);
 
   // Animation loop - 60 seconds total duration
   useEffect(() => {
@@ -1286,6 +1280,23 @@ export default function StringArt() {
                             step={10}
                             className="w-full"
                           />
+                        </div>
+
+                        {/* Color Separation Ratio */}
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label className="text-xs text-gray-500">Color Separation (Phase 2)</Label>
+                            <span className="text-xs text-gray-700 font-medium">{colorSeparationRatio.toFixed(1)}%</span>
+                          </div>
+                          <Slider
+                            value={[colorSeparationRatio]}
+                            onValueChange={([v]) => setColorSeparationRatio(v)}
+                            min={0}
+                            max={100}
+                            step={0.1}
+                            className="w-full"
+                          />
+                          <p className="text-xs text-gray-400 mt-2">Colors in lines 2-7k phase</p>
                         </div>
                       </motion.div>
                     )}

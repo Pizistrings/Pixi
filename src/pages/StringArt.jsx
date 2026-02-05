@@ -1153,8 +1153,29 @@ export default function StringArt() {
                         step={1}
                         className="w-full"
                       />
+                      
+                      {/* Quick Jump Buttons */}
+                      <div className="grid grid-cols-4 gap-1 mt-3">
+                        {[500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 6000, 7500].map(lines => (
+                          lines <= totalSteps && (
+                            <Button
+                              key={lines}
+                              variant={currentStep === lines ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => {
+                                setCurrentStep(lines);
+                                setIsPlaying(false);
+                              }}
+                              className="text-xs h-7 px-2"
+                            >
+                              {lines >= 1000 ? `${lines/1000}k` : lines}
+                            </Button>
+                          )
+                        ))}
+                      </div>
+                      
                       <p className="text-xs text-gray-400 mt-2">
-                        Adjust to show fewer or more lines
+                        Jump to preview at specific line counts
                       </p>
                     </div>
                   )}

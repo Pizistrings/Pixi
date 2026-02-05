@@ -277,9 +277,9 @@ export default function StringArt() {
         colorId = activeColors[currentColorIndex];
         stringsInCurrentRun++;
       }
-      // 1k-5k lines: more balanced with colors
+      // 1k-5k lines: 70% colors, 30% black
       else if (totalStringsDrawn < midColorStart) {
-        const shouldUseBlack = Math.random() < 0.3;
+        const shouldUseBlack = Math.random() < 0.3; // 30% black
         if (shouldUseBlack) {
           colorId = 'K';
         } else {
@@ -291,9 +291,9 @@ export default function StringArt() {
           stringsInCurrentRun++;
         }
       }
-      // 5k-7k lines: 90% colors, 10% black
+      // 5k-7k lines: 70% colors, 30% black
       else if (totalStringsDrawn >= midColorStart && totalStringsDrawn < midColorEnd) {
-        const shouldUseBlack = Math.random() < 0.1; // 10% black
+        const shouldUseBlack = Math.random() < 0.3; // 30% black
         if (shouldUseBlack) {
           colorId = 'K';
         } else {
@@ -716,10 +716,17 @@ export default function StringArt() {
   }, [voiceEnabled, voiceDelay, currentStep, totalSteps, stringPaths]);
 
   // Edit color after generation
-  const handleEditColor = (colorId, newHex) => {
-    const updatedLayers = colorLayers.map(layer => 
-      layer.id === colorId ? { ...layer, hex: newHex } : layer
-    );
+  const handleEditColor = (colorId, newHex, newName) => {
+    const updatedLayers = colorLayers.map(layer => {
+      if (layer.id === colorId) {
+        return { 
+          ...layer, 
+          hex: newHex || layer.hex,
+          name: newName || layer.name
+        };
+      }
+      return layer;
+    });
     setColorLayers(updatedLayers);
   };
 

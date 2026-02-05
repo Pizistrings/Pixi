@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Download, Settings, RefreshCw, FileText, QrCode, Mic, MicOff } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1138,10 +1139,16 @@ export default function StringArt() {
                   {/* Editable Lines (After Generation) */}
                   {isGenerated && (
                     <div className="pt-4 border-t border-gray-100">
-                      <div className="flex justify-between mb-2">
-                        <Label className="text-xs text-gray-500">Total Lines</Label>
-                        <span className="text-xs text-gray-700 font-medium">{totalSteps.toLocaleString()}</span>
+                      <div className="text-center mb-3">
+                        <span className="text-2xl font-light text-[#ff6b35]">
+                          {currentStep.toLocaleString()}
+                        </span>
+                        <span className="text-xl text-gray-400"> / </span>
+                        <span className="text-xl text-gray-600">
+                          {totalSteps.toLocaleString()}
+                        </span>
                       </div>
+                      
                       <Slider
                         value={[currentStep]}
                         onValueChange={([v]) => {
@@ -1151,32 +1158,45 @@ export default function StringArt() {
                         min={0}
                         max={totalSteps}
                         step={1}
-                        className="w-full"
+                        className="w-full mb-3"
                       />
                       
-                      {/* Quick Jump Buttons */}
-                      <div className="grid grid-cols-4 gap-1 mt-3">
-                        {[500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 6000, 7500].map(lines => (
-                          lines <= totalSteps && (
-                            <Button
-                              key={lines}
-                              variant={currentStep === lines ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => {
-                                setCurrentStep(lines);
+                      {/* Jump to specific line */}
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          placeholder="Jump to..."
+                          min={0}
+                          max={totalSteps}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const value = parseInt(e.target.value);
+                              if (value >= 0 && value <= totalSteps) {
+                                setCurrentStep(value);
                                 setIsPlaying(false);
-                              }}
-                              className="text-xs h-7 px-2"
-                            >
-                              {lines >= 1000 ? `${lines/1000}k` : lines}
-                            </Button>
-                          )
-                        ))}
+                                e.target.value = '';
+                              }
+                            }
+                          }}
+                          className="text-sm h-8"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            const input = e.target.closest('div').querySelector('input');
+                            const value = parseInt(input.value);
+                            if (value >= 0 && value <= totalSteps) {
+                              setCurrentStep(value);
+                              setIsPlaying(false);
+                              input.value = '';
+                            }
+                          }}
+                          className="h-8 px-3 text-xs"
+                        >
+                          Go
+                        </Button>
                       </div>
-                      
-                      <p className="text-xs text-gray-400 mt-2">
-                        Jump to preview at specific line counts
-                      </p>
                     </div>
                   )}
                 </div>

@@ -53,14 +53,6 @@ export default function StringArt() {
   const [isGenerated, setIsGenerated] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showImageSettings, setShowImageSettings] = useState(false);
-  const [colorConfidenceThreshold, setColorConfidenceThreshold] = useState(0.30);
-  const [globalColorIntensity, setGlobalColorIntensity] = useState(0.35);
-  const [desaturation, setDesaturation] = useState(45);
-  const [colorInfluenceWeight, setColorInfluenceWeight] = useState(60);
-  const [channelWeights, setChannelWeights] = useState({
-    K: 60, C: 12, M: 12, Y: 12,
-    R: 30, G: 20, B: 20
-  });
   
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -205,152 +197,57 @@ export default function StringArt() {
     const paths = [];
     const layerCounts = {};
     
-    // Create color confidence maps
+    // Create working copy of image data for each color channel
     const workingData = {};
-    const colorIntensityMaps = {};
-    const luminanceMap = new Float32Array(size * size);
-    
     colors.forEach(color => {
       workingData[color.id] = new Float32Array(size * size);
-      colorIntensityMaps[color.id] = new Float32Array(size * size);
     });
     
-    // Calculate luminance and color intensity for each pixel
+    // Calculate color similarity for each pixel
     for (let i = 0; i < size * size; i++) {
       const r = imageData.data[i * 4];
       const g = imageData.data[i * 4 + 1];
       const b = imageData.data[i * 4 + 2];
       
-      // Calculate luminance
-      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-      luminanceMap[i] = lum / 255;
-      
-      if (mode === 'mono') {
-        // Grayscale mode
-        workingData.K[i] = 1 - luminanceMap[i];
-        colorIntensityMaps.K[i] = 1 - luminanceMap[i];
-      } else {
-        // Color mode - calculate color-specific intensity
-        colors.forEach(color => {
-          const targetR = parseInt(color.hex.slice(1, 3), 16);
-          const targetG = parseInt(color.hex.slice(3, 5), 16);
-          const targetB = parseInt(color.hex.slice(5, 7), 16);
-          
-          // Calculate raw color presence
-          let colorPresence = 0;
-          
-          if (color.id === 'K') {
-            // Black channel - inverse of luminance, reduced in highlights
-            const darkness = 1 - luminanceMap[i];
-            const highlightSuppression = luminanceMap[i] < 0.7 ? 1 : Math.max(0, 1 - (luminanceMap[i] - 0.7) / 0.3);
-            colorPresence = darkness * highlightSuppression * (channelWeights.K / 100);
-          } else {
-            // Color channels - measure actual color strength
-            const colorDist = Math.sqrt(
-              Math.pow(r - targetR, 2) +
-              Math.pow(g - targetG, 2) +
-              Math.pow(b - targetB, 2)
-            );
-            
-            // Convert to similarity (closer = higher)
-            const similarity = Math.max(0, 1 - colorDist / 441);
-            
-            // Calculate saturation at this pixel
-            const maxRGB = Math.max(r, g, b);
-            const minRGB = Math.min(r, g, b);
-            const saturation = maxRGB > 0 ? (maxRGB - minRGB) / maxRGB : 0;
-            
-            // Color presence = similarity × saturation × channel weight
-            const channelWeight = channelWeights[color.id] || 25;
-            colorPresence = similarity * saturation * (channelWeight / 100) * globalColorIntensity;
-            
-            // Hard block only below 0.15 - reduce priority for weak colors but don't block
-            if (colorPresence < 0.15) {
-              colorPresence = 0;
-            } else if (colorPresence < colorConfidenceThreshold) {
-              colorPresence *= 0.6; // Reduce priority, don't block completely
-            }
-          }
-          
-          colorIntensityMaps[color.id][i] = colorPresence;
-          workingData[color.id][i] = colorPresence;
-        });
-      }
+      colors.forEach(color => {
+        // Parse hex color
+        const targetR = parseInt(color.hex.slice(1, 3), 16);
+        const targetG = parseInt(color.hex.slice(3, 5), 16);
+        const targetB = parseInt(color.hex.slice(5, 7), 16);
+        
+        // Calculate color distance (inverted so closer = higher value)
+        const distance = Math.sqrt(
+          Math.pow(r - targetR, 2) +
+          Math.pow(g - targetG, 2) +
+          Math.pow(b - targetB, 2)
+        );
+        
+        // Convert to similarity (0-1 range)
+        workingData[color.id][i] = Math.max(0, 1 - distance / 441); // 441 = sqrt(255^2 * 3)
+      });
     }
     
-    // Apply Gaussian blur to color maps only (not structure)
-    if (mode === 'color') {
-      const blurRadius = 2;
-      colors.forEach(color => {
-        if (color.id !== 'K') {
-          const blurred = new Float32Array(size * size);
-          for (let y = 0; y < size; y++) {
-            for (let x = 0; x < size; x++) {
-              let sum = 0;
-              let count = 0;
-              for (let dy = -blurRadius; dy <= blurRadius; dy++) {
-                for (let dx = -blurRadius; dx <= blurRadius; dx++) {
-                  const nx = x + dx;
-                  const ny = y + dy;
-                  if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
-                    sum += colorIntensityMaps[color.id][ny * size + nx];
-                    count++;
-                  }
-                }
-              }
-              blurred[y * size + x] = sum / count;
-            }
-          }
-          colorIntensityMaps[color.id] = blurred;
-          workingData[color.id] = new Float32Array(blurred);
-        }
-      });
+    // For monochrome, use grayscale
+    if (mode === 'mono') {
+      for (let i = 0; i < size * size; i++) {
+        const r = imageData.data[i * 4];
+        const g = imageData.data[i * 4 + 1];
+        const b = imageData.data[i * 4 + 2];
+        workingData.K[i] = 1 - (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      }
     }
     
     const activeColors = mode === 'mono' ? ['K'] : colors.map(c => c.id);
     
-    // Calculate strings per color based on distribution with quotas
+    // Calculate strings per color based on distribution
     const stringsPerColorMap = {};
     if (mode === 'mono') {
       stringsPerColorMap.K = numStrings;
     } else {
       const totalPercent = activeColors.reduce((sum, id) => sum + colorDistribution[id], 0);
       activeColors.forEach(id => {
-        const targetPercent = colorDistribution[id] / totalPercent;
-        stringsPerColorMap[id] = Math.floor(targetPercent * numStrings);
+        stringsPerColorMap[id] = Math.floor((colorDistribution[id] / totalPercent) * numStrings);
       });
-      
-      // Apply channel quotas to prevent overpowering
-      const quotas = {
-        K: 0.65,  // Max 65% for black
-        Y: 0.15,  // Max 15% for yellow
-        C: 0.12,
-        M: 0.12,
-        R: 0.15,
-        G: 0.10,
-        B: 0.10
-      };
-      
-      activeColors.forEach(id => {
-        const maxAllowed = Math.floor(numStrings * (quotas[id] || 0.15));
-        stringsPerColorMap[id] = Math.min(stringsPerColorMap[id], maxAllowed);
-      });
-    }
-    
-    // Failsafe: ensure at least some color strings if in color mode
-    if (mode === 'color') {
-      let totalColorStrings = 0;
-      activeColors.forEach(id => {
-        if (id !== 'K') totalColorStrings += stringsPerColorMap[id];
-      });
-      
-      if (totalColorStrings < numStrings * 0.25) {
-        // Boost color allocation
-        const colorIds = activeColors.filter(id => id !== 'K');
-        colorIds.forEach(id => {
-          stringsPerColorMap[id] = Math.max(stringsPerColorMap[id], Math.floor(numStrings * 0.08));
-        });
-      }
     }
     
     for (const colorId of activeColors) {
@@ -380,45 +277,14 @@ export default function StringArt() {
           const steps = Math.ceil(dist);
           
           let score = 0;
-          let maxIntensity = 0;
-          let avgIntensity = 0;
-          let sampleCount = 0;
-          
           for (let t = 0; t < steps; t++) {
             const x = Math.floor(x1 + (x2 - x1) * t / steps);
             const y = Math.floor(y1 + (y2 - y1) * t / steps);
             if (x >= 0 && x < size && y >= 0 && y < size) {
-              const idx = y * size + x;
-              const localColorIntensity = colorIntensityMaps[colorId][idx];
-              
-              // Color-aware scoring: intensity × influence weight
-              const pixelScore = workingData[colorId][idx] * localColorIntensity * (colorInfluenceWeight / 100);
-              
-              // Dynamic black balance: reduce black dominance in colorful areas
-              let finalScore = pixelScore;
-              if (colorId === 'K' && mode === 'color') {
-                // Check if other colors are strong here
-                let maxOtherColor = 0;
-                activeColors.forEach(otherId => {
-                  if (otherId !== 'K') {
-                    maxOtherColor = Math.max(maxOtherColor, colorIntensityMaps[otherId][idx]);
-                  }
-                });
-                
-                // If color is strong (>0.35), reduce black priority
-                if (maxOtherColor > 0.35) {
-                  finalScore *= 0.7;
-                }
-              }
-              
-              score += finalScore;
-              maxIntensity = Math.max(maxIntensity, localColorIntensity);
-              avgIntensity += localColorIntensity;
-              sampleCount++;
+              score += workingData[colorId][y * size + x];
             }
           }
           score /= steps;
-          avgIntensity = sampleCount > 0 ? avgIntensity / sampleCount : 0;
           
           if (score > bestScore) {
             bestScore = score;
@@ -428,7 +294,16 @@ export default function StringArt() {
         
         if (bestPin === -1) break;
         
-        // Calculate adaptive opacity with guaranteed visibility
+        // Add the string path
+        paths.push({
+          from: currentPin,
+          to: bestPin,
+          color: colorId,
+          step: paths.length
+        });
+        layerCounts[colorId]++;
+        
+        // Subtract the drawn line from working data
         const x1 = pins[currentPin].x;
         const y1 = pins[currentPin].y;
         const x2 = pins[bestPin].x;
@@ -436,41 +311,11 @@ export default function StringArt() {
         const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
         const steps = Math.ceil(dist);
         
-        let avgColorStrength = 0;
-        let sampleCount = 0;
         for (let t = 0; t < steps; t++) {
           const x = Math.floor(x1 + (x2 - x1) * t / steps);
           const y = Math.floor(y1 + (y2 - y1) * t / steps);
           if (x >= 0 && x < size && y >= 0 && y < size) {
-            avgColorStrength += colorIntensityMaps[colorId][y * size + x];
-            sampleCount++;
-          }
-        }
-        avgColorStrength = sampleCount > 0 ? avgColorStrength / sampleCount : 0;
-        
-        // Adaptive opacity with guaranteed visibility
-        const baseOpacity = 0.014;
-        const opacityMultiplier = avgColorStrength * globalColorIntensity;
-        const clampedMultiplier = Math.max(0.35, Math.min(1.0, opacityMultiplier));
-        const finalOpacity = baseOpacity * clampedMultiplier;
-        
-        // Add the string path with adaptive opacity
-        paths.push({
-          from: currentPin,
-          to: bestPin,
-          color: colorId,
-          step: paths.length,
-          opacity: Math.max(finalOpacity, 0.012) // Guaranteed minimum visibility
-        });
-        layerCounts[colorId]++;
-        
-        // Subtract the drawn line from working data
-        for (let t = 0; t < steps; t++) {
-          const x = Math.floor(x1 + (x2 - x1) * t / steps);
-          const y = Math.floor(y1 + (y2 - y1) * t / steps);
-          if (x >= 0 && x < size && y >= 0 && y < size) {
-            const subtractAmount = avgColorStrength > 0 ? 0.05 : 0.03;
-            workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - subtractAmount);
+            workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
           }
         }
         
@@ -489,7 +334,7 @@ export default function StringArt() {
     setTotalSteps(paths.length);
     setIsGenerated(true);
     setIsProcessing(false);
-  }, [image, mode, numPins, numStrings, colors, colorDistribution, shape, brightness, contrast, sharpness, cropArea, colorConfidenceThreshold, globalColorIntensity, colorInfluenceWeight, channelWeights]);
+  }, [image, mode, numPins, numStrings, colors, colorDistribution, shape, brightness, contrast, sharpness, cropArea]);
 
   // Animation loop
   useEffect(() => {
@@ -673,62 +518,6 @@ export default function StringArt() {
                 </div>
               </Card>
 
-              {/* Image Adjustments */}
-              {!isGenerated && (
-                <Card className="bg-white border-0 shadow-sm p-4 mt-4">
-                  <h3 className="text-sm font-medium text-gray-700 mb-4">Image Adjustments</h3>
-                  <div className="space-y-4">
-                    {/* Brightness */}
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <Label className="text-xs text-gray-500">Brightness</Label>
-                        <span className="text-xs text-gray-700 font-medium">{brightness}%</span>
-                      </div>
-                      <Slider
-                        value={[brightness]}
-                        onValueChange={([v]) => setBrightness(v)}
-                        min={50}
-                        max={150}
-                        step={5}
-                        className="w-full"
-                      />
-                    </div>
-
-                    {/* Contrast */}
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <Label className="text-xs text-gray-500">Contrast</Label>
-                        <span className="text-xs text-gray-700 font-medium">{contrast}%</span>
-                      </div>
-                      <Slider
-                        value={[contrast]}
-                        onValueChange={([v]) => setContrast(v)}
-                        min={50}
-                        max={200}
-                        step={5}
-                        className="w-full"
-                      />
-                    </div>
-
-                    {/* Sharpness */}
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <Label className="text-xs text-gray-500">Sharpness</Label>
-                        <span className="text-xs text-gray-700 font-medium">{sharpness}</span>
-                      </div>
-                      <Slider
-                        value={[sharpness]}
-                        onValueChange={([v]) => setSharpness(v)}
-                        min={0}
-                        max={10}
-                        step={1}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                </Card>
-              )}
-
               {/* Action buttons */}
               <div className="flex gap-3 mt-4">
                 <Button
@@ -872,6 +661,77 @@ export default function StringArt() {
                     </Tabs>
                   </div>
 
+                  {/* Image Adjustments Toggle */}
+                  <div className="pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowImageSettings(!showImageSettings)}
+                      className="w-full justify-between"
+                    >
+                      <span className="text-xs">Image Adjustments</span>
+                      <span className="text-xs">{showImageSettings ? '−' : '+'}</span>
+                    </Button>
+                  </div>
+
+                  <AnimatePresence>
+                    {showImageSettings && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-4 overflow-hidden"
+                      >
+                        {/* Brightness */}
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label className="text-xs text-gray-500">Brightness</Label>
+                            <span className="text-xs text-gray-700 font-medium">{brightness}%</span>
+                          </div>
+                          <Slider
+                            value={[brightness]}
+                            onValueChange={([v]) => setBrightness(v)}
+                            min={50}
+                            max={150}
+                            step={5}
+                            className="w-full"
+                          />
+                        </div>
+
+                        {/* Contrast */}
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label className="text-xs text-gray-500">Contrast</Label>
+                            <span className="text-xs text-gray-700 font-medium">{contrast}%</span>
+                          </div>
+                          <Slider
+                            value={[contrast]}
+                            onValueChange={([v]) => setContrast(v)}
+                            min={50}
+                            max={200}
+                            step={5}
+                            className="w-full"
+                          />
+                        </div>
+
+                        {/* Sharpness */}
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label className="text-xs text-gray-500">Sharpness</Label>
+                            <span className="text-xs text-gray-700 font-medium">{sharpness}</span>
+                          </div>
+                          <Slider
+                            value={[sharpness]}
+                            onValueChange={([v]) => setSharpness(v)}
+                            min={0}
+                            max={10}
+                            step={1}
+                            className="w-full"
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <AnimatePresence>
                     {showSettings && (
                       <motion.div
@@ -975,93 +835,6 @@ export default function StringArt() {
                   </AnimatePresence>
                 </div>
               </Card>
-
-              {/* Color Accuracy Settings */}
-              {mode === 'color' && (
-                <Card className="bg-white border-0 shadow-sm p-6">
-                  <h3 className="text-sm text-gray-500 mb-4">Color Accuracy Engine</h3>
-                  
-                  <div className="space-y-4">
-                    {/* Color Confidence Threshold */}
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <Label className="text-xs text-gray-500">Color Confidence Threshold</Label>
-                        <span className="text-xs text-gray-700 font-medium">{colorConfidenceThreshold.toFixed(2)}</span>
-                      </div>
-                      <Slider
-                        value={[colorConfidenceThreshold]}
-                        onValueChange={([v]) => setColorConfidenceThreshold(v)}
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        className="w-full"
-                      />
-                      <p className="text-xs text-gray-400 mt-1">Hard block below 0.15, reduce priority below this</p>
-                    </div>
-
-                    {/* Global Color Intensity */}
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <Label className="text-xs text-gray-500">Global Color Intensity</Label>
-                        <span className="text-xs text-gray-700 font-medium">{globalColorIntensity.toFixed(2)}</span>
-                      </div>
-                      <Slider
-                        value={[globalColorIntensity]}
-                        onValueChange={([v]) => setGlobalColorIntensity(v)}
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        className="w-full"
-                      />
-                    </div>
-
-                    {/* Color Influence Weight */}
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <Label className="text-xs text-gray-500">Color Influence Weight</Label>
-                        <span className="text-xs text-gray-700 font-medium">{colorInfluenceWeight}</span>
-                      </div>
-                      <Slider
-                        value={[colorInfluenceWeight]}
-                        onValueChange={([v]) => setColorInfluenceWeight(v)}
-                        min={0}
-                        max={100}
-                        step={5}
-                        className="w-full"
-                      />
-                    </div>
-
-                    {/* Channel Weights */}
-                    <div className="pt-2 border-t border-gray-100">
-                      <h4 className="text-xs text-gray-400 mb-3 uppercase tracking-wider">Channel Weights</h4>
-                      <div className="space-y-3">
-                        {selectedColors.slice(0, numColors).map(color => (
-                          <div key={color.id}>
-                            <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{ backgroundColor: color.hex }}
-                                />
-                                <Label className="text-xs text-gray-600">{color.name}</Label>
-                              </div>
-                              <span className="text-xs text-gray-700 font-medium">{channelWeights[color.id]}</span>
-                            </div>
-                            <Slider
-                              value={[channelWeights[color.id]]}
-                              onValueChange={([v]) => setChannelWeights(prev => ({ ...prev, [color.id]: v }))}
-                              min={0}
-                              max={100}
-                              step={5}
-                              className="w-full"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              )}
             </div>
           </div>
         )}

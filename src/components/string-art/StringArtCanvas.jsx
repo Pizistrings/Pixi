@@ -130,8 +130,9 @@ const StringArtCanvas = forwardRef(({
       colorMap[c.id] = c.hex;
     });
 
-    // Draw strings up to current step with adaptive opacity
+    // Draw strings up to current step
     ctx.lineWidth = lineWidth;
+    ctx.globalAlpha = lineOpacity;
 
     for (let i = 0; i < currentStep && i < stringPaths.length; i++) {
       const path = stringPaths[i];
@@ -140,7 +141,6 @@ const StringArtCanvas = forwardRef(({
 
       if (fromPin && toPin) {
         ctx.strokeStyle = colorMap[path.color] || '#1a1a1a';
-        ctx.globalAlpha = path.opacity || lineOpacity;
         ctx.beginPath();
         ctx.moveTo(fromPin.x, fromPin.y);
         ctx.lineTo(toPin.x, toPin.y);

@@ -198,7 +198,7 @@ const StringArtCanvas = forwardRef(({
   }, [stringPaths, currentStep, pins, colors, size, lineWidth, lineOpacity, shape]);
 
   return (
-    <div ref={containerRef} className="relative aspect-square w-full max-w-[500px] mx-auto">
+    <div ref={containerRef} className="relative w-full mx-auto" style={{ aspectRatio: '1' }}>
       {/* Background pattern */}
       <div 
         className="absolute inset-0 rounded-lg"
@@ -226,8 +226,8 @@ const StringArtCanvas = forwardRef(({
         ref={canvasRef}
         width={size}
         height={size}
-        className="w-full h-full rounded-lg shadow-inner relative z-10"
-        style={{ background: '#fafafa' }}
+        className="w-full h-full rounded-lg shadow-inner relative z-10 block"
+        style={{ background: '#fafafa', display: 'block' }}
       />
 
       {/* Processing overlay */}

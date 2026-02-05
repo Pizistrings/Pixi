@@ -124,8 +124,8 @@ const StringArtCanvas = forwardRef(({
       ctx.fill();
     });
 
-    // Draw pin numbers outside the frame
-    ctx.font = '9px system-ui, sans-serif';
+    // Draw pin numbers outside the frame (rotated)
+    ctx.font = '6px system-ui, sans-serif';
     ctx.fillStyle = '#999';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -137,10 +137,18 @@ const StringArtCanvas = forwardRef(({
       const dist = Math.sqrt(dx * dx + dy * dy);
       
       if (dist > 0) {
-        // Place number 12 pixels outside the pin
-        const offsetX = (dx / dist) * 12;
-        const offsetY = (dy / dist) * 12;
-        ctx.fillText(pin.index.toString(), pin.x + offsetX, pin.y + offsetY);
+        // Calculate angle for rotation
+        const angle = Math.atan2(dy, dx);
+        
+        // Place number 14 pixels outside the pin
+        const offsetX = (dx / dist) * 14;
+        const offsetY = (dy / dist) * 14;
+        
+        ctx.save();
+        ctx.translate(pin.x + offsetX, pin.y + offsetY);
+        ctx.rotate(angle + Math.PI / 2); // Rotate text perpendicular to radius
+        ctx.fillText(pin.index.toString(), 0, 0);
+        ctx.restore();
       }
     });
 

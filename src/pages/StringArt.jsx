@@ -391,10 +391,11 @@ export default function StringArt() {
     setIsProcessing(false);
   }, [image, mode, numPins, numStrings, colors, colorDistribution, shape, brightness, contrast, sharpness, cropArea, minPinDistance]);
 
-  // Animation loop
+  // Animation loop - 60 seconds total duration
   useEffect(() => {
     if (isPlaying && currentStep < totalSteps) {
-      const interval = Math.max(1, 100 / speed);
+      // Calculate interval to complete in 60 seconds
+      const interval = (60000 / totalSteps);
       animationRef.current = setTimeout(() => {
         setCurrentStep(prev => Math.min(prev + 1, totalSteps));
       }, interval);
@@ -407,7 +408,7 @@ export default function StringArt() {
         clearTimeout(animationRef.current);
       }
     };
-  }, [isPlaying, currentStep, totalSteps, speed]);
+  }, [isPlaying, currentStep, totalSteps]);
 
   const handlePlayPause = () => {
     if (currentStep >= totalSteps) {
@@ -433,10 +434,9 @@ export default function StringArt() {
   };
 
   const getElapsedTime = () => {
-    const seconds = Math.floor(currentStep / speed);
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes} minute${minutes !== 1 ? 's' : ''} ${remainingSeconds} second${remainingSeconds !== 1 ? 's' : ''}`;
+    // Calculate elapsed time based on 60-second total duration
+    const seconds = Math.floor((currentStep / totalSteps) * 60);
+    return `${seconds}s / 60s`;
   };
 
   const downloadCanvas = () => {
@@ -817,19 +817,9 @@ export default function StringArt() {
                       )}
                     </Button>
                     
-                    <Select value={speed.toString()} onValueChange={(v) => setSpeed(Number(v))}>
-                      <SelectTrigger className="w-24 bg-white border-gray-200">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">⏱ 1x</SelectItem>
-                        <SelectItem value="5">⏱ 5x</SelectItem>
-                        <SelectItem value="10">⏱ 10x</SelectItem>
-                        <SelectItem value="25">⏱ 25x</SelectItem>
-                        <SelectItem value="50">⏱ 50x</SelectItem>
-                        <SelectItem value="100">⏱ 100x</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-md border border-gray-200">
+                      <span className="text-xs text-gray-500">60s</span>
+                    </div>
                     
                     <Button
                       variant="ghost"

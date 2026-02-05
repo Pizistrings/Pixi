@@ -440,7 +440,12 @@ export default function StringArt() {
 
   const downloadPDF = async () => {
     const { jsPDF } = await import('jspdf');
-    const pdf = new jsPDF();
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageHeight = pdf.internal.pageSize.height;
+    const pageWidth = pdf.internal.pageSize.width;
+    const margin = 10;
+    const colWidth = 28;
+    const rowHeight = 5;
     
     // Group consecutive color runs
     const colorRuns = [];
@@ -460,76 +465,50 @@ export default function StringArt() {
           steps: []
         };
       }
-      currentRun.steps.push({ 
-        stepNum: idx + 1, 
-        fromPin: path.from, 
-        toPin: path.to 
-      });
+      currentRun.steps.push({ stepNum: idx + 1, toPin: path.to });
     });
     if (currentRun) {
       colorRuns.push(currentRun);
     }
     
-    // Start PDF generation
-    let currentY = 20;
+    let currentY = margin;
     
-    colorRuns.forEach((run, runIdx) => {
+    colorRuns.forEach((run) => {
       const rgb = hexToRgb(run.colorHex);
       const endStep = run.startStep + run.steps.length - 1;
+      const headerHeight = 16;
+      const itemsPerRow = Math.floor((pageWidth - 2 * margin) / colWidth);
+      const rowsNeeded = Math.ceil(run.steps.length / itemsPerRow);
+      const sectionHeight = headerHeight + (rowsNeeded * rowHeight) + 8;
       
-      // Check if we need a new page
-      if (currentY > 260) {
+      // Check if section fits on current page
+      if (currentY + sectionHeight > pageHeight - margin) {
         pdf.addPage();
-        currentY = 20;
+        currentY = margin;
       }
       
-      // Color header with circle
+      // Color header
       pdf.setFillColor(rgb.r, rgb.g, rgb.b);
-      pdf.circle(15, currentY, 5, 'F');
-      pdf.setFontSize(14);
+      pdf.circle(margin + 3, currentY + 3, 3, 'F');
+      pdf.setFontSize(12);
       pdf.setTextColor(rgb.r, rgb.g, rgb.b);
-      pdf.text(run.colorName, 25, currentY + 4);
-      currentY += 12;
+      pdf.text(`${run.colorName} (${run.startStep}-${endStep})`, margin + 8, currentY + 5);
+      currentY += headerHeight;
       
-      // Step range
-      pdf.setFontSize(11);
-      pdf.setTextColor(100, 100, 100);
-      pdf.text(`Steps ${run.startStep}-${endStep}`, 15, currentY);
-      currentY += 10;
-      
-      // Print steps in columns
-      pdf.setFontSize(10);
+      // Print steps
+      pdf.setFontSize(9);
       pdf.setTextColor(0, 0, 0);
-      const itemsPerRow = 6;
-      const colWidth = 30;
       
       run.steps.forEach((step, idx) => {
         const col = idx % itemsPerRow;
         const row = Math.floor(idx / itemsPerRow);
-        const x = 15 + (col * colWidth);
-        const y = currentY + (row * 6);
+        const x = margin + (col * colWidth);
+        const y = currentY + (row * rowHeight);
         
-        // Check if we need a new page mid-section
-        if (y > 270) {
-          pdf.addPage();
-          currentY = 20;
-          
-          // Reprint color header
-          pdf.setFillColor(rgb.r, rgb.g, rgb.b);
-          pdf.circle(15, currentY, 5, 'F');
-          pdf.setFontSize(14);
-          pdf.setTextColor(rgb.r, rgb.g, rgb.b);
-          pdf.text(run.colorName, 25, currentY + 4);
-          currentY += 12;
-          pdf.setFontSize(10);
-          pdf.setTextColor(0, 0, 0);
-          return;
-        }
-        
-        pdf.text(`${step.stepNum} - ${step.toPin}`, x, y);
+        pdf.text(`${step.stepNum}→${step.toPin}`, x, y);
       });
       
-      currentY += Math.ceil(run.steps.length / itemsPerRow) * 6 + 15;
+      currentY += (rowsNeeded * rowHeight) + 8;
     });
     
     pdf.save('string-art-pattern.pdf');

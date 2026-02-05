@@ -15,9 +15,15 @@ export default function PatternView() {
     if (data) {
       // Fetch pattern data from URL
       const patternUrl = decodeURIComponent(data);
+      console.log('Loading pattern from:', patternUrl);
+      
       fetch(patternUrl)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch pattern');
+          return res.json();
+        })
         .then(decoded => {
+          console.log('Pattern loaded:', decoded);
           // Transform compact format back to full format
           const fullPattern = {
             image: decoded.img,
@@ -30,6 +36,7 @@ export default function PatternView() {
         })
         .catch(e => {
           console.error('Failed to load pattern data:', e);
+          alert('Failed to load pattern. The link may be invalid or expired.');
         });
     }
   }, [data]);

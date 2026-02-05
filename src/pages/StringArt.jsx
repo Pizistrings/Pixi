@@ -939,6 +939,10 @@ export default function StringArt() {
                         {currentStep}
                       </span>
                       
+                      <div className="text-xs text-gray-500 pt-2 border-t">
+                        Total Pins: <span className="font-medium text-gray-700">{numPins}</span>
+                      </div>
+                      
                       {getCurrentColor() && (
                         <div className="space-y-3">
                           <div className="flex items-center gap-2 text-[#ff6b35] text-sm">
@@ -1130,18 +1134,18 @@ export default function StringArt() {
                       >
                         {/* Number of Pins */}
                         <div>
-                          <div className="flex justify-between mb-2">
-                            <Label className="text-xs text-gray-500">Pins</Label>
-                            <span className="text-xs text-gray-700 font-medium">{numPins}</span>
-                          </div>
-                          <Slider
-                            value={[numPins]}
-                            onValueChange={([v]) => setNumPins(v)}
-                            min={100}
-                            max={300}
-                            step={10}
-                            className="w-full"
-                          />
+                         <div className="flex justify-between mb-2">
+                           <Label className="text-xs text-gray-500">Pins</Label>
+                           <span className="text-xs text-gray-700 font-medium">{numPins}</span>
+                         </div>
+                         <Slider
+                           value={[numPins]}
+                           onValueChange={([v]) => setNumPins(v)}
+                           min={200}
+                           max={1000}
+                           step={10}
+                           className="w-full"
+                         />
                         </div>
 
                         {/* Number of Strings */}

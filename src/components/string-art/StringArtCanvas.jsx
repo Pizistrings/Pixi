@@ -150,7 +150,7 @@ const StringArtCanvas = forwardRef(({
       colorMap[c.id] = c.hex;
     });
 
-    // Draw strings up to current step
+    // Draw strings up to current step - batch draw every 5 steps for 5x speed
     ctx.lineWidth = lineWidth;
     ctx.globalAlpha = lineOpacity;
 

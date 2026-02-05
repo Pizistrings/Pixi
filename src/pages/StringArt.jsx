@@ -260,15 +260,16 @@ export default function StringArt() {
     let currentPin = Math.floor(Math.random() * numPins);
     
     // Define line ranges with specific breakpoints
-    const colorEnd = Math.min(7000, numStrings);           // Lines 1-7k: colors focus
-    const outlineStart = Math.min(7000, numStrings);       // Lines 7-9k: 80% black
+    const range1End = Math.min(5000, numStrings);          // Lines 1-5k: 30% black, 70% colors
+    const range2End = Math.min(7000, numStrings);          // Lines 5-7k: 30% black, 70% colors
+    const outlineStart = Math.min(7000, numStrings);       // Lines 7-9k: 40% black, 60% colors
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      // Lines 1-7k: minimize black, emphasize colors (10% black, 90% colors)
-      if (totalStringsDrawn < colorEnd) {
-        if (mode !== 'mono' && Math.random() > 0.1) {
+      // Lines 1-5k: 30% black, 70% colors
+      if (totalStringsDrawn < range1End) {
+        if (mode !== 'mono' && Math.random() > 0.3) {
           if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;
@@ -279,9 +280,22 @@ export default function StringArt() {
           colorId = 'K';
         }
       }
-      // Lines 7-9k: 80% black for outline and separation
+      // Lines 5-7k: 30% black, 70% colors
+      else if (totalStringsDrawn < range2End) {
+        if (mode !== 'mono' && Math.random() > 0.3) {
+          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+            stringsInCurrentRun = 0;
+          }
+          colorId = activeColors[currentColorIndex];
+          stringsInCurrentRun++;
+        } else {
+          colorId = 'K';
+        }
+      }
+      // Lines 7-9k: 40% black, 60% colors
       else if (totalStringsDrawn >= outlineStart) {
-        if (mode !== 'mono' && Math.random() > 0.8) {
+        if (mode !== 'mono' && Math.random() > 0.4) {
           if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;

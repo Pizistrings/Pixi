@@ -56,6 +56,7 @@ export default function StringArt() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceDelay, setVoiceDelay] = useState(3);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [minPinDistance, setMinPinDistance] = useState(30);
   
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -273,9 +274,10 @@ export default function StringArt() {
       for (let nextPin = 0; nextPin < numPins; nextPin++) {
         if (nextPin === currentPin) continue;
         
-        // Skip nearby pins (minimum distance of 20)
+        // Skip nearby pins with proper wrapping
         const pinDist = Math.abs(nextPin - currentPin);
-        if (pinDist < 20 && pinDist > numPins - 20) continue;
+        const wrappedDist = Math.min(pinDist, numPins - pinDist);
+        if (wrappedDist < minPinDistance) continue;
         
         // Calculate line score
         const x1 = pins[currentPin].x;
@@ -344,7 +346,7 @@ export default function StringArt() {
     setTotalSteps(paths.length);
     setIsGenerated(true);
     setIsProcessing(false);
-  }, [image, mode, numPins, numStrings, colors, colorDistribution, shape, brightness, contrast, sharpness, cropArea]);
+  }, [image, mode, numPins, numStrings, colors, colorDistribution, shape, brightness, contrast, sharpness, cropArea, minPinDistance]);
 
   // Animation loop
   useEffect(() => {
@@ -1113,9 +1115,49 @@ export default function StringArt() {
                             className="w-full"
                           />
                         </div>
+
+                        {/* Minimum Pin Distance */}
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label className="text-xs text-gray-500">Min Pin Distance</Label>
+                            <span className="text-xs text-gray-700 font-medium">{minPinDistance}</span>
+                          </div>
+                          <Slider
+                            value={[minPinDistance]}
+                            onValueChange={([v]) => setMinPinDistance(v)}
+                            min={15}
+                            max={50}
+                            step={5}
+                            className="w-full"
+                          />
+                        </div>
                       </motion.div>
                     )}
                   </AnimatePresence>
+
+                  {/* Editable Lines (After Generation) */}
+                  {isGenerated && (
+                    <div className="pt-4 border-t border-gray-100">
+                      <div className="flex justify-between mb-2">
+                        <Label className="text-xs text-gray-500">Total Lines</Label>
+                        <span className="text-xs text-gray-700 font-medium">{totalSteps.toLocaleString()}</span>
+                      </div>
+                      <Slider
+                        value={[currentStep]}
+                        onValueChange={([v]) => {
+                          setCurrentStep(v);
+                          setIsPlaying(false);
+                        }}
+                        min={0}
+                        max={totalSteps}
+                        step={1}
+                        className="w-full"
+                      />
+                      <p className="text-xs text-gray-400 mt-2">
+                        Adjust to show fewer or more lines
+                      </p>
+                    </div>
+                  )}
                 </div>
               </Card>
             </div>

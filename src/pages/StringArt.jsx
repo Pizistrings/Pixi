@@ -259,19 +259,18 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // Define line ranges
-    const firstMixedLines = 1000;
-    const middleStart = Math.floor(numStrings * 0.3);
-    const outlineStart = Math.floor(numStrings * 0.8);
+    // Define line ranges with specific breakpoints
+    const range1End = Math.min(2000, numStrings);          // Lines 1-2k: 50% black
+    const range2Start = 2000;
+    const range2End = Math.min(7000, numStrings);          // Lines 3-7k: colors focus
+    const range3Start = Math.min(7000, numStrings);        // Lines 8-9k: 80% black
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
-      const percentComplete = totalStringsDrawn / numStrings;
       
-      // First 1000 lines: 50% black, 50% colors
-      if (totalStringsDrawn < firstMixedLines) {
+      // Lines 1-2k: 50% black, 50% colors
+      if (totalStringsDrawn < range1End) {
         if (mode !== 'mono' && Math.random() > 0.5) {
-          // Use color
           if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;
@@ -282,10 +281,9 @@ export default function StringArt() {
           colorId = 'K';
         }
       }
-      // Middle 30-80%: emphasize colors (20% black, 80% colors)
-      else if (totalStringsDrawn >= middleStart && totalStringsDrawn < outlineStart) {
-        if (mode !== 'mono' && Math.random() > 0.2) {
-          // Use color distribution
+      // Lines 3-7k: emphasize 3 colors (15% black, 85% colors)
+      else if (totalStringsDrawn >= range2Start && totalStringsDrawn < range2End) {
+        if (mode !== 'mono' && Math.random() > 0.15) {
           if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;
@@ -296,10 +294,9 @@ export default function StringArt() {
           colorId = 'K';
         }
       }
-      // Last 80-100%: more black outline but with colors (70% black, 30% colors)
-      else if (totalStringsDrawn >= outlineStart) {
-        if (mode !== 'mono' && Math.random() > 0.7) {
-          // Use color
+      // Lines 8-9k: 80% black for color separation
+      else if (totalStringsDrawn >= range3Start) {
+        if (mode !== 'mono' && Math.random() > 0.8) {
           if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;

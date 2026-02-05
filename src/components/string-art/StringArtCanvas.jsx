@@ -143,7 +143,20 @@ const StringArtCanvas = forwardRef(({
         ctx.strokeStyle = colorMap[path.color] || '#1a1a1a';
         ctx.beginPath();
         ctx.moveTo(fromPin.x, fromPin.y);
-        ctx.lineTo(toPin.x, toPin.y);
+        
+        if (path.curveControl) {
+          // Draw curved line using quadratic curve
+          ctx.quadraticCurveTo(
+            path.curveControl.x,
+            path.curveControl.y,
+            toPin.x,
+            toPin.y
+          );
+        } else {
+          // Draw straight line
+          ctx.lineTo(toPin.x, toPin.y);
+        }
+        
         ctx.stroke();
       }
     }
@@ -162,13 +175,22 @@ const StringArtCanvas = forwardRef(({
         ctx.globalAlpha = 0.8;
         ctx.beginPath();
         ctx.moveTo(fromPin.x, fromPin.y);
-        ctx.lineTo(toPin.x, toPin.y);
+        
+        if (currentPath.curveControl) {
+          ctx.quadraticCurveTo(
+            currentPath.curveControl.x,
+            currentPath.curveControl.y,
+            toPin.x,
+            toPin.y
+          );
+        } else {
+          ctx.lineTo(toPin.x, toPin.y);
+        }
+        
         ctx.stroke();
         ctx.globalAlpha = 1;
 
         // Draw indicator arrow
-        const midX = (fromPin.x + toPin.x) / 2;
-        const midY = (fromPin.y + toPin.y) / 2;
         ctx.fillStyle = '#ff6b35';
         ctx.beginPath();
         ctx.arc(toPin.x, toPin.y, 4, 0, 2 * Math.PI);

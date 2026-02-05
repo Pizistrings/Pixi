@@ -53,6 +53,11 @@ export default function StringArt() {
   const [isGenerated, setIsGenerated] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showImageSettings, setShowImageSettings] = useState(false);
+  const [algorithmMode, setAlgorithmMode] = useState('standard'); // 'standard', 'dense', 'curved'
+  const [minStringLength, setMinStringLength] = useState(20);
+  const [maxStringLength, setMaxStringLength] = useState(280);
+  const [densityFactor, setDensityFactor] = useState(1.5);
+  const [curvature, setCurvature] = useState(0.2);
   
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -193,12 +198,13 @@ export default function StringArt() {
       }
     }
     
-    // Generate string paths using a greedy algorithm
+    // Generate string paths using an advanced algorithm
     const paths = [];
     const layerCounts = {};
     
     // Create working copy of image data for each color channel
     const workingData = {};
+    const detailMap = new Float32Array(size * size);
     colors.forEach(color => {
       workingData[color.id] = new Float32Array(size * size);
     });
@@ -237,6 +243,29 @@ export default function StringArt() {
       }
     }
     
+    // Calculate detail map for dense mode (edge detection)
+    if (algorithmMode === 'dense') {
+      for (let y = 1; y < size - 1; y++) {
+        for (let x = 1; x < size - 1; x++) {
+          const idx = y * size + x;
+          const grayCenter = 0.299 * imageData.data[idx * 4] + 
+                           0.587 * imageData.data[idx * 4 + 1] + 
+                           0.114 * imageData.data[idx * 4 + 2];
+          
+          // Sobel edge detection
+          const gx = 
+            -imageData.data[((y-1) * size + (x-1)) * 4] - 2 * imageData.data[((y) * size + (x-1)) * 4] - imageData.data[((y+1) * size + (x-1)) * 4] +
+            imageData.data[((y-1) * size + (x+1)) * 4] + 2 * imageData.data[((y) * size + (x+1)) * 4] + imageData.data[((y+1) * size + (x+1)) * 4];
+          
+          const gy = 
+            -imageData.data[((y-1) * size + (x-1)) * 4] - 2 * imageData.data[((y-1) * size + (x)) * 4] - imageData.data[((y-1) * size + (x+1)) * 4] +
+            imageData.data[((y+1) * size + (x-1)) * 4] + 2 * imageData.data[((y+1) * size + (x)) * 4] + imageData.data[((y+1) * size + (x+1)) * 4];
+          
+          detailMap[idx] = Math.sqrt(gx * gx + gy * gy) / 255;
+        }
+      }
+    }
+    
     const activeColors = mode === 'mono' ? ['K'] : colors.map(c => c.id);
     
     // Calculate strings per color based on distribution
@@ -258,49 +287,105 @@ export default function StringArt() {
       for (let s = 0; s < stringsForThisColor; s++) {
         let bestPin = -1;
         let bestScore = -Infinity;
+        let bestCurveControl = null;
         
         // Find the best next pin
         for (let nextPin = 0; nextPin < numPins; nextPin++) {
           if (nextPin === currentPin) continue;
           
-          // Skip nearby pins (minimum distance of 20)
-          const pinDist = Math.abs(nextPin - currentPin);
-          if (pinDist < 20 && pinDist > numPins - 20) continue;
-          
-          // Calculate line score
+          // Calculate pin distance
           const x1 = pins[currentPin].x;
           const y1 = pins[currentPin].y;
           const x2 = pins[nextPin].x;
           const y2 = pins[nextPin].y;
-          
           const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-          const steps = Math.ceil(dist);
           
+          // Apply min/max string length constraints
+          if (dist < minStringLength || dist > maxStringLength) continue;
+          
+          // Skip nearby pins
+          const pinDist = Math.abs(nextPin - currentPin);
+          if (pinDist < 20 && pinDist > numPins - 20) continue;
+          
+          const steps = Math.ceil(dist);
           let score = 0;
-          for (let t = 0; t < steps; t++) {
-            const x = Math.floor(x1 + (x2 - x1) * t / steps);
-            const y = Math.floor(y1 + (y2 - y1) * t / steps);
-            if (x >= 0 && x < size && y >= 0 && y < size) {
-              score += workingData[colorId][y * size + x];
+          let curveControl = null;
+          
+          // For curved mode, calculate curve control point
+          if (algorithmMode === 'curved') {
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+            const perpX = -(y2 - y1);
+            const perpY = (x2 - x1);
+            const perpLen = Math.sqrt(perpX * perpX + perpY * perpY);
+            
+            curveControl = {
+              x: midX + (perpX / perpLen) * dist * curvature,
+              y: midY + (perpY / perpLen) * dist * curvature
+            };
+            
+            // Score along curve
+            for (let t = 0; t <= steps; t++) {
+              const u = t / steps;
+              const x = Math.floor((1-u)*(1-u)*x1 + 2*(1-u)*u*curveControl.x + u*u*x2);
+              const y = Math.floor((1-u)*(1-u)*y1 + 2*(1-u)*u*curveControl.y + u*u*y2);
+              
+              if (x >= 0 && x < size && y >= 0 && y < size) {
+                const idx = y * size + x;
+                let pixelScore = workingData[colorId][idx];
+                
+                // Boost score in detailed areas for dense mode
+                if (algorithmMode === 'dense') {
+                  pixelScore *= (1 + detailMap[idx] * densityFactor);
+                }
+                
+                score += pixelScore;
+              }
+            }
+          } else {
+            // Score along straight line
+            for (let t = 0; t < steps; t++) {
+              const x = Math.floor(x1 + (x2 - x1) * t / steps);
+              const y = Math.floor(y1 + (y2 - y1) * t / steps);
+              
+              if (x >= 0 && x < size && y >= 0 && y < size) {
+                const idx = y * size + x;
+                let pixelScore = workingData[colorId][idx];
+                
+                // Boost score in detailed areas for dense mode
+                if (algorithmMode === 'dense') {
+                  pixelScore *= (1 + detailMap[idx] * densityFactor);
+                }
+                
+                score += pixelScore;
+              }
             }
           }
+          
           score /= steps;
           
           if (score > bestScore) {
             bestScore = score;
             bestPin = nextPin;
+            bestCurveControl = curveControl;
           }
         }
         
         if (bestPin === -1) break;
         
         // Add the string path
-        paths.push({
+        const pathData = {
           from: currentPin,
           to: bestPin,
           color: colorId,
           step: paths.length
-        });
+        };
+        
+        if (bestCurveControl) {
+          pathData.curveControl = bestCurveControl;
+        }
+        
+        paths.push(pathData);
         layerCounts[colorId]++;
         
         // Subtract the drawn line from working data
@@ -311,11 +396,25 @@ export default function StringArt() {
         const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
         const steps = Math.ceil(dist);
         
-        for (let t = 0; t < steps; t++) {
-          const x = Math.floor(x1 + (x2 - x1) * t / steps);
-          const y = Math.floor(y1 + (y2 - y1) * t / steps);
-          if (x >= 0 && x < size && y >= 0 && y < size) {
-            workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
+        if (bestCurveControl) {
+          // Erase along curve
+          for (let t = 0; t <= steps; t++) {
+            const u = t / steps;
+            const x = Math.floor((1-u)*(1-u)*x1 + 2*(1-u)*u*bestCurveControl.x + u*u*x2);
+            const y = Math.floor((1-u)*(1-u)*y1 + 2*(1-u)*u*bestCurveControl.y + u*u*y2);
+            
+            if (x >= 0 && x < size && y >= 0 && y < size) {
+              workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
+            }
+          }
+        } else {
+          // Erase along straight line
+          for (let t = 0; t < steps; t++) {
+            const x = Math.floor(x1 + (x2 - x1) * t / steps);
+            const y = Math.floor(y1 + (y2 - y1) * t / steps);
+            if (x >= 0 && x < size && y >= 0 && y < size) {
+              workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
+            }
           }
         }
         
@@ -334,7 +433,7 @@ export default function StringArt() {
     setTotalSteps(paths.length);
     setIsGenerated(true);
     setIsProcessing(false);
-  }, [image, mode, numPins, numStrings, colors, colorDistribution, shape, brightness, contrast, sharpness, cropArea]);
+  }, [image, mode, numPins, numStrings, colors, colorDistribution, shape, brightness, contrast, sharpness, cropArea, algorithmMode, minStringLength, maxStringLength, densityFactor, curvature]);
 
   // Animation loop
   useEffect(() => {
@@ -818,6 +917,104 @@ export default function StringArt() {
                       </motion.div>
                     )}
                   </AnimatePresence>
+                </div>
+              </Card>
+
+              {/* Advanced Algorithm Settings */}
+              <Card className="bg-white border-0 shadow-sm p-6">
+                <h3 className="text-sm text-gray-500 mb-4">Algorithm Settings</h3>
+                
+                <div className="space-y-4">
+                  {/* Algorithm Mode */}
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-2 block">Generation Mode</Label>
+                    <Tabs value={algorithmMode} onValueChange={setAlgorithmMode}>
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="standard">Standard</TabsTrigger>
+                        <TabsTrigger value="dense">Dense</TabsTrigger>
+                        <TabsTrigger value="curved">Curved</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                    <p className="text-xs text-gray-400 mt-2">
+                      {algorithmMode === 'standard' && 'Balanced approach with straight lines'}
+                      {algorithmMode === 'dense' && 'More strings in detailed areas'}
+                      {algorithmMode === 'curved' && 'Smooth curved string paths'}
+                    </p>
+                  </div>
+
+                  {/* Min String Length */}
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <Label className="text-xs text-gray-500">Min String Length</Label>
+                      <span className="text-xs text-gray-700 font-medium">{minStringLength}px</span>
+                    </div>
+                    <Slider
+                      value={[minStringLength]}
+                      onValueChange={([v]) => setMinStringLength(v)}
+                      min={10}
+                      max={100}
+                      step={5}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Max String Length */}
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <Label className="text-xs text-gray-500">Max String Length</Label>
+                      <span className="text-xs text-gray-700 font-medium">{maxStringLength}px</span>
+                    </div>
+                    <Slider
+                      value={[maxStringLength]}
+                      onValueChange={([v]) => setMaxStringLength(v)}
+                      min={150}
+                      max={400}
+                      step={10}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Density Factor (for dense mode) */}
+                  {algorithmMode === 'dense' && (
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <Label className="text-xs text-gray-500">Detail Emphasis</Label>
+                        <span className="text-xs text-gray-700 font-medium">{densityFactor.toFixed(1)}x</span>
+                      </div>
+                      <Slider
+                        value={[densityFactor]}
+                        onValueChange={([v]) => setDensityFactor(v)}
+                        min={1}
+                        max={3}
+                        step={0.1}
+                        className="w-full"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        Higher values add more strings to edges
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Curvature (for curved mode) */}
+                  {algorithmMode === 'curved' && (
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <Label className="text-xs text-gray-500">Curve Intensity</Label>
+                        <span className="text-xs text-gray-700 font-medium">{curvature.toFixed(2)}</span>
+                      </div>
+                      <Slider
+                        value={[curvature]}
+                        onValueChange={([v]) => setCurvature(v)}
+                        min={0.05}
+                        max={0.5}
+                        step={0.05}
+                        className="w-full"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        Higher values create more pronounced curves
+                      </p>
+                    </div>
+                  )}
                 </div>
               </Card>
             </div>

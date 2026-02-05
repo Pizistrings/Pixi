@@ -261,14 +261,16 @@ export default function StringArt() {
     
     // Define line ranges
     const firstMixedLines = 1000;
-    const lastOutlineLines = Math.min(8000, Math.floor(numStrings * 0.8)); // Last 7-9k lines
+    const middleStart = Math.floor(numStrings * 0.3);
+    const outlineStart = Math.floor(numStrings * 0.8);
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
+      const percentComplete = totalStringsDrawn / numStrings;
       
-      // First 1000 lines: 75% black, 25% colors
+      // First 1000 lines: 50% black, 50% colors
       if (totalStringsDrawn < firstMixedLines) {
-        if (mode !== 'mono' && Math.random() > 0.75) {
+        if (mode !== 'mono' && Math.random() > 0.5) {
           // Use color
           if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
@@ -280,24 +282,24 @@ export default function StringArt() {
           colorId = 'K';
         }
       }
-      // Last 7-9k lines: more black for outline/details (60% black, 40% colors)
-      else if (totalStringsDrawn >= numStrings - lastOutlineLines) {
-        if (mode !== 'mono' && Math.random() > 0.6) {
-          // Use color
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
-        }
-      }
-      // Middle section: more colors, less black (30% black, 70% colors)
-      else if (mode !== 'mono') {
-        if (Math.random() > 0.3) {
+      // Middle 30-80%: emphasize colors (20% black, 80% colors)
+      else if (totalStringsDrawn >= middleStart && totalStringsDrawn < outlineStart) {
+        if (mode !== 'mono' && Math.random() > 0.2) {
           // Use color distribution
+          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+            stringsInCurrentRun = 0;
+          }
+          colorId = activeColors[currentColorIndex];
+          stringsInCurrentRun++;
+        } else {
+          colorId = 'K';
+        }
+      }
+      // Last 80-100%: more black outline but with colors (70% black, 30% colors)
+      else if (totalStringsDrawn >= outlineStart) {
+        if (mode !== 'mono' && Math.random() > 0.7) {
+          // Use color
           if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;

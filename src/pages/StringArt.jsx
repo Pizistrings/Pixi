@@ -259,33 +259,46 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // Define black line ranges
-    const firstBlackLines = 1500;
-    const lastBlackLines = 500;
-    const totalColorLines = numStrings - firstBlackLines - lastBlackLines;
+    // Define color line ranges with mixed approach
+    const firstColorLines = 1000;
+    const lastOutlineLines = 8000;
+    const midSectionLines = numStrings - firstColorLines - lastOutlineLines;
+    const colorOnlyIds = mode === 'mono' ? ['K'] : activeColors.filter(id => id !== 'K');
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      // First 1500 lines are black
-      if (totalStringsDrawn < firstBlackLines) {
-        colorId = 'K';
-      }
-      // Last lines are black for details
-      else if (totalStringsDrawn >= numStrings - lastBlackLines) {
-        colorId = 'K';
-      }
-      // Middle section uses color distribution
-      else if (mode !== 'mono') {
-        // Switch color if we've reached the run length
+      // First 1000 lines: mix of 3 colors + black for details
+      if (totalStringsDrawn < firstColorLines) {
         if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
           currentColorIndex = (currentColorIndex + 1) % activeColors.length;
           stringsInCurrentRun = 0;
         }
         colorId = activeColors[currentColorIndex];
         stringsInCurrentRun++;
-      } else {
-        colorId = 'K';
+      }
+      // Middle section: more colors with black
+      else if (totalStringsDrawn < firstColorLines + midSectionLines) {
+        const shouldUseBlack = Math.random() < 0.3; // 30% black
+        if (shouldUseBlack) {
+          colorId = 'K';
+        } else {
+          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+            stringsInCurrentRun = 0;
+          }
+          colorId = activeColors[currentColorIndex];
+          stringsInCurrentRun++;
+        }
+      }
+      // Last 7-9k lines: mostly black with outline emphasis
+      else {
+        const shouldUseColor = Math.random() < 0.15; // 15% color for detail
+        if (shouldUseColor) {
+          colorId = activeColors[Math.floor(Math.random() * activeColors.length)];
+        } else {
+          colorId = 'K';
+        }
       }
       
       let bestPin = -1;

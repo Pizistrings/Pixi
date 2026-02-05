@@ -243,6 +243,18 @@ export default function StringArt() {
       }
     }
     
+    // Calculate average image brightness for intelligent black usage
+    let totalBrightness = 0;
+    for (let i = 0; i < size * size; i++) {
+      const r = imageData.data[i * 4];
+      const g = imageData.data[i * 4 + 1];
+      const b = imageData.data[i * 4 + 2];
+      totalBrightness += (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    }
+    const avgBrightness = totalBrightness / (size * size);
+    // Darker images need less black in later stages, brighter images need more black
+    const blackAdjustment = 1 - avgBrightness;
+    
     const activeColors = mode === 'mono' ? ['K'] : colors.map(c => c.id);
     
     // Use color run to alternate between colors
@@ -716,13 +728,14 @@ export default function StringArt() {
   }, [voiceEnabled, voiceDelay, currentStep, totalSteps, stringPaths]);
 
   // Edit color after generation
-  const handleEditColor = (colorId, newHex, newName) => {
+  const handleEditColor = (colorId, newHex, newName, newCount) => {
     const updatedLayers = colorLayers.map(layer => {
       if (layer.id === colorId) {
         return { 
           ...layer, 
           hex: newHex || layer.hex,
-          name: newName || layer.name
+          name: newName || layer.name,
+          count: newCount !== undefined ? newCount : layer.count
         };
       }
       return layer;

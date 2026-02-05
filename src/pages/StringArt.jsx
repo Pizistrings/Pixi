@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StringArtCanvas from '@/components/string-art/StringArtCanvas';
 import StepList from '@/components/string-art/StepList';
 import ImageUploader from '@/components/string-art/ImageUploader';
+import ImageCropper from '@/components/string-art/ImageCropper';
 
 export default function StringArt() {
   const [image, setImage] = useState(null);
@@ -53,6 +54,7 @@ export default function StringArt() {
   const [voiceDelay, setVoiceDelay] = useState(3);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [minPinDistance, setMinPinDistance] = useState(30);
+  const [showCropper, setShowCropper] = useState(false);
   
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -717,6 +719,16 @@ export default function StringArt() {
 
         {!image ? (
           <ImageUploader onUpload={handleImageUpload} />
+        ) : showCropper ? (
+          <div className="max-w-2xl mx-auto">
+            <ImageCropper
+              image={image}
+              shape={shape}
+              cropArea={cropArea}
+              onCropChange={setCropArea}
+              onCropComplete={() => setShowCropper(false)}
+            />
+          </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Canvas Area */}
@@ -845,6 +857,14 @@ export default function StringArt() {
                 >
                   <Upload className="w-4 h-4 mr-2" />
                   New Image
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCropper(true)}
+                  className="flex-1"
+                >
+                  🖼️ Crop Image
                 </Button>
                 
                 <Button

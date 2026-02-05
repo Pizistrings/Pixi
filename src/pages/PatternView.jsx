@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Play, Pause, SkipBack, SkipForward, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function PatternView() {
   const { data } = useParams();
@@ -10,10 +12,14 @@ export default function PatternView() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(5);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [voiceDelay, setVoiceDelay] = useState(3);
+  const [showPreview, setShowPreview] = useState(true);
+  const [lastAnnouncedStep, setLastAnnouncedStep] = useState(-1);
+  const utteranceRef = useRef(null);
 
   useEffect(() => {
     if (data) {
-      // Fetch pattern data from URL
       const patternUrl = decodeURIComponent(data);
       console.log('Loading pattern from:', patternUrl);
       
@@ -24,7 +30,6 @@ export default function PatternView() {
         })
         .then(decoded => {
           console.log('Pattern loaded:', decoded);
-          // Transform compact format back to full format
           const fullPattern = {
             image: decoded.img,
             colors: decoded.colors.map(c => ({ name: c.n, hex: c.h, count: c.c, id: c.id })),
@@ -34,7 +39,6 @@ export default function PatternView() {
           };
           setPattern(fullPattern);
           
-          // Resume last step from localStorage
           const savedStep = localStorage.getItem('stringArtStep');
           if (savedStep) {
             setCurrentStep(parseInt(savedStep));
@@ -47,20 +51,17 @@ export default function PatternView() {
     }
   }, [data]);
 
-  // Save progress
   useEffect(() => {
     if (pattern && currentStep > 0) {
       localStorage.setItem('stringArtStep', currentStep.toString());
     }
   }, [currentStep, pattern]);
 
-  // Voice announcement
   useEffect(() => {
     if (!voiceEnabled || !pattern || currentStep === lastAnnouncedStep || currentStep === 0) return;
     
     const announcementTimer = setTimeout(() => {
       if ('speechSynthesis' in window) {
-        // Cancel any ongoing speech
         window.speechSynthesis.cancel();
         
         const currentPath = pattern.paths[currentStep - 1];
@@ -71,7 +72,6 @@ export default function PatternView() {
         
         let text = '';
         
-        // Check if color changed
         if (!previousPath || previousPath.color !== currentPath.color) {
           text = `Change color to ${currentColor?.name || 'unknown'}. `;
         }
@@ -93,7 +93,6 @@ export default function PatternView() {
     return () => clearTimeout(announcementTimer);
   }, [currentStep, voiceEnabled, voiceDelay, pattern, lastAnnouncedStep]);
 
-  // Keep screen awake
   useEffect(() => {
     let wakeLock = null;
     
@@ -122,202 +121,244 @@ export default function PatternView() {
         setCurrentStep(prev => prev + 1);
       }, 1000 / speed);
       return () => clearTimeout(interval);
+    } else if (currentStep >= pattern.totalSteps) {
+      setIsPlaying(false);
     }
   }, [isPlaying, currentStep, pattern, speed]);
 
   if (!pattern) {
     return (
-      <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center">
-        <div className="text-center text-gray-500">Loading pattern...</div>
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ff6b35] mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading pattern...</p>
+        </div>
       </div>
     );
   }
 
-  const getCurrentColor = () => {
-    if (!pattern.paths[currentStep - 1]) return null;
-    const colorId = pattern.paths[currentStep - 1].color;
-    return pattern.colors.find(c => c.id === colorId);
-  };
-
-  const currentColor = getCurrentColor();
-
-  // Get recent steps for the step list
-  const getRecentSteps = () => {
-    const steps = [];
-    for (let i = Math.max(0, currentStep - 5); i <= Math.min(pattern.totalSteps - 1, currentStep + 2); i++) {
-      const path = pattern.paths[i];
-      if (path) {
-        const color = pattern.colors.find(c => c.id === path.color);
-        steps.push({
-          step: i + 1,
-          color: color?.hex || '#000',
-          isCurrent: i + 1 === currentStep
-        });
-      }
-    }
-    return steps;
-  };
+  const currentPath = pattern.paths[currentStep - 1];
+  const currentColor = currentPath ? pattern.colors.find(c => c.id === currentPath.color) : null;
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5]">
-      <div className="max-w-6xl mx-auto px-4 py-6">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 touch-manipulation select-none">
+      <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-light text-gray-900 mb-1">String Art Pattern</h1>
-          <p className="text-sm text-gray-500">{pattern.totalSteps.toLocaleString()} total steps</p>
+        <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="text-center flex-1">
+              <h1 className="text-lg font-semibold text-gray-900">String Art Guide</h1>
+              <p className="text-xs text-gray-500">{pattern.numPins} pins • {pattern.colors.length} colors</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setVoiceEnabled(!voiceEnabled)}
+              className={`rounded-full ${voiceEnabled ? 'bg-[#ff6b35] text-white' : ''}`}
+            >
+              {voiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            </Button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Preview Image */}
-          <div className="lg:col-span-2">
-            <Card className="bg-white border-0 shadow-sm overflow-hidden">
-              <div className="p-6">
-                <img 
-                  src={pattern.image} 
-                  alt="String Art Pattern"
-                  className="w-full h-auto rounded-lg"
-                />
+        {/* Preview Toggle */}
+        {showPreview && (
+          <motion.div
+            initial={{ height: 'auto' }}
+            animate={{ height: 'auto' }}
+            className="bg-white border-b border-gray-200 overflow-hidden"
+          >
+            <div className="relative">
+              <img
+                src={pattern.image}
+                alt="String Art Preview"
+                className="w-full h-auto opacity-80"
+                style={{ touchAction: 'none', pointerEvents: 'none' }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent" />
+              <div className="absolute top-2 right-2 bg-black/20 text-white text-xs px-2 py-1 rounded">
+                Reference Only
               </div>
-              
-              {/* Progress Bar */}
-              <div className="px-6 pb-6">
-                <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
-                  <div 
-                    className="h-full bg-[#ff6b35] transition-all duration-200"
-                    style={{ width: `${(currentStep / pattern.totalSteps) * 100}%` }}
+            </div>
+          </motion.div>
+        )}
+
+        <button
+          onClick={() => setShowPreview(!showPreview)}
+          className="w-full bg-gray-100 py-2 flex items-center justify-center gap-2 text-sm text-gray-600 hover:bg-gray-200 transition-colors"
+        >
+          {showPreview ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          {showPreview ? 'Hide' : 'Show'} Preview
+        </button>
+
+        {/* Main Content */}
+        <div className="p-4 space-y-4">
+          {/* Current Step Card */}
+          <Card className="bg-white shadow-lg border-2 border-[#ff6b35]/20">
+            <div className="p-6">
+              {/* Progress */}
+              <div className="mb-4">
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-[#ff6b35]"
+                    animate={{ width: `${(currentStep / pattern.totalSteps) * 100}%` }}
+                    transition={{ duration: 0.3 }}
                   />
                 </div>
-                <div className="text-center text-sm text-gray-500">
-                  <span className="text-[#ff6b35] font-medium">{currentStep}</span> / {pattern.totalSteps.toLocaleString()}
+                <div className="flex justify-between mt-2 text-xs text-gray-500">
+                  <span className="font-medium text-[#ff6b35]">Step {currentStep}</span>
+                  <span>{pattern.totalSteps.toLocaleString()} total</span>
                 </div>
               </div>
-            </Card>
-          </div>
 
-          {/* Controls Panel */}
-          <div className="space-y-4">
-            {/* Current Step */}
-            <Card className="bg-white border-0 shadow-sm p-6">
-              <h3 className="text-xs text-gray-400 uppercase tracking-wider mb-3">Current step</h3>
-              <div className="text-center">
-                <div className="text-6xl font-light text-gray-900 mb-4">
-                  {currentStep}
-                </div>
-                
-                {currentColor && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-center gap-2">
+              {/* Color Indicator */}
+              {currentColor && (
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentColor.id}
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    className="mb-6 p-4 bg-gradient-to-r from-orange-50 to-white rounded-xl border border-orange-200"
+                  >
+                    <div className="flex items-center justify-center gap-3">
                       <div
-                        className="w-12 h-12 rounded-full shadow-lg"
+                        className="w-12 h-12 rounded-full shadow-lg border-4 border-white"
                         style={{ backgroundColor: currentColor.hex }}
                       />
+                      <div>
+                        <div className="text-lg font-bold text-gray-900">{currentColor.name}</div>
+                        <div className="text-xs text-gray-500">Current thread color</div>
+                      </div>
                     </div>
-                    <div className="text-lg font-medium text-gray-700">
-                      {currentColor.hex}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </Card>
+                  </motion.div>
+                </AnimatePresence>
+              )}
 
-            {/* Step List */}
-            <Card className="bg-white border-0 shadow-sm p-6">
-              <h3 className="text-xs text-gray-400 uppercase tracking-wider mb-3">Step list</h3>
-              <div className="space-y-2">
-                {getRecentSteps().map(step => (
-                  <div
-                    key={step.step}
-                    className={`flex items-center gap-3 py-2 px-3 rounded-lg transition-colors ${
-                      step.isCurrent ? 'bg-gray-100' : ''
-                    }`}
+              {/* Pin Instructions */}
+              {currentPath && (
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentStep}
+                    initial={{ x: 20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: -20, opacity: 0 }}
+                    className="bg-gray-50 rounded-2xl p-6"
                   >
-                    <div
-                      className={`w-4 h-4 rounded-full ${
-                        step.isCurrent ? 'ring-2 ring-offset-2' : ''
-                      }`}
-                      style={{ 
-                        backgroundColor: step.color,
-                        ringColor: step.color
-                      }}
-                    />
-                    <span className={`text-sm ${
-                      step.isCurrent ? 'font-bold text-gray-900' : 'text-gray-500'
-                    }`}>
-                      {step.step}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Card>
+                    <div className="flex items-center justify-center gap-6">
+                      <div className="text-center">
+                        <div className="text-xs font-medium text-gray-500 mb-2">FROM PIN</div>
+                        <div className="text-5xl font-bold text-gray-900">{currentPath.from}</div>
+                      </div>
+                      <div className="text-4xl text-[#ff6b35] font-bold">→</div>
+                      <div className="text-center">
+                        <div className="text-xs font-medium text-gray-500 mb-2">TO PIN</div>
+                        <div className="text-5xl font-bold text-[#ff6b35]">{currentPath.to}</div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+              )}
 
-            {/* Controls */}
-            <Card className="bg-white border-0 shadow-sm p-6">
-              <div className="flex items-center justify-center gap-2 mb-4">
+              {currentStep === 0 && (
+                <div className="text-center py-8 text-gray-400">
+                  <p className="text-lg mb-2">Ready to start</p>
+                  <p className="text-sm">Tap Next to begin</p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Controls */}
+          <Card className="bg-white shadow-md">
+            <div className="p-4">
+              <div className="flex items-center justify-center gap-3 mb-4">
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
                   disabled={currentStep === 0}
+                  className="h-14 w-14 rounded-full shadow-sm"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <SkipBack className="w-6 h-6" />
                 </Button>
-                
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentStep(0)}
-                  disabled={currentStep === 0}
-                >
-                  <SkipBack className="w-4 h-4" />
-                </Button>
-                
+
                 <Button
                   size="icon"
                   onClick={() => setIsPlaying(!isPlaying)}
-                  className="w-12 h-12 bg-[#ff6b35] hover:bg-[#e55a2b]"
+                  className="bg-[#ff6b35] hover:bg-[#e55a2b] h-16 w-16 rounded-full shadow-lg"
                 >
-                  {isPlaying ? (
-                    <Pause className="w-5 h-5" />
-                  ) : (
-                    <Play className="w-5 h-5 ml-0.5" />
-                  )}
+                  {isPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7 ml-1" />}
                 </Button>
-                
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentStep(pattern.totalSteps)}
-                  disabled={currentStep === pattern.totalSteps}
-                >
-                  <SkipForward className="w-4 h-4" />
-                </Button>
-                
+
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={() => setCurrentStep(Math.min(pattern.totalSteps, currentStep + 1))}
-                  disabled={currentStep === pattern.totalSteps}
+                  disabled={currentStep >= pattern.totalSteps}
+                  className="h-14 w-14 rounded-full shadow-sm"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <SkipForward className="w-6 h-6" />
                 </Button>
               </div>
 
-              {/* Speed Control */}
-              <div className="flex items-center justify-center gap-2">
-                {[1, 5, 10, 25].map(s => (
-                  <Button
-                    key={s}
-                    variant={speed === s ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSpeed(s)}
-                    className="text-xs"
-                  >
-                    {s}x
-                  </Button>
-                ))}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600">Playback Speed</span>
+                  <div className="flex gap-1">
+                    {[1, 5, 10, 25].map(s => (
+                      <Button
+                        key={s}
+                        variant={speed === s ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSpeed(s)}
+                        className={`text-xs h-8 px-3 ${speed === s ? 'bg-[#ff6b35] hover:bg-[#e55a2b]' : ''}`}
+                      >
+                        {s}x
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {voiceEnabled && (
+                  <div>
+                    <div className="flex justify-between items-center text-sm mb-2">
+                      <span className="text-gray-600">Voice Delay</span>
+                      <span className="text-gray-900 font-medium">{voiceDelay}s</span>
+                    </div>
+                    <Slider
+                      value={[voiceDelay]}
+                      onValueChange={([v]) => setVoiceDelay(v)}
+                      min={1}
+                      max={10}
+                      step={1}
+                      className="w-full"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Voice Guide Info */}
+          {voiceEnabled && (
+            <Card className="bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-200">
+              <div className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Volume2 className="w-5 h-5 text-[#ff6b35]" />
+                  <h3 className="font-semibold text-gray-900">Voice Guide Active</h3>
+                </div>
+                <p className="text-sm text-gray-700 mb-2">
+                  Voice will announce color changes and pin numbers with {voiceDelay}s delay
+                </p>
+                <div className="text-xs text-gray-600 space-y-1 bg-white/50 rounded p-2">
+                  <p>• Color changes are announced first</p>
+                  <p>• Then "From pin X to pin Y"</p>
+                  <p>• Progress saved automatically</p>
+                </div>
               </div>
             </Card>
-          </div>
+          )}
         </div>
       </div>
     </div>

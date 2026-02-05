@@ -58,6 +58,10 @@ export default function StringArt() {
   const [voiceDelay, setVoiceDelay] = useState(3);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [minPinDistance, setMinPinDistance] = useState(30);
+  const [edgeDetection, setEdgeDetection] = useState(50);
+  const [colorQuantization, setColorQuantization] = useState('kmeans');
+  const [analyzing, setAnalyzing] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState(null);
   
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -75,6 +79,81 @@ export default function StringArt() {
     setStringPaths([]);
     setCurrentStep(0);
     setIsPlaying(false);
+    setAiSuggestions(null);
+  };
+
+  const analyzeImageWithAI = async () => {
+    if (!image) return;
+    
+    setAnalyzing(true);
+    try {
+      const { base44 } = await import('@/api/base44Client');
+      
+      const response = await base44.integrations.Core.InvokeLLM({
+        prompt: `Analyze this image for string art generation. Consider:
+1. Image complexity (detail level, edges, textures)
+2. Color palette richness
+3. Subject matter (portrait, landscape, abstract, etc.)
+4. Contrast levels
+
+Based on this analysis, provide optimal recommendations for:
+- Number of pins (range: 200-1000)
+- Number of strings (range: 1000-9000)
+- Edge detection strength (0-100, higher for more detail)
+- Whether monochrome or color mode would work better
+- Brief reasoning for your recommendations
+
+Be concise and specific with numbers.`,
+        file_urls: [image],
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            complexity: {
+              type: 'string',
+              enum: ['low', 'medium', 'high', 'very_high'],
+              description: 'Overall image complexity level'
+            },
+            recommended_pins: {
+              type: 'number',
+              description: 'Optimal number of pins'
+            },
+            recommended_strings: {
+              type: 'number',
+              description: 'Optimal number of strings'
+            },
+            edge_detection: {
+              type: 'number',
+              description: 'Edge detection strength 0-100'
+            },
+            mode_suggestion: {
+              type: 'string',
+              enum: ['mono', 'color'],
+              description: 'Suggested color mode'
+            },
+            reasoning: {
+              type: 'string',
+              description: 'Brief explanation of recommendations'
+            }
+          },
+          required: ['complexity', 'recommended_pins', 'recommended_strings', 'edge_detection', 'mode_suggestion', 'reasoning']
+        }
+      });
+      
+      setAiSuggestions(response);
+    } catch (error) {
+      console.error('AI analysis failed:', error);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const applySuggestions = () => {
+    if (!aiSuggestions) return;
+    
+    setNumPins(aiSuggestions.recommended_pins);
+    setNumStrings(aiSuggestions.recommended_strings);
+    setEdgeDetection(aiSuggestions.edge_detection);
+    setMode(aiSuggestions.mode_suggestion);
   };
 
   const generateStringArt = useCallback(async () => {
@@ -137,7 +216,55 @@ export default function StringArt() {
       ctx.putImageData(imageData, 0, 0);
     }
     
-    const imageData = ctx.getImageData(0, 0, size, size);
+    let imageData = ctx.getImageData(0, 0, size, size);
+    
+    // Apply edge detection
+    if (edgeDetection > 0) {
+      const data = new Uint8ClampedArray(imageData.data);
+      const strength = edgeDetection / 100;
+      
+      for (let y = 1; y < size - 1; y++) {
+        for (let x = 1; x < size - 1; x++) {
+          const i = (y * size + x) * 4;
+          
+          // Sobel edge detection
+          const gx = 
+            -data[((y - 1) * size + (x - 1)) * 4] + data[((y - 1) * size + (x + 1)) * 4] +
+            -2 * data[(y * size + (x - 1)) * 4] + 2 * data[(y * size + (x + 1)) * 4] +
+            -data[((y + 1) * size + (x - 1)) * 4] + data[((y + 1) * size + (x + 1)) * 4];
+          
+          const gy = 
+            -data[((y - 1) * size + (x - 1)) * 4] - 2 * data[((y - 1) * size + x) * 4] - data[((y - 1) * size + (x + 1)) * 4] +
+            data[((y + 1) * size + (x - 1)) * 4] + 2 * data[((y + 1) * size + x) * 4] + data[((y + 1) * size + (x + 1)) * 4];
+          
+          const magnitude = Math.sqrt(gx * gx + gy * gy);
+          const edgeValue = Math.min(255, magnitude * strength);
+          
+          // Blend edge detection with original
+          for (let c = 0; c < 3; c++) {
+            imageData.data[i + c] = Math.max(0, Math.min(255, data[i + c] - edgeValue * 0.5));
+          }
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+      imageData = ctx.getImageData(0, 0, size, size);
+    }
+    
+    // Apply color quantization
+    if (mode === 'color' && colorQuantization === 'posterize') {
+      const data = imageData.data;
+      const levels = 4; // Reduce to 4 levels per channel
+      const step = 255 / (levels - 1);
+      
+      for (let i = 0; i < data.length; i += 4) {
+        for (let c = 0; c < 3; c++) {
+          const level = Math.round(data[i + c] / step);
+          data[i + c] = level * step;
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+      imageData = ctx.getImageData(0, 0, size, size);
+    }
     
     // Generate pin positions based on shape
     const pins = [];
@@ -347,7 +474,7 @@ export default function StringArt() {
     setTotalSteps(paths.length);
     setIsGenerated(true);
     setIsProcessing(false);
-  }, [image, mode, numPins, numStrings, colors, colorDistribution, shape, brightness, contrast, sharpness, cropArea, minPinDistance]);
+  }, [image, mode, numPins, numStrings, colors, colorDistribution, shape, brightness, contrast, sharpness, cropArea, minPinDistance, edgeDetection, colorQuantization]);
 
   // Animation loop
   useEffect(() => {
@@ -835,6 +962,82 @@ export default function StringArt() {
                 </div>
               </Card>
 
+              {/* AI Suggestions */}
+              {image && !isGenerated && (
+                <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-4 mt-4 border border-purple-100">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
+                        <span className="text-white text-sm">✨</span>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900">AI Smart Suggestions</h3>
+                        <p className="text-xs text-gray-600">Optimize settings for your image</p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={analyzeImageWithAI}
+                      disabled={analyzing}
+                      size="sm"
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      {analyzing ? (
+                        <>
+                          <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        'Analyze'
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {aiSuggestions && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-3"
+                    >
+                      <div className="bg-white/80 rounded-lg p-3 text-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                            {aiSuggestions.complexity.toUpperCase()} COMPLEXITY
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                            {aiSuggestions.mode_suggestion.toUpperCase()} MODE
+                          </span>
+                        </div>
+                        <p className="text-gray-700 text-xs mb-3">{aiSuggestions.reasoning}</p>
+                        
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div className="bg-purple-50 rounded p-2 text-center">
+                            <div className="text-purple-600 font-bold text-lg">{aiSuggestions.recommended_pins}</div>
+                            <div className="text-gray-600">Pins</div>
+                          </div>
+                          <div className="bg-blue-50 rounded p-2 text-center">
+                            <div className="text-blue-600 font-bold text-lg">{aiSuggestions.recommended_strings.toLocaleString()}</div>
+                            <div className="text-gray-600">Strings</div>
+                          </div>
+                          <div className="bg-indigo-50 rounded p-2 text-center">
+                            <div className="text-indigo-600 font-bold text-lg">{aiSuggestions.edge_detection}%</div>
+                            <div className="text-gray-600">Edges</div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <Button
+                        onClick={applySuggestions}
+                        variant="outline"
+                        size="sm"
+                        className="w-full border-purple-200 hover:bg-purple-50"
+                      >
+                        Apply Recommendations
+                      </Button>
+                    </motion.div>
+                  )}
+                </div>
+              )}
+
               {/* Action buttons */}
               <div className="flex gap-3 mt-4">
                 <Button
@@ -843,6 +1046,7 @@ export default function StringArt() {
                     setImage(null);
                     setIsGenerated(false);
                     setStringPaths([]);
+                    setAiSuggestions(null);
                   }}
                   className="flex-1"
                 >
@@ -1120,6 +1324,35 @@ export default function StringArt() {
                             className="w-full"
                           />
                         </div>
+
+                        {/* Edge Detection */}
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label className="text-xs text-gray-500">Edge Detection</Label>
+                            <span className="text-xs text-gray-700 font-medium">{edgeDetection}%</span>
+                          </div>
+                          <Slider
+                            value={[edgeDetection]}
+                            onValueChange={([v]) => setEdgeDetection(v)}
+                            min={0}
+                            max={100}
+                            step={5}
+                            className="w-full"
+                          />
+                        </div>
+
+                        {/* Color Quantization */}
+                        {mode === 'color' && (
+                          <div>
+                            <Label className="text-xs text-gray-500 mb-2 block">Color Quantization</Label>
+                            <Tabs value={colorQuantization} onValueChange={setColorQuantization}>
+                              <TabsList className="grid w-full grid-cols-2">
+                                <TabsTrigger value="kmeans">K-Means</TabsTrigger>
+                                <TabsTrigger value="posterize">Posterize</TabsTrigger>
+                              </TabsList>
+                            </Tabs>
+                          </div>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>

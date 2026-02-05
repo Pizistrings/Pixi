@@ -13,7 +13,9 @@ export default function StepList({
   totalStrings,
   selectedColors = [],
   setSelectedColors,
-  numColors = 4
+  numColors = 4,
+  onEditColor,
+  isGenerated = false
 }) {
   // Calculate cumulative steps for each color
   const getStepRanges = () => {
@@ -202,11 +204,11 @@ export default function StepList({
         </div>
       )}
 
-      {/* Generated Results */}
+      {/* Generated Results - Editable Colors */}
       {colorLayers.length > 0 && (
         <div className="mt-6 pt-4 border-t border-gray-100">
           <h4 className="text-xs text-gray-400 mb-3 uppercase tracking-wider">
-            {colorLayers.length > 1 ? 'Generated Separation' : 'Progress'}
+            {colorLayers.length > 1 ? 'Generated Separation (Editable)' : 'Progress'}
           </h4>
           <div className="space-y-3">
             {colorLayers.map((layer, idx) => {
@@ -223,10 +225,13 @@ export default function StepList({
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-4 h-4 rounded-full shadow-inner"
-                        style={{ backgroundColor: layer.hex }}
+                    <div className="flex items-center gap-2 flex-1">
+                      <input
+                        type="color"
+                        value={layer.hex}
+                        onChange={(e) => onEditColor?.(layer.id, e.target.value)}
+                        className="w-4 h-4 rounded-full shadow-inner cursor-pointer"
+                        title="Click to change color"
                       />
                       <span className={`text-sm ${isActive ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
                         {layer.name}

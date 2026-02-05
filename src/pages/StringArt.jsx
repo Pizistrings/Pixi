@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Download, Settings, RefreshCw } from 'lucide-react';
+import { Upload, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Download, Settings, RefreshCw, FileText, QrCode, Mic, MicOff } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -53,10 +53,14 @@ export default function StringArt() {
   const [isGenerated, setIsGenerated] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showImageSettings, setShowImageSettings] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [voiceDelay, setVoiceDelay] = useState(3);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
   const audioRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   // Color configuration for string art
   const colors = mode === 'mono' 
@@ -393,6 +397,109 @@ export default function StringArt() {
     }
   };
 
+  const downloadPDF = async () => {
+    const { jsPDF } = await import('jspdf');
+    const pdf = new jsPDF();
+    
+    // Add title
+    pdf.setFontSize(18);
+    pdf.text('String Art Pattern', 20, 20);
+    
+    // Add canvas image
+    if (canvasRef.current) {
+      const imgData = canvasRef.current.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', 20, 30, 170, 170);
+    }
+    
+    // Add color information
+    pdf.setFontSize(12);
+    pdf.text('Colors:', 20, 210);
+    colorLayers.forEach((layer, idx) => {
+      pdf.setTextColor(layer.hex);
+      pdf.text(`${layer.name}: ${layer.count} lines`, 30, 220 + (idx * 8));
+    });
+    
+    pdf.save('string-art-pattern.pdf');
+  };
+
+  const generateQRCode = () => {
+    // Generate shareable pattern data
+    const patternData = {
+      colors: colorLayers,
+      shape,
+      numPins,
+      paths: stringPaths.slice(0, 100) // Sample data
+    };
+    const dataUrl = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(patternData))}`;
+    window.open(dataUrl, '_blank');
+  };
+
+  // Voice commands
+  useEffect(() => {
+    if (!voiceEnabled) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    
+    recognition.onresult = (event) => {
+      const last = event.results.length - 1;
+      const command = event.results[last][0].transcript.toLowerCase().trim();
+      
+      setTimeout(() => {
+        if (command.includes('next step') || command.includes('next')) {
+          setCurrentStep(prev => Math.min(prev + 1, totalSteps));
+        } else if (command.includes('color next') || command.includes('next color')) {
+          const nextColorStep = stringPaths.findIndex((p, i) => 
+            i > currentStep && p.color !== stringPaths[currentStep]?.color
+          );
+          if (nextColorStep !== -1) {
+            setCurrentStep(nextColorStep);
+          }
+        } else if (command.includes('change') || command.includes('change color')) {
+          const nextColorStep = stringPaths.findIndex((p, i) => 
+            i > currentStep && p.color !== stringPaths[currentStep]?.color
+          );
+          if (nextColorStep !== -1) {
+            setCurrentStep(nextColorStep);
+          }
+        } else if (command.includes('play')) {
+          setIsPlaying(true);
+        } else if (command.includes('pause') || command.includes('stop')) {
+          setIsPlaying(false);
+        } else if (command.includes('reset')) {
+          setCurrentStep(0);
+          setIsPlaying(false);
+        }
+      }, voiceDelay * 1000);
+    };
+
+    recognition.start();
+    recognitionRef.current = recognition;
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, [voiceEnabled, voiceDelay, currentStep, totalSteps, stringPaths]);
+
+  // Edit color after generation
+  const handleEditColor = (colorId, newHex) => {
+    const updatedLayers = colorLayers.map(layer => 
+      layer.id === colorId ? { ...layer, hex: newHex } : layer
+    );
+    setColorLayers(updatedLayers);
+  };
+
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -504,6 +611,25 @@ export default function StringArt() {
                         <VolumeX className="w-4 h-4" />
                       )}
                     </Button>
+
+                    <div className="relative">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setVoiceEnabled(!voiceEnabled)}
+                        disabled={!isGenerated}
+                        className={`hover:bg-white ${voiceEnabled ? 'bg-[#ff6b35] text-white hover:bg-[#e55a2b]' : ''}`}
+                      >
+                        {voiceEnabled ? (
+                          <Mic className="w-4 h-4" />
+                        ) : (
+                          <MicOff className="w-4 h-4" />
+                        )}
+                      </Button>
+                      {voiceEnabled && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                      )}
+                    </div>
                     
                     <Button
                       variant="ghost"
@@ -552,13 +678,53 @@ export default function StringArt() {
                 </Button>
                 
                 {isGenerated && (
-                  <Button
-                    variant="outline"
-                    onClick={downloadCanvas}
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Save
-                  </Button>
+                  <div className="relative">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowExportMenu(!showExportMenu)}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Export
+                    </Button>
+                    {showExportMenu && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="absolute top-full mt-2 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10 min-w-[180px]"
+                      >
+                        <button
+                          onClick={() => {
+                            downloadCanvas();
+                            setShowExportMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                        >
+                          <Download className="w-4 h-4" />
+                          Save Image
+                        </button>
+                        <button
+                          onClick={() => {
+                            downloadPDF();
+                            setShowExportMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                        >
+                          <FileText className="w-4 h-4" />
+                          Download PDF
+                        </button>
+                        <button
+                          onClick={() => {
+                            generateQRCode();
+                            setShowExportMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                        >
+                          <QrCode className="w-4 h-4" />
+                          Share QR Code
+                        </button>
+                      </motion.div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -621,7 +787,38 @@ export default function StringArt() {
                 selectedColors={selectedColors}
                 setSelectedColors={setSelectedColors}
                 numColors={numColors}
+                onEditColor={handleEditColor}
+                isGenerated={isGenerated}
               />
+
+              {/* Voice Control Settings */}
+              {voiceEnabled && (
+                <Card className="bg-white border-0 shadow-sm p-6">
+                  <h3 className="text-sm text-gray-500 mb-3">Voice Control</h3>
+                  <div className="space-y-3">
+                    <div className="text-xs text-gray-600 space-y-1">
+                      <p>• "Next step" - Move to next step</p>
+                      <p>• "Color next" - Jump to next color</p>
+                      <p>• "Change" - Change to next color</p>
+                      <p>• "Play" / "Pause" - Control playback</p>
+                    </div>
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <Label className="text-xs text-gray-500">Command Delay</Label>
+                        <span className="text-xs text-gray-700 font-medium">{voiceDelay}s</span>
+                      </div>
+                      <Slider
+                        value={[voiceDelay]}
+                        onValueChange={([v]) => setVoiceDelay(v)}
+                        min={1}
+                        max={10}
+                        step={1}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </Card>
+              )}
 
               {/* Settings */}
               <Card className="bg-white border-0 shadow-sm p-6">

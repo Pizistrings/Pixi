@@ -224,27 +224,32 @@ export default function StepList({
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 flex-1">
-                         <input
-                           type="color"
-                           value={layer.hex}
-                           onChange={(e) => onEditColor?.(layer.id, e.target.value)}
-                           className="w-4 h-4 rounded-full shadow-inner cursor-pointer"
-                           title="Click to change color"
-                         />
-                         <input
-                           type="text"
-                           value={layer.name}
-                           onChange={(e) => onEditColor?.(layer.id, layer.hex, e.target.value)}
-                           className={`text-sm flex-1 bg-transparent border-none focus:outline-none font-medium ${
-                             isActive ? 'text-gray-900' : 'text-gray-700'
-                           }`}
-                         />
-                       </div>
-                    <span className="text-xs text-gray-500 font-mono">
-                      {layer.count.toLocaleString()} lines
-                    </span>
-                  </div>
+                     <div className="flex items-center gap-2 flex-1">
+                       <input
+                         type="color"
+                         value={layer.hex}
+                         onChange={(e) => onEditColor?.(layer.id, e.target.value)}
+                         className="w-4 h-4 rounded-full shadow-inner cursor-pointer"
+                         title="Click to change color"
+                       />
+                       <input
+                         type="text"
+                         value={layer.name}
+                         onChange={(e) => onEditColor?.(layer.id, layer.hex, e.target.value)}
+                         className={`text-sm flex-1 bg-transparent border-none focus:outline-none font-medium ${
+                           isActive ? 'text-gray-900' : 'text-gray-700'
+                         }`}
+                       />
+                     </div>
+                     <input
+                       type="number"
+                       value={layer.count}
+                       onChange={(e) => onEditColor?.(layer.id, layer.hex, layer.name, parseInt(e.target.value) || layer.count)}
+                       className="w-16 text-xs text-gray-500 font-mono bg-transparent border-none focus:outline-none text-right"
+                       min="1"
+                     />
+                     <span className="text-xs text-gray-500 ml-1">lines</span>
+                   </div>
                   
                   {colorLayers.length > 1 && (
                     <>

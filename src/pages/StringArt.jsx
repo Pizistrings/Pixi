@@ -279,28 +279,46 @@ export default function StringArt() {
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
+      const progress = totalStringsDrawn / numStrings;
       
-      // First 1000 lines: mix of 3 colors + black for details
+      // First 1000 lines: HEAVY BLACK (80%) + some colors (20%) for base structure
       if (totalStringsDrawn < firstColorLines) {
-        if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-          currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-          stringsInCurrentRun = 0;
-        }
-        colorId = activeColors[currentColorIndex];
-        stringsInCurrentRun++;
-      }
-      // 1k-5k lines: 70% colors, 30% black
-      else if (totalStringsDrawn < midColorStart) {
-        const shouldUseBlack = Math.random() < 0.3; // 30% black
-        if (shouldUseBlack) {
-          colorId = 'K';
-        } else {
+        const shouldUseColor = Math.random() < 0.2; // 20% colors, 80% black
+        if (shouldUseColor) {
           if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;
           }
           colorId = activeColors[currentColorIndex];
           stringsInCurrentRun++;
+        } else {
+          colorId = 'K';
+        }
+      }
+      // 1k-5k lines: Gradually increase colors based on image content
+      else if (totalStringsDrawn < midColorStart) {
+        // Sample pixels along the line to determine black usage
+        let shouldUseColor = false;
+        
+        // Use color where image has detail (high working data values)
+        const nextPin = Math.floor(Math.random() * numPins);
+        if (nextPin < numPins && nextPin < workingData[activeColors[0]]?.length) {
+          const sampleValue = workingData[activeColors[currentColorIndex]]?.[nextPin] || 0;
+          // Use colors where there's color detail in the image
+          shouldUseColor = sampleValue > (0.5 * blackAdjustment);
+        } else {
+          shouldUseColor = Math.random() < 0.4; // Default 40% colors
+        }
+        
+        if (shouldUseColor) {
+          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+            stringsInCurrentRun = 0;
+          }
+          colorId = activeColors[currentColorIndex];
+          stringsInCurrentRun++;
+        } else {
+          colorId = 'K';
         }
       }
       // 5k-7k lines: 70% colors, 30% black

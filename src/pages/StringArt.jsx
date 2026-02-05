@@ -516,15 +516,14 @@ export default function StringArt() {
     if (!canvasRef.current) return;
     
     const QRCode = (await import('qrcode')).default;
-    
-    // Upload the canvas image first
-    const blob = await new Promise(resolve => canvasRef.current.toBlob(resolve, 'image/jpeg', 0.7));
-    const file = new File([blob], 'string-art.jpg', { type: 'image/jpeg' });
-    
     const { base44 } = await import('@/api/base44Client');
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
     
-    // Create compact shareable pattern data with essential info only
+    // Upload the canvas image
+    const blob = await new Promise(resolve => canvasRef.current.toBlob(resolve, 'image/jpeg', 0.7));
+    const imageFile = new File([blob], 'string-art.jpg', { type: 'image/jpeg' });
+    const { file_url } = await base44.integrations.Core.UploadFile({ file: imageFile });
+    
+    // Create pattern data
     const patternData = {
       img: file_url,
       colors: colorLayers.map(c => ({ n: c.name, h: c.hex, c: c.count, id: c.id })),
@@ -533,9 +532,13 @@ export default function StringArt() {
       paths: stringPaths.map(p => ({ f: p.from, t: p.to, c: p.color }))
     };
     
-    // Encode data and create shareable URL
-    const encodedData = btoa(JSON.stringify(patternData));
-    const shareUrl = `${window.location.origin}${window.location.pathname}#pattern/${encodedData}`;
+    // Upload pattern data as JSON file
+    const jsonBlob = new Blob([JSON.stringify(patternData)], { type: 'application/json' });
+    const jsonFile = new File([jsonBlob], 'pattern.json', { type: 'application/json' });
+    const { file_url: patternUrl } = await base44.integrations.Core.UploadFile({ file: jsonFile });
+    
+    // Create short shareable URL
+    const shareUrl = `${window.location.origin}${window.location.pathname}#pattern/${encodeURIComponent(patternUrl)}`;
     
     // Generate QR code
     const qrCanvas = document.createElement('canvas');

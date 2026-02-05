@@ -13,20 +13,24 @@ export default function PatternView() {
 
   useEffect(() => {
     if (data) {
-      try {
-        const decoded = JSON.parse(atob(data));
-        // Transform compact format back to full format
-        const fullPattern = {
-          image: decoded.img,
-          colors: decoded.colors.map(c => ({ name: c.n, hex: c.h, count: c.c, id: c.id })),
-          numPins: decoded.pins,
-          totalSteps: decoded.total,
-          paths: decoded.paths.map(p => ({ from: p.f, to: p.t, color: p.c }))
-        };
-        setPattern(fullPattern);
-      } catch (e) {
-        console.error('Failed to decode pattern data');
-      }
+      // Fetch pattern data from URL
+      const patternUrl = decodeURIComponent(data);
+      fetch(patternUrl)
+        .then(res => res.json())
+        .then(decoded => {
+          // Transform compact format back to full format
+          const fullPattern = {
+            image: decoded.img,
+            colors: decoded.colors.map(c => ({ name: c.n, hex: c.h, count: c.c, id: c.id })),
+            numPins: decoded.pins,
+            totalSteps: decoded.total,
+            paths: decoded.paths.map(p => ({ from: p.f, to: p.t, color: p.c }))
+          };
+          setPattern(fullPattern);
+        })
+        .catch(e => {
+          console.error('Failed to load pattern data:', e);
+        });
     }
   }, [data]);
 

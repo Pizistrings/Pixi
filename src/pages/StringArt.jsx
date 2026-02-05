@@ -40,10 +40,10 @@ export default function StringArt() {
     { name: 'Orange', hex: '#ea580c', id: 'O' }
   ]);
   const [colorDistribution, setColorDistribution] = useState({
-    C: 20,
-    M: 20,
-    Y: 20,
-    K: 40
+    C: 100,
+    M: 100,
+    Y: 100,
+    K: 150
   });
   const [shape, setShape] = useState('circle'); // 'circle', 'square', 'rectangle'
   const [brightness, setBrightness] = useState(100);
@@ -243,88 +243,94 @@ export default function StringArt() {
     
     const activeColors = mode === 'mono' ? ['K'] : colors.map(c => c.id);
     
-    // Calculate strings per color based on distribution
-    const stringsPerColorMap = {};
+    // Use color run to alternate between colors
+    const colorRunLengths = {};
     if (mode === 'mono') {
-      stringsPerColorMap.K = numStrings;
+      colorRunLengths.K = numStrings;
     } else {
-      const totalPercent = activeColors.reduce((sum, id) => sum + colorDistribution[id], 0);
       activeColors.forEach(id => {
-        stringsPerColorMap[id] = Math.floor((colorDistribution[id] / totalPercent) * numStrings);
+        colorRunLengths[id] = colorDistribution[id] || 100;
       });
     }
     
-    for (const colorId of activeColors) {
-      const stringsForThisColor = stringsPerColorMap[colorId];
-      layerCounts[colorId] = 0;
-      let currentPin = Math.floor(Math.random() * numPins);
+    let currentColorIndex = 0;
+    let stringsInCurrentRun = 0;
+    let currentPin = Math.floor(Math.random() * numPins);
+    
+    for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
+      // Switch color if we've reached the run length
+      if (mode !== 'mono' && stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+        currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+        stringsInCurrentRun = 0;
+      }
       
-      for (let s = 0; s < stringsForThisColor; s++) {
-        let bestPin = -1;
-        let bestScore = -Infinity;
+      const colorId = activeColors[currentColorIndex];
+      
+      let bestPin = -1;
+      let bestScore = -Infinity;
+      
+      // Find the best next pin
+      for (let nextPin = 0; nextPin < numPins; nextPin++) {
+        if (nextPin === currentPin) continue;
         
-        // Find the best next pin
-        for (let nextPin = 0; nextPin < numPins; nextPin++) {
-          if (nextPin === currentPin) continue;
-          
-          // Skip nearby pins (minimum distance of 20)
-          const pinDist = Math.abs(nextPin - currentPin);
-          if (pinDist < 20 && pinDist > numPins - 20) continue;
-          
-          // Calculate line score
-          const x1 = pins[currentPin].x;
-          const y1 = pins[currentPin].y;
-          const x2 = pins[nextPin].x;
-          const y2 = pins[nextPin].y;
-          
-          const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-          const steps = Math.ceil(dist);
-          
-          let score = 0;
-          for (let t = 0; t < steps; t++) {
-            const x = Math.floor(x1 + (x2 - x1) * t / steps);
-            const y = Math.floor(y1 + (y2 - y1) * t / steps);
-            if (x >= 0 && x < size && y >= 0 && y < size) {
-              score += workingData[colorId][y * size + x];
-            }
-          }
-          score /= steps;
-          
-          if (score > bestScore) {
-            bestScore = score;
-            bestPin = nextPin;
-          }
-        }
+        // Skip nearby pins (minimum distance of 20)
+        const pinDist = Math.abs(nextPin - currentPin);
+        if (pinDist < 20 && pinDist > numPins - 20) continue;
         
-        if (bestPin === -1) break;
-        
-        // Add the string path
-        paths.push({
-          from: currentPin,
-          to: bestPin,
-          color: colorId,
-          step: paths.length
-        });
-        layerCounts[colorId]++;
-        
-        // Subtract the drawn line from working data
+        // Calculate line score
         const x1 = pins[currentPin].x;
         const y1 = pins[currentPin].y;
-        const x2 = pins[bestPin].x;
-        const y2 = pins[bestPin].y;
+        const x2 = pins[nextPin].x;
+        const y2 = pins[nextPin].y;
+        
         const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
         const steps = Math.ceil(dist);
         
+        let score = 0;
         for (let t = 0; t < steps; t++) {
           const x = Math.floor(x1 + (x2 - x1) * t / steps);
           const y = Math.floor(y1 + (y2 - y1) * t / steps);
           if (x >= 0 && x < size && y >= 0 && y < size) {
-            workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
+            score += workingData[colorId][y * size + x];
           }
         }
+        score /= steps;
         
-        currentPin = bestPin;
+        if (score > bestScore) {
+          bestScore = score;
+          bestPin = nextPin;
+        }
       }
+      
+      if (bestPin === -1) break;
+      
+      // Add the string path
+      paths.push({
+        from: currentPin,
+        to: bestPin,
+        color: colorId,
+        step: paths.length
+      });
+      layerCounts[colorId] = (layerCounts[colorId] || 0) + 1;
+      stringsInCurrentRun++;
+      
+      // Subtract the drawn line from working data
+      const x1 = pins[currentPin].x;
+      const y1 = pins[currentPin].y;
+      const x2 = pins[bestPin].x;
+      const y2 = pins[bestPin].y;
+      const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+      const steps = Math.ceil(dist);
+      
+      for (let t = 0; t < steps; t++) {
+        const x = Math.floor(x1 + (x2 - x1) * t / steps);
+        const y = Math.floor(y1 + (y2 - y1) * t / steps);
+        if (x >= 0 && x < size && y >= 0 && y < size) {
+          workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
+        }
+      }
+      
+      currentPin = bestPin;
     }
     
     // Create color layers summary
@@ -401,25 +407,164 @@ export default function StringArt() {
     const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF();
     
-    // Add title
-    pdf.setFontSize(18);
-    pdf.text('String Art Pattern', 20, 20);
+    // Page 1: Pattern Overview
+    pdf.setFontSize(20);
+    pdf.text('String Art Pattern', 105, 20, { align: 'center' });
     
     // Add canvas image
     if (canvasRef.current) {
       const imgData = canvasRef.current.toDataURL('image/png');
-      pdf.addImage(imgData, 'PNG', 20, 30, 170, 170);
+      pdf.addImage(imgData, 'PNG', 15, 30, 90, 90);
     }
     
-    // Add color information
+    // Current Step Info (right side)
     pdf.setFontSize(12);
-    pdf.text('Colors:', 20, 210);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('Current step', 120, 40);
+    pdf.setFontSize(48);
+    pdf.text(currentStep.toString(), 120, 70);
+    
+    // Step list preview
+    pdf.setFontSize(10);
+    pdf.text('Step list', 160, 40);
+    const recentSteps = stringPaths.slice(Math.max(0, currentStep - 4), currentStep + 4);
+    recentSteps.forEach((path, idx) => {
+      const y = 50 + (idx * 8);
+      const step = Math.max(0, currentStep - 4) + idx + 1;
+      const color = colorLayers.find(l => l.id === path.color);
+      if (color) {
+        const rgb = hexToRgb(color.hex);
+        pdf.setFillColor(rgb.r, rgb.g, rgb.b);
+        pdf.circle(162, y - 2, 2, 'F');
+        pdf.setTextColor(0, 0, 0);
+        pdf.text(step.toString(), 167, y);
+      }
+    });
+    
+    // Color info
+    pdf.setFontSize(12);
+    pdf.text('Colors:', 120, 130);
     colorLayers.forEach((layer, idx) => {
-      pdf.setTextColor(layer.hex);
-      pdf.text(`${layer.name}: ${layer.count} lines`, 30, 220 + (idx * 8));
+      const y = 140 + (idx * 15);
+      const rgb = hexToRgb(layer.hex);
+      pdf.setFillColor(rgb.r, rgb.g, rgb.b);
+      pdf.circle(125, y - 3, 4, 'F');
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(`${layer.name}`, 135, y);
+      pdf.setFontSize(10);
+      pdf.text(`${layer.count} lines`, 135, y + 5);
+      pdf.setFontSize(12);
+    });
+    
+    pdf.text(`Total: ${totalSteps} steps`, 120, 140 + (colorLayers.length * 15) + 10);
+    
+    // Page 2+: Detailed Instructions
+    let currentY = 20;
+    let currentPage = 1;
+    let stepCounter = 1;
+    
+    // Group steps by color
+    const colorGroups = [];
+    let currentColorGroup = null;
+    
+    stringPaths.forEach((path, idx) => {
+      if (!currentColorGroup || currentColorGroup.colorId !== path.color) {
+        if (currentColorGroup) {
+          colorGroups.push(currentColorGroup);
+        }
+        const color = colorLayers.find(l => l.id === path.color);
+        currentColorGroup = {
+          colorId: path.color,
+          colorName: color?.name || 'Unknown',
+          colorHex: color?.hex || '#000000',
+          startStep: idx + 1,
+          steps: []
+        };
+      }
+      currentColorGroup.steps.push({ from: path.from, to: path.to, stepNum: idx + 1 });
+    });
+    if (currentColorGroup) {
+      colorGroups.push(currentColorGroup);
+    }
+    
+    // Add new page for instructions
+    pdf.addPage();
+    currentPage++;
+    
+    pdf.setFontSize(18);
+    pdf.text('Step-by-Step Instructions', 105, 20, { align: 'center' });
+    currentY = 35;
+    
+    colorGroups.forEach((group, groupIdx) => {
+      const rgb = hexToRgb(group.colorHex);
+      const endStep = group.startStep + group.steps.length - 1;
+      
+      // Check if we need a new page
+      if (currentY > 250) {
+        pdf.addPage();
+        currentPage++;
+        currentY = 20;
+      }
+      
+      // Color header
+      pdf.setFillColor(rgb.r, rgb.g, rgb.b);
+      pdf.circle(20, currentY - 2, 4, 'F');
+      pdf.setTextColor(rgb.r, rgb.g, rgb.b);
+      pdf.setFontSize(14);
+      pdf.text(group.colorName, 30, currentY);
+      currentY += 8;
+      
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(12);
+      pdf.text(`Steps ${group.startStep}-${endStep}`, 20, currentY);
+      currentY += 8;
+      
+      // Print steps in columns
+      pdf.setFontSize(9);
+      const stepsPerRow = 5;
+      const colWidth = 35;
+      
+      group.steps.forEach((step, idx) => {
+        const col = idx % stepsPerRow;
+        const row = Math.floor(idx / stepsPerRow);
+        const x = 20 + (col * colWidth);
+        const y = currentY + (row * 6);
+        
+        // Check if we need a new page
+        if (y > 270) {
+          pdf.addPage();
+          currentPage++;
+          currentY = 20;
+          
+          // Reprint color header on new page
+          pdf.setFillColor(rgb.r, rgb.g, rgb.b);
+          pdf.circle(20, currentY - 2, 4, 'F');
+          pdf.setTextColor(rgb.r, rgb.g, rgb.b);
+          pdf.setFontSize(14);
+          pdf.text(group.colorName + ' (cont.)', 30, currentY);
+          currentY += 8;
+          pdf.setTextColor(0, 0, 0);
+          pdf.setFontSize(9);
+          
+          return;
+        }
+        
+        pdf.text(`${step.stepNum} → ${step.to}`, x, y);
+      });
+      
+      currentY += Math.ceil(group.steps.length / stepsPerRow) * 6 + 10;
     });
     
     pdf.save('string-art-pattern.pdf');
+  };
+  
+  const hexToRgb = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : { r: 0, g: 0, b: 0 };
   };
 
   const generateQRCode = () => {
@@ -982,9 +1127,8 @@ export default function StringArt() {
                                 setNumColors(v);
                                 const newDist = {};
                                 const activeColors = selectedColors.slice(0, v);
-                                const evenSplit = Math.floor(60 / (v - 1));
                                 activeColors.forEach((color, idx) => {
-                                  newDist[color.id] = idx === v - 1 ? 40 : evenSplit;
+                                  newDist[color.id] = idx === v - 1 ? 150 : 100;
                                 });
                                 setColorDistribution(newDist);
                               }}

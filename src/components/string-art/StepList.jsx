@@ -160,15 +160,14 @@ export default function StepList({
       {mode === 'color' && onColorDistributionChange && colorLayers.length === 0 && (
         <div className="mt-6 pt-4 border-t border-gray-100">
           <h4 className="text-xs text-gray-400 mb-3 uppercase tracking-wider">
-            Lines Per Color
+            Color Run (Lines Per Color Block)
           </h4>
           <p className="text-xs text-gray-500 mb-4">
-            Adjust before generating. More black = better details!
+            Control how many lines to draw before switching colors (50-250)
           </p>
           <div className="space-y-4">
             {selectedColors.slice(0, numColors).map(color => {
-              const percent = colorDistribution[color.id];
-              const estimatedLines = Math.floor((percent / 100) * totalStrings);
+              const lines = colorDistribution[color.id] || 100;
               
               return (
                 <div key={color.id}>
@@ -181,20 +180,20 @@ export default function StepList({
                       <Label className="text-xs text-gray-600">{color.name}</Label>
                     </div>
                     <span className="text-xs text-gray-700 font-medium">
-                      {percent}% · ~{estimatedLines.toLocaleString()}
+                      {lines} lines/block
                     </span>
                   </div>
                   <Slider
-                    value={[percent]}
+                    value={[lines]}
                     onValueChange={([v]) => {
                       onColorDistributionChange(prev => ({
                         ...prev,
                         [color.id]: v
                       }));
                     }}
-                    min={5}
-                    max={70}
-                    step={5}
+                    min={50}
+                    max={250}
+                    step={10}
                     className="w-full"
                   />
                 </div>

@@ -248,8 +248,8 @@ export default function StringArt() {
     
     // Define line ranges with phase-based distribution
     const blackPhaseEnd = Math.min(1000, numStrings);       // Phase 1: Lines 1-1k (100% black)
-    const colorPhaseEnd = Math.min(8000, numStrings);       // Phase 2: Lines 2k-8k (80% colors, 20% black)
-    const finalBlackPhaseStart = Math.min(8000, numStrings); // Phase 3: Lines 8k-9k (100% black)
+    const colorPhaseEnd = Math.min(7000, numStrings);       // Phase 2: Lines 2k-7k (90% colors, 10% black)
+    const finalColorPhaseStart = Math.min(7000, numStrings); // Phase 3: Lines 8k-9k (10% colors, 90% black)
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
@@ -258,9 +258,9 @@ export default function StringArt() {
       if (totalStringsDrawn < blackPhaseEnd) {
         colorId = 'K';
       }
-      // Phase 2 (Lines 2k-8k): 80% colors, 20% black
+      // Phase 2 (Lines 2k-7k): 90% colors, 10% black
       else if (totalStringsDrawn < colorPhaseEnd) {
-        if (mode !== 'mono' && Math.random() > 0.2) {
+        if (mode !== 'mono' && Math.random() > 0.1) {
           if (stringsInCurrentRun >= colorRunLength) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;
@@ -271,9 +271,18 @@ export default function StringArt() {
           colorId = 'K';
         }
       }
-      // Phase 3 (Lines 8k-9k): 100% black
-      else if (totalStringsDrawn >= finalBlackPhaseStart) {
-        colorId = 'K';
+      // Phase 3 (Lines 8k-9k): 10% colors, 90% black
+      else if (totalStringsDrawn >= finalColorPhaseStart) {
+        if (mode !== 'mono' && Math.random() > 0.9) {
+          if (stringsInCurrentRun >= colorRunLength) {
+            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+            stringsInCurrentRun = 0;
+          }
+          colorId = activeColors[currentColorIndex];
+          stringsInCurrentRun++;
+        } else {
+          colorId = 'K';
+        }
       } else {
         colorId = 'K';
       }

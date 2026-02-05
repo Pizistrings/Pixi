@@ -116,12 +116,32 @@ const StringArtCanvas = forwardRef(({
     }
     ctx.stroke();
 
-    // Draw pins as small dots
+    // Draw pins as small dots with numbers
     ctx.fillStyle = '#d4d4d4';
     pins.forEach(pin => {
       ctx.beginPath();
       ctx.arc(pin.x, pin.y, 2, 0, 2 * Math.PI);
       ctx.fill();
+    });
+
+    // Draw pin numbers outside the frame
+    ctx.font = '9px system-ui, sans-serif';
+    ctx.fillStyle = '#999';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    pins.forEach(pin => {
+      // Calculate offset direction (outward from center)
+      const dx = pin.x - centerX;
+      const dy = pin.y - centerY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist > 0) {
+        // Place number 12 pixels outside the pin
+        const offsetX = (dx / dist) * 12;
+        const offsetY = (dy / dist) * 12;
+        ctx.fillText(pin.index.toString(), pin.x + offsetX, pin.y + offsetY);
+      }
     });
 
     // Create color map

@@ -48,14 +48,10 @@
  * The mainPage value must match a key in the PAGES object exactly.
  */
 import StringArt from './pages/StringArt';
-import Projects from './pages/Projects';
-import ProjectEditor from './pages/ProjectEditor';
 
 
 export const PAGES = {
     "StringArt": StringArt,
-    "Projects": Projects,
-    "ProjectEditor": ProjectEditor,
 }
 
 export const pagesConfig = {

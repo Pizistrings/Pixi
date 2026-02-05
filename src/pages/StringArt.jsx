@@ -281,9 +281,28 @@ export default function StringArt() {
       let colorId;
       const progress = totalStringsDrawn / numStrings;
       
-      // First 1000 lines: HEAVY BLACK (80%) + some colors (20%) for base structure
+      // First 1000 lines: 70% black + 30% colors placed where image has detail
       if (totalStringsDrawn < firstColorLines) {
-        const shouldUseColor = Math.random() < 0.2; // 20% colors, 80% black
+        let shouldUseColor = false;
+        
+        // Check image content to place colors strategically
+        const testPin = Math.floor(Math.random() * numPins);
+        if (testPin < numPins) {
+          // Calculate average color presence at this pin location
+          let colorPresence = 0;
+          activeColors.forEach(colorId => {
+            if (colorId !== 'K' && workingData[colorId]) {
+              colorPresence += workingData[colorId][testPin] || 0;
+            }
+          });
+          colorPresence = colorPresence / (activeColors.length - 1);
+          
+          // Use colors where image has strong color information (70% black, 30% colors)
+          shouldUseColor = Math.random() < (0.3 + colorPresence * 0.2);
+        } else {
+          shouldUseColor = Math.random() < 0.3; // Default 30% colors
+        }
+        
         if (shouldUseColor) {
           if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;

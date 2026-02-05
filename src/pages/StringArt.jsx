@@ -488,13 +488,40 @@ export default function StringArt() {
 
   const downloadPDF = async () => {
     const { jsPDF } = await import('jspdf');
+    const QRCode = (await import('qrcode')).default;
+    const { base44 } = await import('@/api/base44Client');
+    
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageHeight = pdf.internal.pageSize.height;
     const pageWidth = pdf.internal.pageSize.width;
     const margin = 10;
-    const lineHeight = 4.5;
+    const contentWidth = pageWidth - margin * 2;
     
-    // Group consecutive color runs
+    // Generate QR code for sharing
+    let shareUrl = '';
+    try {
+      const blob = await new Promise(resolve => canvasRef.current.toBlob(resolve, 'image/jpeg', 0.7));
+      const imageFile = new File([blob], 'string-art.jpg', { type: 'image/jpeg' });
+      const { file_url } = await base44.integrations.Core.UploadFile({ file: imageFile });
+      
+      const patternData = {
+        img: file_url,
+        colors: colorLayers.map(c => ({ n: c.name, h: c.hex, c: c.count, id: c.id })),
+        pins: numPins,
+        total: totalSteps,
+        paths: stringPaths.map(p => ({ f: p.from, t: p.to, c: p.color }))
+      };
+      
+      const jsonBlob = new Blob([JSON.stringify(patternData)], { type: 'application/json' });
+      const jsonFile = new File([jsonBlob], 'pattern.json', { type: 'application/json' });
+      const { file_url: patternUrl } = await base44.integrations.Core.UploadFile({ file: jsonFile });
+      
+      shareUrl = `${window.location.origin}${window.location.pathname}#pattern/${encodeURIComponent(patternUrl)}`;
+    } catch (error) {
+      console.error('QR generation error:', error);
+    }
+    
+    // Group consecutive color runs with step ranges
     const colorRuns = [];
     let currentRun = null;
     
@@ -509,10 +536,12 @@ export default function StringArt() {
           colorName: color?.name || 'Unknown',
           colorHex: color?.hex || '#000000',
           startStep: idx + 1,
+          endStep: idx + 1,
           steps: []
         };
       }
-      currentRun.steps.push({ stepNum: idx + 1, toPin: path.to });
+      currentRun.endStep = idx + 1;
+      currentRun.steps.push(path.to);
     });
     if (currentRun) {
       colorRuns.push(currentRun);
@@ -520,47 +549,100 @@ export default function StringArt() {
     
     let currentY = margin;
     
-    colorRuns.forEach((run) => {
+    // Add title
+    pdf.setFontSize(16);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('String Art Pattern Guide', pageWidth / 2, currentY, { align: 'center' });
+    currentY += 8;
+    
+    pdf.setFontSize(9);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(`Total Steps: ${totalSteps.toLocaleString()} | Pins: ${numPins}`, pageWidth / 2, currentY, { align: 'center' });
+    currentY += 6;
+    
+    colorRuns.forEach((run, runIdx) => {
       const rgb = hexToRgb(run.colorHex);
       
-      // Check if color header fits on current page
-      if (currentY + lineHeight > pageHeight - margin) {
+      // Check if section fits on current page
+      if (currentY + 18 > pageHeight - margin) {
         pdf.addPage();
         currentY = margin;
       }
       
-      // Color header with colored circle
+      // Color header with circle
       pdf.setFillColor(rgb.r, rgb.g, rgb.b);
-      pdf.circle(margin + 2.5, currentY - 0.5, 2.5, 'F');
-      pdf.setFontSize(11);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(`${run.colorName}`, margin + 8, currentY);
-      currentY += lineHeight + 2;
+      pdf.circle(margin + 3, currentY, 2.5, 'F');
       
-      // Print steps in simple format
+      pdf.setFontSize(12);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(`${run.colorName}`, margin + 8, currentY + 1);
+      
+      pdf.setFontSize(8);
+      pdf.setTextColor(120, 120, 120);
+      pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 8, currentY + 5);
+      currentY += 8;
+      
+      // Display step ranges in grid format
       pdf.setFontSize(9);
-      run.steps.forEach((step) => {
-        // Check if we need a new page
-        if (currentY + lineHeight > pageHeight - margin) {
-          pdf.addPage();
-          currentY = margin;
+      pdf.setTextColor(50, 50, 50);
+      
+      const stepsPerRow = 5;
+      const stepRanges = [];
+      
+      // Convert steps to ranges (e.g., 274, 134 becomes 274-134)
+      for (let i = 0; i < run.steps.length; i += stepsPerRow) {
+        stepRanges.push(run.steps.slice(i, i + stepsPerRow));
+      }
+      
+      let columnX = margin;
+      let columnY = currentY;
+      
+      stepRanges.forEach((row, rowIdx) => {
+        let rowX = margin;
+        row.forEach((step, idx) => {
+          if (rowX + 25 > pageWidth - margin) {
+            columnY += 5;
+            rowX = margin;
+          }
           
-          // Reprint color header
-          pdf.setFillColor(rgb.r, rgb.g, rgb.b);
-          pdf.circle(margin + 2.5, currentY - 0.5, 2.5, 'F');
-          pdf.setFontSize(11);
-          pdf.setTextColor(0, 0, 0);
-          pdf.text(`${run.colorName}`, margin + 8, currentY);
-          currentY += lineHeight + 2;
-          pdf.setFontSize(9);
-        }
-        
-        pdf.text(`Step ${step.stepNum}: ${step.toPin}`, margin + 8, currentY);
-        currentY += lineHeight;
+          // Format as range (current step - next step)
+          const nextIdx = stringPaths.findIndex((p, i) => i >= run.startStep - 1 + (rowIdx * stepsPerRow) + idx);
+          const currentPin = step;
+          const nextPin = nextIdx + 1 < stringPaths.length ? stringPaths[nextIdx + 1]?.to : stringPaths[nextIdx]?.to;
+          
+          pdf.text(`${run.startStep - 1 + (rowIdx * stepsPerRow) + idx + 1} - ${currentPin}`, rowX, columnY);
+          rowX += 25;
+        });
+        columnY += 4;
       });
       
-      currentY += 3;
+      currentY = columnY + 3;
     });
+    
+    // Add QR code on last page
+    if (currentY + 60 > pageHeight - margin) {
+      pdf.addPage();
+      currentY = margin;
+    }
+    
+    currentY += 5;
+    pdf.setFontSize(12);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('Share with friends', pageWidth / 2, currentY, { align: 'center' });
+    currentY += 8;
+    
+    if (shareUrl) {
+      const qrCanvas = document.createElement('canvas');
+      await QRCode.toCanvas(qrCanvas, shareUrl, { width: 150, margin: 1 });
+      const qrImageData = qrCanvas.toDataURL('image/png');
+      const qrSize = 50;
+      pdf.addImage(qrImageData, 'PNG', (pageWidth - qrSize) / 2, currentY, qrSize, qrSize);
+      currentY += qrSize + 5;
+      
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text('Scan to view interactive pattern', pageWidth / 2, currentY, { align: 'center' });
+    }
     
     pdf.save('string-art-pattern.pdf');
   };

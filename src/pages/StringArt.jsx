@@ -40,12 +40,7 @@ export default function StringArt() {
     { name: 'Blue', hex: '#2563eb', id: 'B' },
     { name: 'Orange', hex: '#ea580c', id: 'O' }
   ]);
-  const [colorDistribution, setColorDistribution] = useState({
-    C: 100,
-    M: 100,
-    Y: 100,
-    K: 150
-  });
+  const [colorRunLength, setColorRunLength] = useState(100);
   const [shape, setShape] = useState('circle'); // 'circle', 'square', 'rectangle'
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
@@ -245,16 +240,6 @@ export default function StringArt() {
     
     const activeColors = mode === 'mono' ? ['K'] : colors.map(c => c.id);
     
-    // Use color run to alternate between colors
-    const colorRunLengths = {};
-    if (mode === 'mono') {
-      colorRunLengths.K = numStrings;
-    } else {
-      activeColors.forEach(id => {
-        colorRunLengths[id] = colorDistribution[id] || 100;
-      });
-    }
-    
     let currentColorIndex = 0;
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
@@ -269,7 +254,7 @@ export default function StringArt() {
       // Phase 1 (Lines 1-7k): 80% colors, 20% black
       if (totalStringsDrawn < colorPhaseEnd) {
         if (mode !== 'mono' && Math.random() > 0.2) {
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+          if (stringsInCurrentRun >= colorRunLength) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;
           }
@@ -282,7 +267,7 @@ export default function StringArt() {
       // Phase 2 (Lines 7k-9k): 20% colors, 80% black
       else if (totalStringsDrawn >= structurePhaseStart) {
         if (mode !== 'mono' && Math.random() > 0.8) {
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+          if (stringsInCurrentRun >= colorRunLength) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;
           }
@@ -373,7 +358,7 @@ export default function StringArt() {
     setTotalSteps(paths.length);
     setIsGenerated(true);
     setIsProcessing(false);
-  }, [image, mode, numPins, numStrings, colors, colorDistribution, shape, brightness, contrast, sharpness, cropArea, minPinDistance]);
+  }, [image, mode, numPins, numStrings, colors, colorRunLength, shape, brightness, contrast, sharpness, cropArea, minPinDistance]);
 
   // Animation loop - 60 seconds total duration
   useEffect(() => {
@@ -992,8 +977,6 @@ export default function StringArt() {
                 currentStep={currentStep}
                 stringPaths={stringPaths}
                 mode={mode}
-                colorDistribution={colorDistribution}
-                onColorDistributionChange={setColorDistribution}
                 totalStrings={numStrings}
                 selectedColors={selectedColors}
                 setSelectedColors={setSelectedColors}
@@ -1250,6 +1233,22 @@ export default function StringArt() {
                             min={15}
                             max={50}
                             step={5}
+                            className="w-full"
+                          />
+                        </div>
+
+                        {/* Color Run Length */}
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <Label className="text-xs text-gray-500">Color Run Length</Label>
+                            <span className="text-xs text-gray-700 font-medium">{colorRunLength}</span>
+                          </div>
+                          <Slider
+                            value={[colorRunLength]}
+                            onValueChange={([v]) => setColorRunLength(v)}
+                            min={50}
+                            max={250}
+                            step={10}
                             className="w-full"
                           />
                         </div>

@@ -26,10 +26,10 @@ export default function StringArt() {
   const [stringPaths, setStringPaths] = useState([]);
   const [colorLayers, setColorLayers] = useState([]);
   const [numPins, setNumPins] = useState(200);
-  const [numStrings, setNumStrings] = useState(3000);
+  const [numStrings, setNumStrings] = useState(9000);
   const [lineWidth, setLineWidth] = useState(0.2);
   const [lineOpacity, setLineOpacity] = useState(0.08);
-  const [numColors, setNumColors] = useState(4);
+  const [numColors, setNumColors] = useState(3);
   const [selectedColors, setSelectedColors] = useState([
     { name: 'Cyan', hex: '#00b4d8', id: 'C' },
     { name: 'Magenta', hex: '#e63946', id: 'M' },
@@ -57,7 +57,9 @@ export default function StringArt() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceDelay, setVoiceDelay] = useState(3);
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [minPinDistance, setMinPinDistance] = useState(30);
+  const [minPinDistance, setMinPinDistance] = useState(8);
+  const [currentPhase, setCurrentPhase] = useState(null);
+  const [lastAnnouncedPhase, setLastAnnouncedPhase] = useState(null);
   
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -271,23 +273,84 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // Color distribution: 2k solid black foundation, 2k-5k heavy color details, 5k-9k outline/edges
-    const solidBlackLines = 2000;
-    const colorDetailsEnd = 5000;
+    // PHASE-BASED DISTRIBUTION
+    const phase1End = Math.floor(numStrings * 0.12); // Foundation: 12%
+    const phase2End = Math.floor(numStrings * 0.72); // Color Build: 60% (0.12 + 0.60)
+    const phase3End = numStrings; // Detail & Depth: 28%
+    
+    // Create color separation maps with luminance and confidence zones
+    const colorSeparation = {};
+    colors.forEach(color => {
+      colorSeparation[color.id] = new Float32Array(size * size);
+    });
+    
+    // Generate separation maps with luminance-aware logic
+    for (let i = 0; i < size * size; i++) {
+      const r = imageData.data[i * 4];
+      const g = imageData.data[i * 4 + 1];
+      const b = imageData.data[i * 4 + 2];
+      
+      // Calculate luminance
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      
+      colors.forEach(color => {
+        if (color.id === 'K') {
+          // Black always available based on inverse luminance
+          colorSeparation[color.id][i] = 1 - luminance;
+        } else {
+          // Calculate color confidence
+          const targetR = parseInt(color.hex.slice(1, 3), 16);
+          const targetG = parseInt(color.hex.slice(3, 5), 16);
+          const targetB = parseInt(color.hex.slice(5, 7), 16);
+          
+          const distance = Math.sqrt(
+            Math.pow(r - targetR, 2) +
+            Math.pow(g - targetG, 2) +
+            Math.pow(b - targetB, 2)
+          );
+          
+          const confidence = Math.max(0, 1 - distance / 441);
+          
+          // Apply color confidence zones with luminance logic
+          if (luminance < 0.25) {
+            // Too dark - black only
+            colorSeparation[color.id][i] = 0;
+          } else if (confidence > 0.55 && luminance > 0.35) {
+            // High confidence + good luminance - full color
+            colorSeparation[color.id][i] = confidence;
+          } else if (confidence > 0.30 && luminance > 0.35) {
+            // Mid confidence - soft color
+            colorSeparation[color.id][i] = confidence * 0.6;
+          } else if (confidence < 0.15) {
+            // Hard block - color forbidden
+            colorSeparation[color.id][i] = 0;
+          } else {
+            // Low confidence - black preferred
+            colorSeparation[color.id][i] = confidence * 0.3;
+          }
+        }
+      });
+    }
+    
+    // Replace working data with color separation maps
+    Object.keys(colorSeparation).forEach(id => {
+      workingData[id] = colorSeparation[id];
+    });
+    
     const minLinesPerColor = 100;
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      // 0-2k: 100% solid black foundation
-      if (totalStringsDrawn < solidBlackLines) {
+      // PHASE 1 — FOUNDATION (12% - Black only)
+      if (totalStringsDrawn < phase1End) {
         colorId = 'K';
       }
-      // 2k-5k: Heavy color work for details (60% colors, 40% black)
-      else if (totalStringsDrawn < colorDetailsEnd) {
+      // PHASE 2 — COLOR BUILD (60% - 60% colors, 40% black)
+      else if (totalStringsDrawn < phase2End) {
         const shouldUseColor = Math.random() < 0.6;
         
-        if (shouldUseColor) {
+        if (shouldUseColor && mode === 'color') {
           if (stringsInCurrentRun >= Math.max(minLinesPerColor, colorRunLengths[activeColors[currentColorIndex]])) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;
@@ -298,11 +361,11 @@ export default function StringArt() {
           colorId = 'K';
         }
       }
-      // 5k-9k: Outline and edges (20% colors, 80% black for definition)
+      // PHASE 3 — DETAIL & DEPTH (28% - 80% black, 20% colors)
       else {
         const shouldUseColor = Math.random() < 0.2;
         
-        if (shouldUseColor) {
+        if (shouldUseColor && mode === 'color') {
           if (stringsInCurrentRun >= Math.max(minLinesPerColor, colorRunLengths[activeColors[currentColorIndex]])) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;
@@ -645,13 +708,33 @@ export default function StringArt() {
       const imageFile = new File([blob], 'string-art.jpg', { type: 'image/jpeg' });
       const { file_url } = await base44.integrations.Core.UploadFile({ file: imageFile });
       
-      // Create pattern data
+      // Create comprehensive pattern data
+      const phase1End = Math.floor(totalSteps * 0.12);
+      const phase2End = Math.floor(totalSteps * 0.72);
+      
       const patternData = {
-        img: file_url,
+        project_id: `SA_${Date.now()}`,
+        version_id: '2.0',
+        rendered_preview: file_url,
+        board_shape: shape,
+        board_size: numPins > 500 ? '100-120cm' : numPins > 350 ? '70-90cm' : '40-60cm',
+        pin_count: numPins,
+        pin_coordinates: pins,
+        total_lines: totalSteps,
         colors: colorLayers.map(c => ({ n: c.name, h: c.hex, c: c.count, id: c.id })),
-        pins: numPins,
-        total: totalSteps,
-        paths: stringPaths.map(p => ({ f: p.from, t: p.to, c: p.color }))
+        pin_sequence: stringPaths.map(p => ({ f: p.from, t: p.to, c: p.color, s: p.step })),
+        phase_info: {
+          phase1: { end: phase1End, desc: 'Foundation - Black only' },
+          phase2: { end: phase2End, desc: 'Color Build - 60% colors, 40% black' },
+          phase3: { end: totalSteps, desc: 'Detail & Depth - 80% black, 20% colors' }
+        },
+        voice_settings: {
+          enabled: voiceEnabled,
+          delay: voiceDelay
+        },
+        weaving_gap: minPinDistance,
+        line_width: lineWidth,
+        line_opacity: lineOpacity
       };
       
       // Upload pattern data as JSON file
@@ -746,6 +829,60 @@ export default function StringArt() {
     }
   };
 
+  // Voice announcements with phases
+  useEffect(() => {
+    if (!voiceEnabled || !isGenerated || currentStep === 0) return;
+    
+    const phase1End = Math.floor(totalSteps * 0.12);
+    const phase2End = Math.floor(totalSteps * 0.72);
+    
+    let phase = null;
+    if (currentStep <= phase1End) phase = 'foundation';
+    else if (currentStep <= phase2End) phase = 'colorBuild';
+    else phase = 'detail';
+    
+    // Announce phase change once
+    if (phase !== lastAnnouncedPhase) {
+      const phaseMessages = {
+        foundation: 'Foundation phase started. Black string only.',
+        colorBuild: 'Color build phase started. Adding colors.',
+        detail: 'Detail phase started. Black dominant.'
+      };
+      
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(phaseMessages[phase]);
+        utterance.rate = 0.9;
+        speechSynthesis.speak(utterance);
+      }
+      setLastAnnouncedPhase(phase);
+      setCurrentPhase(phase);
+    }
+    
+    // Announce pin change
+    if (stringPaths[currentStep - 1]) {
+      const path = stringPaths[currentStep - 1];
+      const currentColor = colorLayers.find(c => c.id === path.color);
+      
+      let message = `From pin ${path.from} to pin ${path.to}`;
+      
+      // Check if color is changing
+      if (currentStep > 1) {
+        const prevPath = stringPaths[currentStep - 2];
+        if (prevPath.color !== path.color && currentColor) {
+          message += `. Change color to ${currentColor.name}`;
+        }
+      }
+      
+      if ('speechSynthesis' in window) {
+        setTimeout(() => {
+          const utterance = new SpeechSynthesisUtterance(message);
+          utterance.rate = 1.0;
+          speechSynthesis.speak(utterance);
+        }, voiceDelay * 1000);
+      }
+    }
+  }, [voiceEnabled, currentStep, isGenerated, totalSteps, stringPaths, colorLayers, lastAnnouncedPhase, voiceDelay]);
+
   // Voice commands
   useEffect(() => {
     if (!voiceEnabled) {
@@ -769,6 +906,18 @@ export default function StringArt() {
       setTimeout(() => {
         if (command.includes('next step') || command.includes('next')) {
           setCurrentStep(prev => Math.min(prev + 1, totalSteps));
+        } else if (command.includes('previous') || command.includes('back')) {
+          setCurrentStep(prev => Math.max(prev - 1, 0));
+        } else if (command.includes('repeat')) {
+          // Re-announce current step
+          if (stringPaths[currentStep - 1]) {
+            const path = stringPaths[currentStep - 1];
+            const message = `From pin ${path.from} to pin ${path.to}`;
+            if ('speechSynthesis' in window) {
+              const utterance = new SpeechSynthesisUtterance(message);
+              speechSynthesis.speak(utterance);
+            }
+          }
         } else if (command.includes('color next') || command.includes('next color')) {
           const nextColorStep = stringPaths.findIndex((p, i) => 
             i > currentStep && p.color !== stringPaths[currentStep]?.color
@@ -783,7 +932,7 @@ export default function StringArt() {
           if (nextColorStep !== -1) {
             setCurrentStep(nextColorStep);
           }
-        } else if (command.includes('play')) {
+        } else if (command.includes('play') || command.includes('continue')) {
           setIsPlaying(true);
         } else if (command.includes('pause') || command.includes('stop')) {
           setIsPlaying(false);
@@ -1122,10 +1271,20 @@ export default function StringArt() {
                   <div className="space-y-3">
                     <div className="text-xs text-gray-600 space-y-1">
                       <p>• "Next step" - Move to next step</p>
+                      <p>• "Previous" / "Back" - Go back</p>
+                      <p>• "Repeat" - Repeat current pin</p>
                       <p>• "Color next" - Jump to next color</p>
-                      <p>• "Change" - Change to next color</p>
-                      <p>• "Play" / "Pause" - Control playback</p>
+                      <p>• "Play" / "Continue" - Start playback</p>
+                      <p>• "Pause" / "Stop" - Stop playback</p>
                     </div>
+                    {currentPhase && (
+                      <div className="p-2 bg-gray-100 rounded text-xs">
+                        <span className="font-medium">Current Phase: </span>
+                        {currentPhase === 'foundation' && '🏗️ Foundation (Black only)'}
+                        {currentPhase === 'colorBuild' && '🎨 Color Build (60% colors)'}
+                        {currentPhase === 'detail' && '✨ Detail & Depth (80% black)'}
+                      </div>
+                    )}
                     <div>
                       <div className="flex justify-between mb-2">
                         <Label className="text-xs text-gray-500">Command Delay</Label>
@@ -1286,8 +1445,8 @@ export default function StringArt() {
                           <Slider
                             value={[numStrings]}
                             onValueChange={([v]) => setNumStrings(v)}
-                            min={1000}
-                            max={9000}
+                            min={8000}
+                            max={15000}
                             step={500}
                             className="w-full"
                           />
@@ -1297,7 +1456,7 @@ export default function StringArt() {
                         {mode === 'color' && (
                           <div>
                             <div className="flex justify-between mb-2">
-                              <Label className="text-xs text-gray-500">Number of Colors</Label>
+                              <Label className="text-xs text-gray-500">Number of Colors (Max 3 + Black)</Label>
                               <span className="text-xs text-gray-700 font-medium">{numColors}</span>
                             </div>
                             <Slider
@@ -1312,7 +1471,7 @@ export default function StringArt() {
                                 setColorDistribution(newDist);
                               }}
                               min={2}
-                              max={Math.min(8, selectedColors.length)}
+                              max={Math.min(3, selectedColors.length)}
                               step={1}
                               className="w-full"
                             />
@@ -1354,15 +1513,15 @@ export default function StringArt() {
                         {/* Minimum Weaving Gap */}
                         <div>
                           <div className="flex justify-between mb-2">
-                            <Label className="text-xs text-gray-500">Minimum Weaving Gap</Label>
+                            <Label className="text-xs text-gray-500">Minimum Weaving Gap (Pins)</Label>
                             <span className="text-xs text-gray-700 font-medium">{minPinDistance}</span>
                           </div>
                           <Slider
                             value={[minPinDistance]}
                             onValueChange={([v]) => setMinPinDistance(v)}
-                            min={10}
-                            max={50}
-                            step={5}
+                            min={5}
+                            max={20}
+                            step={1}
                             className="w-full"
                           />
                         </div>

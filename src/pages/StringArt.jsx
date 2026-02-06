@@ -278,10 +278,10 @@ export default function StringArt() {
     const phase2End = Math.floor(numStrings * 0.72); // Color Build: 60% (0.12 + 0.60)
     const phase3End = numStrings; // Detail & Depth: 28%
     
-    // Create color separation maps with luminance and confidence zones
-    const colorSeparation = {};
+    // Initialize working data for each color
+    const workingData = {};
     colors.forEach(color => {
-      colorSeparation[color.id] = new Float32Array(size * size);
+      workingData[color.id] = new Float32Array(size * size);
     });
     
     // Generate separation maps with luminance-aware logic
@@ -296,7 +296,7 @@ export default function StringArt() {
       colors.forEach(color => {
         if (color.id === 'K') {
           // Black always available based on inverse luminance
-          colorSeparation[color.id][i] = 1 - luminance;
+          workingData[color.id][i] = 1 - luminance;
         } else {
           // Calculate color confidence
           const targetR = parseInt(color.hex.slice(1, 3), 16);
@@ -314,28 +314,23 @@ export default function StringArt() {
           // Apply color confidence zones with luminance logic
           if (luminance < 0.25) {
             // Too dark - black only
-            colorSeparation[color.id][i] = 0;
+            workingData[color.id][i] = 0;
           } else if (confidence > 0.55 && luminance > 0.35) {
             // High confidence + good luminance - full color
-            colorSeparation[color.id][i] = confidence;
+            workingData[color.id][i] = confidence;
           } else if (confidence > 0.30 && luminance > 0.35) {
             // Mid confidence - soft color
-            colorSeparation[color.id][i] = confidence * 0.6;
+            workingData[color.id][i] = confidence * 0.6;
           } else if (confidence < 0.15) {
             // Hard block - color forbidden
-            colorSeparation[color.id][i] = 0;
+            workingData[color.id][i] = 0;
           } else {
             // Low confidence - black preferred
-            colorSeparation[color.id][i] = confidence * 0.3;
+            workingData[color.id][i] = confidence * 0.3;
           }
         }
       });
     }
-    
-    // Replace working data with color separation maps
-    Object.keys(colorSeparation).forEach(id => {
-      workingData[id] = colorSeparation[id];
-    });
     
     const minLinesPerColor = 100;
     

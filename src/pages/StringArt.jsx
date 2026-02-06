@@ -69,7 +69,10 @@ export default function StringArt() {
   // Color configuration for string art
   const colors = mode === 'mono' 
     ? [{ name: 'Black', hex: '#1a1a1a', id: 'K' }]
-    : selectedColors.slice(0, numColors);
+    : [
+        ...selectedColors.slice(0, numColors),
+        { name: 'Black', hex: '#1a1a1a', id: 'K' }
+      ].filter((c, i, arr) => arr.findIndex(x => x.id === c.id) === i); // Ensure Black is always included, no duplicates
 
   const handleImageUpload = (uploadedImage) => {
     setImage(uploadedImage);

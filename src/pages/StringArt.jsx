@@ -272,58 +272,21 @@ export default function StringArt() {
     let currentPin = Math.floor(Math.random() * numPins);
     
     // Define color line ranges
-    const firstColorLines = 1000;
-    const midColorStart = 5000;
-    const midColorEnd = 7000;
-    const solidBlackStart = 8000;
+    const firstBlackEnd = 2000;        // 0-2k: solid black
+    const colorStart = 3000;           // 3k: start colors
+    const colorEnd = 7000;             // 7k: end colors
+    const finalBlackStart = 8000;      // 8k+: solid black
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
-      const progress = totalStringsDrawn / numStrings;
       
-      // First 1000 lines: HEAVY BLACK (80%) + some colors (20%) for base structure
-      if (totalStringsDrawn < firstColorLines) {
-        const shouldUseColor = Math.random() < 0.2; // 20% colors, 80% black
-        if (shouldUseColor) {
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
-        }
+      // 0-2k lines: 100% solid black for base structure
+      if (totalStringsDrawn < firstBlackEnd) {
+        colorId = 'K';
       }
-      // 1k-5k lines: Gradually increase colors based on image content
-      else if (totalStringsDrawn < midColorStart) {
-        // Sample pixels along the line to determine black usage
-        let shouldUseColor = false;
-        
-        // Use color where image has detail (high working data values)
-        const nextPin = Math.floor(Math.random() * numPins);
-        if (nextPin < numPins && nextPin < workingData[activeColors[0]]?.length) {
-          const sampleValue = workingData[activeColors[currentColorIndex]]?.[nextPin] || 0;
-          // Use colors where there's color detail in the image
-          shouldUseColor = sampleValue > (0.5 * blackAdjustment);
-        } else {
-          shouldUseColor = Math.random() < 0.4; // Default 40% colors
-        }
-        
-        if (shouldUseColor) {
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
-        }
-      }
-      // 5k-7k lines: 70% colors, 30% black
-      else if (totalStringsDrawn >= midColorStart && totalStringsDrawn < midColorEnd) {
-        const shouldUseBlack = Math.random() < 0.3; // 30% black
+      // 2k-3k: transition to colors
+      else if (totalStringsDrawn < colorStart) {
+        const shouldUseBlack = Math.random() < 0.7; // 70% black transition
         if (shouldUseBlack) {
           colorId = 'K';
         } else {
@@ -335,18 +298,66 @@ export default function StringArt() {
           stringsInCurrentRun++;
         }
       }
-      // 8k-9k lines: 100% solid black
-      else if (totalStringsDrawn >= solidBlackStart) {
-        colorId = 'K';
-      }
-      // 7k-8k: transition back to black
-      else {
-        const shouldUseColor = Math.random() < 0.2;
-        if (shouldUseColor) {
-          colorId = activeColors[Math.floor(Math.random() * activeColors.length)];
+      // 3k-7k lines: Match colors based on image (at least 30% colors, up to 70%)
+      else if (totalStringsDrawn < colorEnd) {
+        // Determine color based on image content at best pin location
+        let bestColorScore = -1;
+        let selectedColor = 'K';
+        
+        // Sample multiple potential pins to find best color match
+        const samplePins = [];
+        for (let s = 0; s < 5; s++) {
+          const testPin = (currentPin + Math.floor(Math.random() * (numPins / 3))) % numPins;
+          samplePins.push(testPin);
+        }
+        
+        // For each color, check the image data score
+        activeColors.forEach(cId => {
+          let score = 0;
+          samplePins.forEach(pin => {
+            const x = pins[pin]?.x || 0;
+            const y = pins[pin]?.y || 0;
+            if (x >= 0 && x < size && y >= 0 && y < size) {
+              score += workingData[cId]?.[y * size + x] || 0;
+            }
+          });
+          if (score > bestColorScore) {
+            bestColorScore = score;
+            selectedColor = cId;
+          }
+        });
+        
+        // Ensure at least 30% is colors (not black)
+        const shouldForceColor = Math.random() < 0.3;
+        if (shouldForceColor && selectedColor === 'K') {
+          selectedColor = activeColors[Math.floor(Math.random() * activeColors.length)];
+        }
+        
+        // Use best matched color
+        if (selectedColor !== 'K' || Math.random() > 0.3) {
+          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]] || selectedColor !== activeColors[currentColorIndex]) {
+            currentColorIndex = activeColors.indexOf(selectedColor);
+            if (currentColorIndex === -1) currentColorIndex = 0;
+            stringsInCurrentRun = 0;
+          }
+          colorId = selectedColor;
+          stringsInCurrentRun++;
         } else {
           colorId = 'K';
         }
+      }
+      // 7k-8k: transition back to black
+      else if (totalStringsDrawn < finalBlackStart) {
+        const shouldUseBlack = Math.random() < 0.8; // 80% black
+        if (shouldUseBlack) {
+          colorId = 'K';
+        } else {
+          colorId = activeColors[Math.floor(Math.random() * activeColors.length)];
+        }
+      }
+      // 8k+: 100% solid black for final details
+      else {
+        colorId = 'K';
       }
       
       let bestPin = -1;
@@ -409,7 +420,8 @@ export default function StringArt() {
         const x = Math.floor(x1 + (x2 - x1) * t / steps);
         const y = Math.floor(y1 + (y2 - y1) * t / steps);
         if (x >= 0 && x < size && y >= 0 && y < size) {
-          workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
+          // Stronger line subtraction for clearer, more solid lines
+          workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.08);
         }
       }
       

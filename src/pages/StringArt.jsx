@@ -27,8 +27,8 @@ export default function StringArt() {
   const [colorLayers, setColorLayers] = useState([]);
   const [numPins, setNumPins] = useState(200);
   const [numStrings, setNumStrings] = useState(3000);
-  const [lineWidth, setLineWidth] = useState(0.3);
-  const [lineOpacity, setLineOpacity] = useState(0.15);
+  const [lineWidth, setLineWidth] = useState(0.2);
+  const [lineOpacity, setLineOpacity] = useState(0.08);
   const [numColors, setNumColors] = useState(4);
   const [selectedColors, setSelectedColors] = useState([
     { name: 'Cyan', hex: '#00b4d8', id: 'C' },
@@ -271,79 +271,33 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // Define color line ranges
-    const firstColorLines = 1000;
-    const midColorStart = 5000;
-    const midColorEnd = 7000;
-    const solidBlackStart = 8000;
+    // Color distribution: 2k solid black, then 30% colors every 1k with min 100 per color
+    const solidBlackLines = 2000;
+    const minLinesPerColor = 100;
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
-      const progress = totalStringsDrawn / numStrings;
       
-      // First 1000 lines: HEAVY BLACK (80%) + some colors (20%) for base structure
-      if (totalStringsDrawn < firstColorLines) {
-        const shouldUseColor = Math.random() < 0.2; // 20% colors, 80% black
-        if (shouldUseColor) {
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
-        }
-      }
-      // 1k-5k lines: Gradually increase colors based on image content
-      else if (totalStringsDrawn < midColorStart) {
-        // Sample pixels along the line to determine black usage
-        let shouldUseColor = false;
-        
-        // Use color where image has detail (high working data values)
-        const nextPin = Math.floor(Math.random() * numPins);
-        if (nextPin < numPins && nextPin < workingData[activeColors[0]]?.length) {
-          const sampleValue = workingData[activeColors[currentColorIndex]]?.[nextPin] || 0;
-          // Use colors where there's color detail in the image
-          shouldUseColor = sampleValue > (0.5 * blackAdjustment);
-        } else {
-          shouldUseColor = Math.random() < 0.4; // Default 40% colors
-        }
-        
-        if (shouldUseColor) {
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
-        }
-      }
-      // 5k-7k lines: 70% colors, 30% black
-      else if (totalStringsDrawn >= midColorStart && totalStringsDrawn < midColorEnd) {
-        const shouldUseBlack = Math.random() < 0.3; // 30% black
-        if (shouldUseBlack) {
-          colorId = 'K';
-        } else {
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        }
-      }
-      // 8k-9k lines: 100% solid black
-      else if (totalStringsDrawn >= solidBlackStart) {
+      // First 2000 lines: 100% solid black
+      if (totalStringsDrawn < solidBlackLines) {
         colorId = 'K';
       }
-      // 7k-8k: transition back to black
+      // After 2k: every 1k block has at least 30% colors (minimum 100 lines per color)
       else {
-        const shouldUseColor = Math.random() < 0.2;
+        const blockIndex = Math.floor((totalStringsDrawn - solidBlackLines) / 1000);
+        const positionInBlock = (totalStringsDrawn - solidBlackLines) % 1000;
+        
+        // 30% of 1000 = 300 lines should be colors
+        const shouldUseColor = positionInBlock < 300;
+        
         if (shouldUseColor) {
-          colorId = activeColors[Math.floor(Math.random() * activeColors.length)];
+          // Ensure minimum 100 lines per color before switching
+          if (stringsInCurrentRun >= Math.max(minLinesPerColor, colorRunLengths[activeColors[currentColorIndex]])) {
+            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+            stringsInCurrentRun = 0;
+          }
+          colorId = activeColors[currentColorIndex];
+          stringsInCurrentRun++;
         } else {
           colorId = 'K';
         }
@@ -1386,16 +1340,16 @@ export default function StringArt() {
                           />
                         </div>
 
-                        {/* Minimum Pin Distance */}
+                        {/* Minimum Weaving Gap */}
                         <div>
                           <div className="flex justify-between mb-2">
-                            <Label className="text-xs text-gray-500">Min Pin Distance</Label>
+                            <Label className="text-xs text-gray-500">Minimum Weaving Gap</Label>
                             <span className="text-xs text-gray-700 font-medium">{minPinDistance}</span>
                           </div>
                           <Slider
                             value={[minPinDistance]}
                             onValueChange={([v]) => setMinPinDistance(v)}
-                            min={15}
+                            min={10}
                             max={50}
                             step={5}
                             className="w-full"

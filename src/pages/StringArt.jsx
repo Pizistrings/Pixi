@@ -205,58 +205,6 @@ export default function StringArt() {
     const paths = [];
     const layerCounts = {};
     
-    // Create working copy of image data for each color channel
-    const workingData = {};
-    colors.forEach(color => {
-      workingData[color.id] = new Float32Array(size * size);
-    });
-    
-    // Calculate color similarity for each pixel
-    for (let i = 0; i < size * size; i++) {
-      const r = imageData.data[i * 4];
-      const g = imageData.data[i * 4 + 1];
-      const b = imageData.data[i * 4 + 2];
-      
-      colors.forEach(color => {
-        // Parse hex color
-        const targetR = parseInt(color.hex.slice(1, 3), 16);
-        const targetG = parseInt(color.hex.slice(3, 5), 16);
-        const targetB = parseInt(color.hex.slice(5, 7), 16);
-        
-        // Calculate color distance (inverted so closer = higher value)
-        const distance = Math.sqrt(
-          Math.pow(r - targetR, 2) +
-          Math.pow(g - targetG, 2) +
-          Math.pow(b - targetB, 2)
-        );
-        
-        // Convert to similarity (0-1 range)
-        workingData[color.id][i] = Math.max(0, 1 - distance / 441); // 441 = sqrt(255^2 * 3)
-      });
-    }
-    
-    // For monochrome, use grayscale
-    if (mode === 'mono') {
-      for (let i = 0; i < size * size; i++) {
-        const r = imageData.data[i * 4];
-        const g = imageData.data[i * 4 + 1];
-        const b = imageData.data[i * 4 + 2];
-        workingData.K[i] = 1 - (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-      }
-    }
-    
-    // Calculate average image brightness for intelligent black usage
-    let totalBrightness = 0;
-    for (let i = 0; i < size * size; i++) {
-      const r = imageData.data[i * 4];
-      const g = imageData.data[i * 4 + 1];
-      const b = imageData.data[i * 4 + 2];
-      totalBrightness += (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    }
-    const avgBrightness = totalBrightness / (size * size);
-    // Darker images need less black in later stages, brighter images need more black
-    const blackAdjustment = 1 - avgBrightness;
-    
     const activeColors = mode === 'mono' ? ['K'] : colors.map(c => c.id);
     
     // Use color run to alternate between colors

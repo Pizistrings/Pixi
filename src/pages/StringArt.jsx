@@ -271,27 +271,38 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // Color distribution: 2k solid black, then 30% colors every 1k with min 100 per color
+    // Color distribution: 2k solid black foundation, 2k-5k heavy color details, 5k-9k outline/edges
     const solidBlackLines = 2000;
+    const colorDetailsEnd = 5000;
     const minLinesPerColor = 100;
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      // First 2000 lines: 100% solid black
+      // 0-2k: 100% solid black foundation
       if (totalStringsDrawn < solidBlackLines) {
         colorId = 'K';
       }
-      // After 2k: every 1k block has at least 30% colors (minimum 100 lines per color)
-      else {
-        const blockIndex = Math.floor((totalStringsDrawn - solidBlackLines) / 1000);
-        const positionInBlock = (totalStringsDrawn - solidBlackLines) % 1000;
-        
-        // 30% of 1000 = 300 lines should be colors
-        const shouldUseColor = positionInBlock < 300;
+      // 2k-5k: Heavy color work for details (60% colors, 40% black)
+      else if (totalStringsDrawn < colorDetailsEnd) {
+        const shouldUseColor = Math.random() < 0.6;
         
         if (shouldUseColor) {
-          // Ensure minimum 100 lines per color before switching
+          if (stringsInCurrentRun >= Math.max(minLinesPerColor, colorRunLengths[activeColors[currentColorIndex]])) {
+            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+            stringsInCurrentRun = 0;
+          }
+          colorId = activeColors[currentColorIndex];
+          stringsInCurrentRun++;
+        } else {
+          colorId = 'K';
+        }
+      }
+      // 5k-9k: Outline and edges (20% colors, 80% black for definition)
+      else {
+        const shouldUseColor = Math.random() < 0.2;
+        
+        if (shouldUseColor) {
           if (stringsInCurrentRun >= Math.max(minLinesPerColor, colorRunLengths[activeColors[currentColorIndex]])) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;

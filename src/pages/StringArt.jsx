@@ -270,52 +270,82 @@ export default function StringArt() {
     let currentColorIndex = 0;
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
-    let linesPerColor = 100; // Switch color every 100 lines
     
     // Define color line ranges
-    const firstBlackEnd = 1000;        // 0-1k: solid black
+    const firstColorLines = 1000;
+    const midColorStart = 5000;
+    const midColorEnd = 7000;
+    const solidBlackStart = 8000;
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
+      const progress = totalStringsDrawn / numStrings;
       
-      // 0-1k lines: 100% solid black for base structure
-      if (totalStringsDrawn < firstBlackEnd) {
-        colorId = 'K';
-      }
-      // 1k-9k lines: 60% black, 40% colors (color matched to picture)
-      else {
-        const shouldUseBlack = Math.random() < 0.6; // 60% black
-        
-        if (shouldUseBlack) {
-          colorId = 'K';
-        } else {
-          // Find best color match based on image content
-          let bestColorScore = -1;
-          let selectedColor = activeColors[0];
-          
-          // Sample the working data to find which color matches best
-          activeColors.forEach(cId => {
-            let score = 0;
-            const x = pins[currentPin]?.x || 0;
-            const y = pins[currentPin]?.y || 0;
-            if (x >= 0 && x < size && y >= 0 && y < size) {
-              score = workingData[cId]?.[y * size + x] || 0;
-            }
-            if (score > bestColorScore) {
-              bestColorScore = score;
-              selectedColor = cId;
-            }
-          });
-          
-          // Switch color every 100 lines
-          if (stringsInCurrentRun >= linesPerColor) {
+      // First 1000 lines: HEAVY BLACK (80%) + some colors (20%) for base structure
+      if (totalStringsDrawn < firstColorLines) {
+        const shouldUseColor = Math.random() < 0.2; // 20% colors, 80% black
+        if (shouldUseColor) {
+          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;
           }
-          
-          // Use either the best matched color or cycle through colors
-          colorId = stringsInCurrentRun < linesPerColor ? selectedColor : activeColors[currentColorIndex];
+          colorId = activeColors[currentColorIndex];
           stringsInCurrentRun++;
+        } else {
+          colorId = 'K';
+        }
+      }
+      // 1k-5k lines: Gradually increase colors based on image content
+      else if (totalStringsDrawn < midColorStart) {
+        // Sample pixels along the line to determine black usage
+        let shouldUseColor = false;
+        
+        // Use color where image has detail (high working data values)
+        const nextPin = Math.floor(Math.random() * numPins);
+        if (nextPin < numPins && nextPin < workingData[activeColors[0]]?.length) {
+          const sampleValue = workingData[activeColors[currentColorIndex]]?.[nextPin] || 0;
+          // Use colors where there's color detail in the image
+          shouldUseColor = sampleValue > (0.5 * blackAdjustment);
+        } else {
+          shouldUseColor = Math.random() < 0.4; // Default 40% colors
+        }
+        
+        if (shouldUseColor) {
+          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+            stringsInCurrentRun = 0;
+          }
+          colorId = activeColors[currentColorIndex];
+          stringsInCurrentRun++;
+        } else {
+          colorId = 'K';
+        }
+      }
+      // 5k-7k lines: 70% colors, 30% black
+      else if (totalStringsDrawn >= midColorStart && totalStringsDrawn < midColorEnd) {
+        const shouldUseBlack = Math.random() < 0.3; // 30% black
+        if (shouldUseBlack) {
+          colorId = 'K';
+        } else {
+          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
+            stringsInCurrentRun = 0;
+          }
+          colorId = activeColors[currentColorIndex];
+          stringsInCurrentRun++;
+        }
+      }
+      // 8k-9k lines: 100% solid black
+      else if (totalStringsDrawn >= solidBlackStart) {
+        colorId = 'K';
+      }
+      // 7k-8k: transition back to black
+      else {
+        const shouldUseColor = Math.random() < 0.2;
+        if (shouldUseColor) {
+          colorId = activeColors[Math.floor(Math.random() * activeColors.length)];
+        } else {
+          colorId = 'K';
         }
       }
       
@@ -379,8 +409,7 @@ export default function StringArt() {
         const x = Math.floor(x1 + (x2 - x1) * t / steps);
         const y = Math.floor(y1 + (y2 - y1) * t / steps);
         if (x >= 0 && x < size && y >= 0 && y < size) {
-          // Stronger line subtraction for clearer, more solid lines
-          workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.08);
+          workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
         }
       }
       

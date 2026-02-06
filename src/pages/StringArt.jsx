@@ -270,94 +270,53 @@ export default function StringArt() {
     let currentColorIndex = 0;
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
+    let linesPerColor = 100; // Switch color every 100 lines
     
     // Define color line ranges
-    const firstBlackEnd = 2000;        // 0-2k: solid black
-    const colorStart = 3000;           // 3k: start colors
-    const colorEnd = 7000;             // 7k: end colors
-    const finalBlackStart = 8000;      // 8k+: solid black
+    const firstBlackEnd = 1000;        // 0-1k: solid black
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      // 0-2k lines: 100% solid black for base structure
+      // 0-1k lines: 100% solid black for base structure
       if (totalStringsDrawn < firstBlackEnd) {
         colorId = 'K';
       }
-      // 2k-3k: transition to colors
-      else if (totalStringsDrawn < colorStart) {
-        const shouldUseBlack = Math.random() < 0.7; // 70% black transition
+      // 1k-9k lines: 60% black, 40% colors (color matched to picture)
+      else {
+        const shouldUseBlack = Math.random() < 0.6; // 60% black
+        
         if (shouldUseBlack) {
           colorId = 'K';
         } else {
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]]) {
+          // Find best color match based on image content
+          let bestColorScore = -1;
+          let selectedColor = activeColors[0];
+          
+          // Sample the working data to find which color matches best
+          activeColors.forEach(cId => {
+            let score = 0;
+            const x = pins[currentPin]?.x || 0;
+            const y = pins[currentPin]?.y || 0;
+            if (x >= 0 && x < size && y >= 0 && y < size) {
+              score = workingData[cId]?.[y * size + x] || 0;
+            }
+            if (score > bestColorScore) {
+              bestColorScore = score;
+              selectedColor = cId;
+            }
+          });
+          
+          // Switch color every 100 lines
+          if (stringsInCurrentRun >= linesPerColor) {
             currentColorIndex = (currentColorIndex + 1) % activeColors.length;
             stringsInCurrentRun = 0;
           }
-          colorId = activeColors[currentColorIndex];
+          
+          // Use either the best matched color or cycle through colors
+          colorId = stringsInCurrentRun < linesPerColor ? selectedColor : activeColors[currentColorIndex];
           stringsInCurrentRun++;
         }
-      }
-      // 3k-7k lines: Match colors based on image (at least 30% colors, up to 70%)
-      else if (totalStringsDrawn < colorEnd) {
-        // Determine color based on image content at best pin location
-        let bestColorScore = -1;
-        let selectedColor = 'K';
-        
-        // Sample multiple potential pins to find best color match
-        const samplePins = [];
-        for (let s = 0; s < 5; s++) {
-          const testPin = (currentPin + Math.floor(Math.random() * (numPins / 3))) % numPins;
-          samplePins.push(testPin);
-        }
-        
-        // For each color, check the image data score
-        activeColors.forEach(cId => {
-          let score = 0;
-          samplePins.forEach(pin => {
-            const x = pins[pin]?.x || 0;
-            const y = pins[pin]?.y || 0;
-            if (x >= 0 && x < size && y >= 0 && y < size) {
-              score += workingData[cId]?.[y * size + x] || 0;
-            }
-          });
-          if (score > bestColorScore) {
-            bestColorScore = score;
-            selectedColor = cId;
-          }
-        });
-        
-        // Ensure at least 30% is colors (not black)
-        const shouldForceColor = Math.random() < 0.3;
-        if (shouldForceColor && selectedColor === 'K') {
-          selectedColor = activeColors[Math.floor(Math.random() * activeColors.length)];
-        }
-        
-        // Use best matched color
-        if (selectedColor !== 'K' || Math.random() > 0.3) {
-          if (stringsInCurrentRun >= colorRunLengths[activeColors[currentColorIndex]] || selectedColor !== activeColors[currentColorIndex]) {
-            currentColorIndex = activeColors.indexOf(selectedColor);
-            if (currentColorIndex === -1) currentColorIndex = 0;
-            stringsInCurrentRun = 0;
-          }
-          colorId = selectedColor;
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
-        }
-      }
-      // 7k-8k: transition back to black
-      else if (totalStringsDrawn < finalBlackStart) {
-        const shouldUseBlack = Math.random() < 0.8; // 80% black
-        if (shouldUseBlack) {
-          colorId = 'K';
-        } else {
-          colorId = activeColors[Math.floor(Math.random() * activeColors.length)];
-        }
-      }
-      // 8k+: 100% solid black for final details
-      else {
-        colorId = 'K';
       }
       
       let bestPin = -1;

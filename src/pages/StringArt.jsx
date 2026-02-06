@@ -563,60 +563,72 @@ export default function StringArt() {
     colorRuns.forEach((run, runIdx) => {
       const rgb = hexToRgb(run.colorHex);
       
-      // Check if section fits on current page
-      if (currentY + 18 > pageHeight - margin) {
+      // Check if section fits on current page (needs space for header + at least 2 rows)
+      if (currentY + 25 > pageHeight - margin) {
         pdf.addPage();
         currentY = margin;
       }
       
-      // Color header with circle
+      // Large color circle
       pdf.setFillColor(rgb.r, rgb.g, rgb.b);
-      pdf.circle(margin + 3, currentY, 2.5, 'F');
+      pdf.circle(margin + 5, currentY + 2, 4, 'F');
       
-      pdf.setFontSize(12);
+      // Color name
+      pdf.setFontSize(13);
       pdf.setTextColor(0, 0, 0);
-      pdf.text(`${run.colorName}`, margin + 8, currentY + 1);
-      
-      pdf.setFontSize(8);
-      pdf.setTextColor(120, 120, 120);
-      pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 8, currentY + 5);
+      pdf.text(`${run.colorName}`, margin + 12, currentY + 4);
       currentY += 8;
       
-      // Display step ranges in grid format
+      // Steps range
       pdf.setFontSize(9);
-      pdf.setTextColor(50, 50, 50);
+      pdf.setTextColor(130, 130, 130);
+      pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 12, currentY);
+      currentY += 7;
       
-      const stepsPerRow = 5;
-      const stepRanges = [];
+      // Display step pairs in grid format: "stepNum - toPin"
+      pdf.setFontSize(10);
+      pdf.setTextColor(40, 40, 40);
       
-      // Convert steps to ranges (e.g., 274, 134 becomes 274-134)
-      for (let i = 0; i < run.steps.length; i += stepsPerRow) {
-        stepRanges.push(run.steps.slice(i, i + stepsPerRow));
+      const stepsPerRow = 6;
+      const columnWidth = 32;
+      
+      for (let i = 0; i < run.steps.length; i++) {
+        const stepNumber = run.startStep + i;
+        const toPin = run.steps[i];
+        
+        // Check if we need a new page
+        if (currentY + 6 > pageHeight - margin) {
+          pdf.addPage();
+          currentY = margin;
+          
+          // Repeat color header
+          pdf.setFillColor(rgb.r, rgb.g, rgb.b);
+          pdf.circle(margin + 5, currentY + 2, 4, 'F');
+          pdf.setFontSize(13);
+          pdf.setTextColor(0, 0, 0);
+          pdf.text(`${run.colorName}`, margin + 12, currentY + 4);
+          currentY += 8;
+          pdf.setFontSize(9);
+          pdf.setTextColor(130, 130, 130);
+          pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 12, currentY);
+          currentY += 7;
+          pdf.setFontSize(10);
+          pdf.setTextColor(40, 40, 40);
+        }
+        
+        const col = i % stepsPerRow;
+        const xPos = margin + 10 + (col * columnWidth);
+        
+        pdf.text(`${stepNumber} - ${toPin}`, xPos, currentY);
+        
+        // Move to next row after completing a row
+        if ((i + 1) % stepsPerRow === 0 && i < run.steps.length - 1) {
+          currentY += 5.5;
+        }
       }
       
-      let columnX = margin;
-      let columnY = currentY;
-      
-      stepRanges.forEach((row, rowIdx) => {
-        let rowX = margin;
-        row.forEach((step, idx) => {
-          if (rowX + 25 > pageWidth - margin) {
-            columnY += 5;
-            rowX = margin;
-          }
-          
-          // Format as range (current step - next step)
-          const nextIdx = stringPaths.findIndex((p, i) => i >= run.startStep - 1 + (rowIdx * stepsPerRow) + idx);
-          const currentPin = step;
-          const nextPin = nextIdx + 1 < stringPaths.length ? stringPaths[nextIdx + 1]?.to : stringPaths[nextIdx]?.to;
-          
-          pdf.text(`${run.startStep - 1 + (rowIdx * stepsPerRow) + idx + 1} - ${currentPin}`, rowX, columnY);
-          rowX += 25;
-        });
-        columnY += 4;
-      });
-      
-      currentY = columnY + 3;
+      // Add spacing after last row
+      currentY += 10;
     });
     
     // Add QR code on last page

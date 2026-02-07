@@ -78,16 +78,7 @@ export default function LiveView() {
     const path = pattern.paths[currentStep - 1];
     if (!path) return;
 
-    const currentColor = pattern.colors.find(c => c.id === path.c);
-    let message = `Pin ${path.t}`;
-
-    // Check if color is changing
-    if (currentStep > 1) {
-      const prevPath = pattern.paths[currentStep - 2];
-      if (prevPath.c !== path.c && currentColor) {
-        message = `Change to ${currentColor.n}. Pin ${path.t}`;
-      }
-    }
+    const message = `${path.t}`;
 
     if ('speechSynthesis' in window) {
       setTimeout(() => {
@@ -125,7 +116,7 @@ export default function LiveView() {
       } else if (command.includes('repeat') && pattern) {
         const path = pattern.paths[currentStep - 1];
         if (path && 'speechSynthesis' in window) {
-          const message = `Pin ${path.t}`;
+          const message = `${path.t}`;
           const utterance = new SpeechSynthesisUtterance(message);
           speechSynthesis.speak(utterance);
         }
@@ -220,7 +211,7 @@ export default function LiveView() {
         {/* Current Step Display */}
         <Card className="bg-white border-0 shadow-sm p-8 mb-6">
           <div className="text-center">
-            <div className="text-sm text-gray-500 mb-2">Step</div>
+            <div className="text-sm text-gray-500 mb-2">PDF Pattern</div>
             <motion.div
               key={currentStep}
               initial={{ scale: 0.9, opacity: 0 }}
@@ -341,24 +332,19 @@ export default function LiveView() {
           </div>
 
           <div className="space-y-4">
-            {/* Speed */}
+            {/* Voice Delay */}
             <div>
               <div className="flex justify-between mb-2">
-                <Label className="text-sm">Speed</Label>
-                <span className="text-sm text-gray-600">{speed}x</span>
+                <Label className="text-sm">Voice Delay</Label>
+                <span className="text-sm text-gray-600">{voiceDelay} seconds</span>
               </div>
-              <Select value={speed.toString()} onValueChange={(v) => setSpeed(Number(v))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1x</SelectItem>
-                  <SelectItem value="3">3x</SelectItem>
-                  <SelectItem value="5">5x</SelectItem>
-                  <SelectItem value="10">10x</SelectItem>
-                  <SelectItem value="25">25x</SelectItem>
-                </SelectContent>
-              </Select>
+              <Slider
+                value={[voiceDelay]}
+                onValueChange={([v]) => setVoiceDelay(v)}
+                min={1}
+                max={10}
+                step={1}
+              />
             </div>
 
             {/* Voice */}
@@ -377,21 +363,7 @@ export default function LiveView() {
               </Button>
             </div>
 
-            {voiceEnabled && (
-              <div>
-                <div className="flex justify-between mb-2">
-                  <Label className="text-xs text-gray-500">Voice Delay</Label>
-                  <span className="text-xs text-gray-600">{voiceDelay}s</span>
-                </div>
-                <Slider
-                  value={[voiceDelay]}
-                  onValueChange={([v]) => setVoiceDelay(v)}
-                  min={0}
-                  max={10}
-                  step={1}
-                />
-              </div>
-            )}
+
           </div>
         </Card>
 
@@ -400,6 +372,8 @@ export default function LiveView() {
           <Card className="bg-blue-50 border-blue-200 p-4">
             <h3 className="text-sm font-semibold text-blue-900 mb-2">Voice Commands</h3>
             <div className="text-xs text-blue-800 space-y-1">
+              <p>• Voice says pin number only (e.g., "245", "390")</p>
+              <p>• Delay: {voiceDelay} seconds between announcements</p>
               <p>• "Next" - Next step</p>
               <p>• "Previous" / "Back" - Previous step</p>
               <p>• "Repeat" - Repeat current pin</p>

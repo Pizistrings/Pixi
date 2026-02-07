@@ -121,7 +121,7 @@ export default function PatternView() {
         setCurrentStep(prev => prev + 1);
       }, 1000 / speed);
       return () => clearTimeout(interval);
-    } else if (currentStep >= pattern.totalSteps) {
+    } else if (pattern && currentStep >= pattern.totalSteps) {
       setIsPlaying(false);
     }
   }, [isPlaying, currentStep, pattern, speed]);

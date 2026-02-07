@@ -25,9 +25,9 @@ export default function StringArt() {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [stringPaths, setStringPaths] = useState([]);
   const [colorLayers, setColorLayers] = useState([]);
-  const [numPins, setNumPins] = useState(200);
+  const [numPins, setNumPins] = useState(370);
   const [numStrings, setNumStrings] = useState(9000);
-  const [lineWidth, setLineWidth] = useState(0.2);
+  const [lineWidth, setLineWidth] = useState(1);
   const [lineOpacity, setLineOpacity] = useState(0.08);
   const [numColors, setNumColors] = useState(3);
   const [selectedColors, setSelectedColors] = useState([
@@ -38,7 +38,15 @@ export default function StringArt() {
     { name: 'Red', hex: '#dc2626', id: 'R' },
     { name: 'Green', hex: '#16a34a', id: 'G' },
     { name: 'Blue', hex: '#2563eb', id: 'B' },
-    { name: 'Orange', hex: '#ea580c', id: 'O' }
+    { name: 'Orange', hex: '#ea580c', id: 'O' },
+    { name: 'Purple', hex: '#9333ea', id: 'P' },
+    { name: 'Pink', hex: '#ec4899', id: 'PK' },
+    { name: 'Teal', hex: '#14b8a6', id: 'T' },
+    { name: 'Lime', hex: '#84cc16', id: 'L' },
+    { name: 'Indigo', hex: '#6366f1', id: 'I' },
+    { name: 'Rose', hex: '#f43f5e', id: 'RS' },
+    { name: 'Amber', hex: '#f59e0b', id: 'A' },
+    { name: 'Emerald', hex: '#10b981', id: 'E' }
   ]);
   const [colorDistribution, setColorDistribution] = useState({
     C: 100,
@@ -88,6 +96,17 @@ export default function StringArt() {
     setIsProcessing(true);
     setCurrentStep(0);
     setIsPlaying(false);
+    
+    // Save pattern to localStorage for LiveView
+    const savePatternForLiveView = (paths, colors, pins) => {
+      const patternData = {
+        paths: paths,
+        colors: colors,
+        pins: pins,
+        totalSteps: paths.length
+      };
+      localStorage.setItem('currentPattern', JSON.stringify(patternData));
+    };
     
     // Simulate processing delay
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -401,6 +420,9 @@ export default function StringArt() {
     setTotalSteps(paths.length);
     setIsGenerated(true);
     setIsProcessing(false);
+    
+    // Save for LiveView
+    savePatternForLiveView(paths, layers, numPins);
   }, [image, mode, numPins, numStrings, colors, colorDistribution, shape, brightness, contrast, sharpness, cropArea, minPinDistance]);
 
   // Animation loop
@@ -1136,6 +1158,16 @@ export default function StringArt() {
                         >
                           <QrCode className="w-4 h-4" />
                           Share QR Code
+                        </button>
+                        <button
+                          onClick={() => {
+                            window.location.hash = `live-view`;
+                            setShowExportMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                        >
+                          <Play className="w-4 h-4" />
+                          Live View Mode
                         </button>
                       </motion.div>
                     )}

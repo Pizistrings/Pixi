@@ -60,7 +60,7 @@ export default function LiveView() {
       animationRef.current = setTimeout(() => {
         setCurrentStep(prev => Math.min(prev + 1, pattern.totalSteps));
       }, interval);
-    } else if (currentStep >= pattern?.totalSteps) {
+    } else if (pattern && currentStep >= pattern.totalSteps) {
       setIsPlaying(false);
     }
 
@@ -118,11 +118,11 @@ export default function LiveView() {
       const last = event.results.length - 1;
       const command = event.results[last][0].transcript.toLowerCase().trim();
 
-      if (command.includes('next')) {
+      if (command.includes('next') && pattern) {
         setCurrentStep(prev => Math.min(prev + 1, pattern.totalSteps));
       } else if (command.includes('previous') || command.includes('back')) {
         setCurrentStep(prev => Math.max(prev - 1, 0));
-      } else if (command.includes('repeat')) {
+      } else if (command.includes('repeat') && pattern) {
         const path = pattern.paths[currentStep - 1];
         if (path && 'speechSynthesis' in window) {
           const message = `Pin ${path.t}`;
@@ -199,8 +199,8 @@ export default function LiveView() {
     );
   }
 
-  const currentPath = pattern.paths[currentStep - 1];
-  const currentColor = currentPath ? pattern.colors.find(c => c.id === currentPath.c) : null;
+  const currentPath = pattern?.paths?.[currentStep - 1];
+  const currentColor = currentPath && pattern ? pattern.colors.find(c => c.id === currentPath.c) : null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -230,7 +230,7 @@ export default function LiveView() {
               {currentStep}
             </motion.div>
             <div className="text-sm text-gray-400">
-              of {pattern.totalSteps.toLocaleString()}
+              of {pattern?.totalSteps.toLocaleString() || 0}
             </div>
           </div>
 
@@ -276,7 +276,7 @@ export default function LiveView() {
             <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
               <div
                 className="h-full bg-[#ff6b35] transition-all duration-300"
-                style={{ width: `${(currentStep / pattern.totalSteps) * 100}%` }}
+                style={{ width: `${pattern ? (currentStep / pattern.totalSteps) * 100 : 0}%` }}
               />
             </div>
           </div>
@@ -287,14 +287,14 @@ export default function LiveView() {
               setIsPlaying(false);
             }}
             min={0}
-            max={pattern.totalSteps}
+            max={pattern?.totalSteps || 0}
             step={1}
             className="mb-2"
           />
           <div className="flex justify-between text-xs text-gray-500">
             <span>{currentStep.toLocaleString()}</span>
-            <span>{Math.round((currentStep / pattern.totalSteps) * 100)}%</span>
-            <span>{pattern.totalSteps.toLocaleString()}</span>
+            <span>{pattern ? Math.round((currentStep / pattern.totalSteps) * 100) : 0}%</span>
+            <span>{pattern?.totalSteps.toLocaleString() || 0}</span>
           </div>
         </Card>
 
@@ -316,7 +316,7 @@ export default function LiveView() {
             <Button
               size="icon"
               onClick={() => {
-                if (currentStep >= pattern.totalSteps) {
+                if (pattern && currentStep >= pattern.totalSteps) {
                   setCurrentStep(0);
                 }
                 setIsPlaying(!isPlaying);
@@ -333,7 +333,7 @@ export default function LiveView() {
             <Button
               variant="outline"
               size="icon"
-              onClick={() => setCurrentStep(pattern.totalSteps)}
+              onClick={() => pattern && setCurrentStep(pattern.totalSteps)}
               className="h-12 w-12"
             >
               <SkipForward className="w-5 h-5" />

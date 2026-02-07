@@ -50,18 +50,18 @@
 import Editor from './pages/Editor';
 import Home from './pages/Home';
 import Knitting from './pages/Knitting';
+import LiveView from './pages/LiveView';
 import PatternView from './pages/PatternView';
 import StringArt from './pages/StringArt';
-import LiveView from './pages/LiveView';
 
 
 export const PAGES = {
     "Editor": Editor,
     "Home": Home,
     "Knitting": Knitting,
+    "LiveView": LiveView,
     "PatternView": PatternView,
     "StringArt": StringArt,
-    "LiveView": LiveView,
 }
 
 export const pagesConfig = {

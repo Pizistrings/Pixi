@@ -243,10 +243,10 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // PHASE-BASED DISTRIBUTION
-    const phase1End = Math.floor(numStrings * 0.12); // Foundation: 12%
-    const phase2End = Math.floor(numStrings * 0.72); // Color Build: 60% (0.12 + 0.60)
-    const phase3End = numStrings; // Detail & Depth: 28%
+    // MUZO-STYLE BLOCK DISTRIBUTION
+    const initialBlackEnd = Math.floor(numStrings * 0.15); // Initial Black Foundation: 15%
+    const colorBlockSize = Math.floor((numStrings - initialBlackEnd) / (activeColors.length * 2)); // Divide remaining among color blocks and black interruptions
+    const blackInterruptionSize = Math.floor(colorBlockSize * 0.4); // Black interruption is 40% of color block size
     
     // Initialize working data for each color
     const workingData = {};
@@ -307,37 +307,30 @@ export default function StringArt() {
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      // PHASE 1 — FOUNDATION (12% - Black only)
-      if (totalStringsDrawn < phase1End) {
+      // INITIAL BLACK FOUNDATION (15% - Black only)
+      if (totalStringsDrawn < initialBlackEnd) {
         colorId = 'K';
       }
-      // PHASE 2 — COLOR BUILD (60% - 60% colors, 40% black)
-      else if (totalStringsDrawn < phase2End) {
-        const shouldUseColor = Math.random() < 0.6;
-        
-        if (shouldUseColor && mode === 'color') {
-          if (stringsInCurrentRun >= Math.max(minLinesPerColor, colorRunLengths[activeColors[currentColorIndex]])) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
-          }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
-        } else {
-          colorId = 'K';
-        }
-      }
-      // PHASE 3 — DETAIL & DEPTH (28% - 80% black, 20% colors)
+      // ALTERNATING COLOR BLOCKS AND BLACK INTERRUPTIONS
       else {
-        const shouldUseColor = Math.random() < 0.2;
+        const remainingStrings = totalStringsDrawn - initialBlackEnd;
+        const blockCycleSize = colorBlockSize + blackInterruptionSize;
+        const positionInCycle = remainingStrings % blockCycleSize;
         
-        if (shouldUseColor && mode === 'color') {
-          if (stringsInCurrentRun >= Math.max(minLinesPerColor, colorRunLengths[activeColors[currentColorIndex]])) {
-            currentColorIndex = (currentColorIndex + 1) % activeColors.length;
-            stringsInCurrentRun = 0;
+        if (positionInCycle < colorBlockSize) {
+          // COLOR BLOCK: 70% current color, 30% black
+          const shouldUseColor = Math.random() < 0.7;
+          
+          if (shouldUseColor && mode === 'color') {
+            // Determine which color based on which cycle we're in
+            const cycleNumber = Math.floor(remainingStrings / blockCycleSize);
+            currentColorIndex = cycleNumber % activeColors.length;
+            colorId = activeColors[currentColorIndex];
+          } else {
+            colorId = 'K';
           }
-          colorId = activeColors[currentColorIndex];
-          stringsInCurrentRun++;
         } else {
+          // BLACK INTERRUPTION: 100% black
           colorId = 'K';
         }
       }

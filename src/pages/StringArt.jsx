@@ -1439,7 +1439,7 @@ export default function StringArt() {
                         {mode === 'color' && (
                           <div>
                             <div className="flex justify-between mb-2">
-                              <Label className="text-xs text-gray-500">Number of Colors (Max 3 + Black)</Label>
+                              <Label className="text-xs text-gray-500">Number of Colors (Max 10 + Black)</Label>
                               <span className="text-xs text-gray-700 font-medium">{numColors}</span>
                             </div>
                             <Slider
@@ -1454,7 +1454,7 @@ export default function StringArt() {
                                 setColorDistribution(newDist);
                               }}
                               min={2}
-                              max={Math.min(3, selectedColors.length)}
+                              max={Math.min(10, selectedColors.length)}
                               step={1}
                               className="w-full"
                             />

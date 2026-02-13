@@ -65,7 +65,7 @@ export default function StringArt() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceDelay, setVoiceDelay] = useState(3);
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [minPinDistance, setMinPinDistance] = useState(8);
+  const [minPinDistance, setMinPinDistance] = useState(40);
   const [currentPhase, setCurrentPhase] = useState(null);
   const [lastAnnouncedPhase, setLastAnnouncedPhase] = useState(null);
   
@@ -1490,9 +1490,9 @@ export default function StringArt() {
                           <Slider
                             value={[minPinDistance]}
                             onValueChange={([v]) => setMinPinDistance(v)}
-                            min={5}
-                            max={20}
-                            step={1}
+                            min={20}
+                            max={100}
+                            step={5}
                             className="w-full"
                           />
                         </div>

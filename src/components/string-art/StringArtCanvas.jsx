@@ -144,15 +144,74 @@ const StringArtCanvas = forwardRef(({
       }
     });
 
-    // Create color map
+    // Create color map with vibrancy enhancement
     const colorMap = {};
     colors.forEach(c => {
-      colorMap[c.id] = c.hex;
+      // Increase saturation by 15%
+      const hex = c.hex;
+      const r = parseInt(hex.slice(1, 3), 16) / 255;
+      const g = parseInt(hex.slice(3, 5), 16) / 255;
+      const b = parseInt(hex.slice(5, 7), 16) / 255;
+      
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      let h, s, l = (max + min) / 2;
+      
+      if (max === min) {
+        h = s = 0;
+      } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+          case g: h = ((b - r) / d + 2) / 6; break;
+          case b: h = ((r - g) / d + 4) / 6; break;
+        }
+      }
+      
+      // Boost saturation by 15% and apply mild contrast
+      s = Math.min(1, s * 1.15);
+      l = l < 0.5 ? l * 0.95 : l * 1.05; // Contrast enhancement
+      
+      // Convert back to RGB
+      const hue2rgb = (p, q, t) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+      };
+      
+      let nr, ng, nb;
+      if (s === 0) {
+        nr = ng = nb = l;
+      } else {
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        nr = hue2rgb(p, q, h + 1/3);
+        ng = hue2rgb(p, q, h);
+        nb = hue2rgb(p, q, h - 1/3);
+      }
+      
+      const enhancedHex = '#' + 
+        Math.round(nr * 255).toString(16).padStart(2, '0') +
+        Math.round(ng * 255).toString(16).padStart(2, '0') +
+        Math.round(nb * 255).toString(16).padStart(2, '0');
+      
+      colorMap[c.id] = enhancedHex;
     });
 
-    // Draw strings up to current step
+    // Draw strings with blend modes per color type
     ctx.lineWidth = lineWidth;
-    ctx.globalAlpha = lineOpacity;
+    
+    const blendModes = {
+      'K': 'multiply',        // Black: multiply
+      'R': 'normal',          // Red: normal
+      'Y': 'overlay',         // Yellow: overlay
+      'C': 'soft-light',      // Cyan: soft-light
+      'M': 'soft-light',      // Magenta: soft-light
+    };
 
     for (let i = 0; i < currentStep && i < stringPaths.length; i++) {
       const path = stringPaths[i];
@@ -160,7 +219,16 @@ const StringArtCanvas = forwardRef(({
       const toPin = pins[path.to];
 
       if (fromPin && toPin) {
-        ctx.strokeStyle = colorMap[path.color] || '#1a1a1a';
+        const colorId = path.color;
+        const isBlackOrDark = colorId === 'K';
+        
+        // Preserve highlights - reduce opacity for dark colors in bright areas
+        ctx.globalAlpha = isBlackOrDark ? lineOpacity * 0.9 : lineOpacity * 1.1;
+        
+        // Set blend mode based on color type
+        ctx.globalCompositeOperation = blendModes[colorId] || 'soft-light';
+        
+        ctx.strokeStyle = colorMap[colorId] || '#1a1a1a';
         ctx.beginPath();
         ctx.moveTo(fromPin.x, fromPin.y);
         ctx.lineTo(toPin.x, toPin.y);
@@ -168,7 +236,17 @@ const StringArtCanvas = forwardRef(({
       }
     }
 
+    // Reset to defaults
     ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    
+    // Apply mild global contrast boost (7%)
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.globalAlpha = 0.07;
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, size, size);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
 
     // Draw current string being added (highlighted)
     if (currentStep > 0 && currentStep <= stringPaths.length) {

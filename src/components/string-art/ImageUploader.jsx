@@ -9,10 +9,21 @@ export default function ImageUploader({ onUpload }) {
   const [preview, setPreview] = useState(null);
 
   const handleFile = useCallback((file) => {
-    if (file && file.type.startsWith('image/')) {
+    if (file && file.type && file.type.startsWith('image/')) {
+      // Check for supported formats
+      const supportedFormats = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!supportedFormats.includes(file.type.toLowerCase())) {
+        alert('Please upload a JPG, PNG, GIF, or WebP image. TIFF and other formats are not supported.');
+        return;
+      }
+      
       const reader = new FileReader();
       reader.onload = (e) => {
         setPreview(e.target.result);
+      };
+      reader.onerror = () => {
+        alert('Error reading file. Please try a different image.');
+        setPreview(null);
       };
       reader.readAsDataURL(file);
     }

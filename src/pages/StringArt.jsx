@@ -266,50 +266,19 @@ export default function StringArt() {
       workingData[color.id] = new Float32Array(size * size);
     });
     
-    // Calculate edge map for outline enhancement
-    const edgeMap = new Float32Array(size * size);
-    for (let y = 1; y < size - 1; y++) {
-      for (let x = 1; x < size - 1; x++) {
-        const i = y * size + x;
-        const r = imageData.data[i * 4];
-        const g = imageData.data[i * 4 + 1];
-        const b = imageData.data[i * 4 + 2];
-        
-        // Sobel edge detection
-        const gx = (
-          imageData.data[((y - 1) * size + x + 1) * 4] - imageData.data[((y - 1) * size + x - 1) * 4] +
-          2 * (imageData.data[(y * size + x + 1) * 4] - imageData.data[(y * size + x - 1) * 4]) +
-          imageData.data[((y + 1) * size + x + 1) * 4] - imageData.data[((y + 1) * size + x - 1) * 4]
-        );
-        const gy = (
-          imageData.data[((y + 1) * size + x - 1) * 4] - imageData.data[((y - 1) * size + x - 1) * 4] +
-          2 * (imageData.data[((y + 1) * size + x) * 4] - imageData.data[((y - 1) * size + x) * 4]) +
-          imageData.data[((y + 1) * size + x + 1) * 4] - imageData.data[((y - 1) * size + x + 1) * 4]
-        );
-        edgeMap[i] = Math.sqrt(gx * gx + gy * gy) / 255;
-      }
-    }
-    
-    // Generate separation maps with enhanced gradient and outline detection
+    // Generate separation maps with luminance-aware logic
     for (let i = 0; i < size * size; i++) {
       const r = imageData.data[i * 4];
       const g = imageData.data[i * 4 + 1];
       const b = imageData.data[i * 4 + 2];
       
-      // Calculate luminance with gamma correction for better gradients
-      const linearR = Math.pow(r / 255, 2.2);
-      const linearG = Math.pow(g / 255, 2.2);
-      const linearB = Math.pow(b / 255, 2.2);
-      const luminance = 0.299 * linearR + 0.587 * linearG + 0.114 * linearB;
-      
-      const edgeStrength = edgeMap[i];
-      const isEdge = edgeStrength > 0.15;
+      // Calculate luminance
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
       
       colors.forEach(color => {
         if (color.id === 'K') {
-          // Black enhanced on edges and dark areas
-          const blackBase = 1 - luminance;
-          workingData[color.id][i] = isEdge ? Math.min(1, blackBase * 1.8 + edgeStrength) : blackBase;
+          // Black always available based on inverse luminance
+          workingData[color.id][i] = 1 - luminance;
         } else {
           // Calculate color confidence
           const targetR = parseInt(color.hex.slice(1, 3), 16);
@@ -324,22 +293,22 @@ export default function StringArt() {
           
           const confidence = Math.max(0, 1 - distance / 441);
           
-          // Enhanced color logic with gradient preservation
-          if (luminance < 0.2) {
+          // Apply color confidence zones with luminance logic
+          if (luminance < 0.25) {
+            // Too dark - black only
             workingData[color.id][i] = 0;
-          } else if (isEdge && confidence > 0.4) {
-            // Boost colors on edges for outline definition
-            workingData[color.id][i] = Math.min(1, confidence * 1.4);
-          } else if (confidence > 0.55 && luminance > 0.3) {
-            // Strong color areas with gradient awareness
-            const gradientBoost = 1 + (edgeStrength * 0.5);
-            workingData[color.id][i] = confidence * gradientBoost;
-          } else if (confidence > 0.30 && luminance > 0.3) {
-            workingData[color.id][i] = confidence * 0.7;
+          } else if (confidence > 0.55 && luminance > 0.35) {
+            // High confidence + good luminance - full color
+            workingData[color.id][i] = confidence;
+          } else if (confidence > 0.30 && luminance > 0.35) {
+            // Mid confidence - soft color
+            workingData[color.id][i] = confidence * 0.6;
           } else if (confidence < 0.15) {
+            // Hard block - color forbidden
             workingData[color.id][i] = 0;
           } else {
-            workingData[color.id][i] = confidence * 0.35;
+            // Low confidence - black preferred
+            workingData[color.id][i] = confidence * 0.3;
           }
         }
       });
@@ -438,11 +407,7 @@ export default function StringArt() {
         const x = Math.floor(x1 + (x2 - x1) * t / steps);
         const y = Math.floor(y1 + (y2 - y1) * t / steps);
         if (x >= 0 && x < size && y >= 0 && y < size) {
-          const idx = y * size + x;
-          const edgeStrength = edgeMap[idx];
-          // Slower subtraction on edges to preserve outlines
-          const subtractAmount = edgeStrength > 0.15 ? 0.03 : 0.05;
-          workingData[colorId][idx] = Math.max(0, workingData[colorId][idx] - subtractAmount);
+          workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
         }
       }
       

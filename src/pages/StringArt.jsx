@@ -1312,6 +1312,39 @@ export default function StringArt() {
                     </Tabs>
                   </div>
 
+                  {/* Color Selection */}
+                  {mode === 'color' && (
+                    <div>
+                      <Label className="text-xs text-gray-500 mb-2 block">Select Thread Colors</Label>
+                      <div className="space-y-2">
+                        {selectedColors.slice(0, numColors).map((color, idx) => (
+                          <div key={color.id} className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={color.hex}
+                              onChange={(e) => {
+                                const newColors = [...selectedColors];
+                                newColors[idx] = { ...color, hex: e.target.value };
+                                setSelectedColors(newColors);
+                              }}
+                              className="w-8 h-8 rounded cursor-pointer border border-gray-300"
+                            />
+                            <input
+                              type="text"
+                              value={color.name}
+                              onChange={(e) => {
+                                const newColors = [...selectedColors];
+                                newColors[idx] = { ...color, name: e.target.value };
+                                setSelectedColors(newColors);
+                              }}
+                              className="flex-1 text-xs px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Image Adjustments Toggle */}
                   <div className="pt-2">
                     <Button

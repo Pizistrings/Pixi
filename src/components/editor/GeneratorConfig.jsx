@@ -31,7 +31,7 @@ export default function GeneratorConfig({ mode, onModeChange, config, onConfigCh
           value={[config.steps]}
           onValueChange={([v]) => onConfigChange({ ...config, steps: v })}
           min={1000}
-          max={5000}
+          max={9000}
           step={100}
           className="w-full"
         />

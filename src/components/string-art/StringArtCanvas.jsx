@@ -161,7 +161,6 @@ const StringArtCanvas = forwardRef(({
 
       if (fromPin && toPin) {
         ctx.strokeStyle = colorMap[path.color] || '#1a1a1a';
-        ctx.lineWidth = path.thickness || lineWidth;
         ctx.beginPath();
         ctx.moveTo(fromPin.x, fromPin.y);
         ctx.lineTo(toPin.x, toPin.y);

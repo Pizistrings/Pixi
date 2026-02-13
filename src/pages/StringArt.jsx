@@ -29,9 +29,6 @@ export default function StringArt() {
   const [numStrings, setNumStrings] = useState(9000);
   const [lineWidth, setLineWidth] = useState(1);
   const [lineOpacity, setLineOpacity] = useState(0.08);
-  const [lineThicknessVariation, setLineThicknessVariation] = useState(0);
-  const [weavingPattern, setWeavingPattern] = useState('greedy');
-  const [dynamicColorBlending, setDynamicColorBlending] = useState(false);
   const [numColors, setNumColors] = useState(3);
   const [selectedColors, setSelectedColors] = useState([
     { name: 'Cyan', hex: '#00b4d8', id: 'C' },
@@ -244,7 +241,7 @@ export default function StringArt() {
     
     let currentColorIndex = 0;
     let stringsInCurrentRun = 0;
-    let currentPin = weavingPattern === 'spiral' ? 0 : Math.floor(Math.random() * numPins);
+    let currentPin = Math.floor(Math.random() * numPins);
     
     // MUZO-STYLE BLOCK DISTRIBUTION
     const initialBlackEnd = Math.floor(numStrings * 0.15); // Initial Black Foundation: 15%
@@ -328,32 +325,7 @@ export default function StringArt() {
             // Determine which color based on which cycle we're in
             const cycleNumber = Math.floor(remainingStrings / blockCycleSize);
             currentColorIndex = cycleNumber % activeColors.length;
-            
-            // Dynamic color blending: select color based on image gradient
-            if (dynamicColorBlending && pins[currentPin]) {
-              const x = pins[currentPin].x;
-              const y = pins[currentPin].y;
-              if (x >= 0 && x < size && y >= 0 && y < size) {
-                let bestColorId = activeColors[currentColorIndex];
-                let bestColorScore = workingData[bestColorId][y * size + x];
-                
-                // Check all colors and pick the one with highest confidence at current position
-                for (const cId of activeColors) {
-                  if (cId !== 'K') {
-                    const score = workingData[cId][y * size + x];
-                    if (score > bestColorScore) {
-                      bestColorScore = score;
-                      bestColorId = cId;
-                    }
-                  }
-                }
-                colorId = bestColorId;
-              } else {
-                colorId = activeColors[currentColorIndex];
-              }
-            } else {
-              colorId = activeColors[currentColorIndex];
-            }
+            colorId = activeColors[currentColorIndex];
           } else {
             colorId = 'K';
           }
@@ -366,73 +338,48 @@ export default function StringArt() {
       let bestPin = -1;
       let bestScore = -Infinity;
       
-      // Find the best next pin based on weaving pattern
-      if (weavingPattern === 'spiral') {
-        // Spiral pattern: incrementally move to next pin
-        bestPin = (currentPin + Math.floor(numPins / 7)) % numPins;
-      } else if (weavingPattern === 'random') {
-        // Random pattern: pick a random distant pin
-        const candidates = [];
-        for (let nextPin = 0; nextPin < numPins; nextPin++) {
-          if (nextPin === currentPin) continue;
-          const pinDist = Math.abs(nextPin - currentPin);
-          const wrappedDist = Math.min(pinDist, numPins - pinDist);
-          if (wrappedDist >= minPinDistance) {
-            candidates.push(nextPin);
+      // Find the best next pin
+      for (let nextPin = 0; nextPin < numPins; nextPin++) {
+        if (nextPin === currentPin) continue;
+        
+        // Skip nearby pins with proper wrapping
+        const pinDist = Math.abs(nextPin - currentPin);
+        const wrappedDist = Math.min(pinDist, numPins - pinDist);
+        if (wrappedDist < minPinDistance) continue;
+        
+        // Calculate line score
+        const x1 = pins[currentPin].x;
+        const y1 = pins[currentPin].y;
+        const x2 = pins[nextPin].x;
+        const y2 = pins[nextPin].y;
+        
+        const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+        const steps = Math.ceil(dist);
+        
+        let score = 0;
+        for (let t = 0; t < steps; t++) {
+          const x = Math.floor(x1 + (x2 - x1) * t / steps);
+          const y = Math.floor(y1 + (y2 - y1) * t / steps);
+          if (x >= 0 && x < size && y >= 0 && y < size) {
+            score += workingData[colorId][y * size + x];
           }
         }
-        if (candidates.length > 0) {
-          bestPin = candidates[Math.floor(Math.random() * candidates.length)];
-        }
-      } else {
-        // Greedy pattern: find the best scoring pin
-        for (let nextPin = 0; nextPin < numPins; nextPin++) {
-          if (nextPin === currentPin) continue;
-          
-          // Skip nearby pins with proper wrapping
-          const pinDist = Math.abs(nextPin - currentPin);
-          const wrappedDist = Math.min(pinDist, numPins - pinDist);
-          if (wrappedDist < minPinDistance) continue;
-          
-          // Calculate line score
-          const x1 = pins[currentPin].x;
-          const y1 = pins[currentPin].y;
-          const x2 = pins[nextPin].x;
-          const y2 = pins[nextPin].y;
-          
-          const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-          const steps = Math.ceil(dist);
-          
-          let score = 0;
-          for (let t = 0; t < steps; t++) {
-            const x = Math.floor(x1 + (x2 - x1) * t / steps);
-            const y = Math.floor(y1 + (y2 - y1) * t / steps);
-            if (x >= 0 && x < size && y >= 0 && y < size) {
-              score += workingData[colorId][y * size + x];
-            }
-          }
-          score /= steps;
-          
-          if (score > bestScore) {
-            bestScore = score;
-            bestPin = nextPin;
-          }
+        score /= steps;
+        
+        if (score > bestScore) {
+          bestScore = score;
+          bestPin = nextPin;
         }
       }
       
       if (bestPin === -1) break;
       
-      // Add the string path with thickness variation
-      const thicknessVar = lineThicknessVariation > 0 
-        ? lineWidth * (1 + ((Math.random() - 0.5) * (lineThicknessVariation / 100)))
-        : lineWidth;
-      
+      // Add the string path
       paths.push({
         from: currentPin,
         to: bestPin,
         color: colorId,
-        step: paths.length,
-        thickness: thicknessVar
+        step: paths.length
       });
       layerCounts[colorId] = (layerCounts[colorId] || 0) + 1;
       
@@ -1533,48 +1480,6 @@ export default function StringArt() {
                             className="w-full"
                           />
                         </div>
-
-                        {/* Line Thickness Variation */}
-                        <div>
-                          <div className="flex justify-between mb-2">
-                            <Label className="text-xs text-gray-500">Thickness Variation</Label>
-                            <span className="text-xs text-gray-700 font-medium">{lineThicknessVariation}%</span>
-                          </div>
-                          <Slider
-                            value={[lineThicknessVariation]}
-                            onValueChange={([v]) => setLineThicknessVariation(v)}
-                            min={0}
-                            max={50}
-                            step={5}
-                            className="w-full"
-                          />
-                        </div>
-
-                        {/* Weaving Pattern */}
-                        <div>
-                          <Label className="text-xs text-gray-500 mb-2 block">Weaving Pattern</Label>
-                          <Select value={weavingPattern} onValueChange={setWeavingPattern}>
-                            <SelectTrigger className="w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="greedy">Greedy (Optimal)</SelectItem>
-                              <SelectItem value="spiral">Spiral</SelectItem>
-                              <SelectItem value="random">Random</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* Dynamic Color Blending */}
-                        {mode === 'color' && (
-                          <div className="flex items-center justify-between">
-                            <Label className="text-xs text-gray-500">Dynamic Color Blending</Label>
-                            <Switch
-                              checked={dynamicColorBlending}
-                              onCheckedChange={setDynamicColorBlending}
-                            />
-                          </div>
-                        )}
 
                         {/* Minimum Weaving Gap */}
                         <div>

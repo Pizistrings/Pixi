@@ -558,28 +558,28 @@ export default function StringArt() {
         currentY = margin;
       }
       
-      // Large color circle
+      // Large color circle (left side)
       pdf.setFillColor(rgb.r, rgb.g, rgb.b);
-      pdf.circle(margin + 5, currentY + 2, 4, 'F');
+      pdf.circle(margin + 7, currentY + 4, 6, 'F');
       
-      // Color name
-      pdf.setFontSize(13);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(`${run.colorName}`, margin + 12, currentY + 4);
-      currentY += 8;
+      // Color name (right of circle)
+      pdf.setFontSize(16);
+      pdf.setTextColor(255, 85, 53); // Orange color
+      pdf.text(`${run.colorName}`, margin + 18, currentY + 6);
+      currentY += 15;
       
       // Steps range
-      pdf.setFontSize(9);
-      pdf.setTextColor(130, 130, 130);
-      pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 12, currentY);
-      currentY += 7;
+      pdf.setFontSize(14);
+      pdf.setTextColor(90, 90, 90);
+      pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 5, currentY);
+      currentY += 10;
       
       // Display step pairs in grid format: "stepNum - toPin"
-      pdf.setFontSize(10);
-      pdf.setTextColor(40, 40, 40);
+      pdf.setFontSize(11);
+      pdf.setTextColor(60, 60, 60);
       
-      const stepsPerRow = 6;
-      const columnWidth = 32;
+      const stepsPerRow = 5;
+      const columnWidth = 38;
       
       for (let i = 0; i < run.steps.length; i++) {
         const stepNumber = run.startStep + i;
@@ -592,32 +592,32 @@ export default function StringArt() {
           
           // Repeat color header
           pdf.setFillColor(rgb.r, rgb.g, rgb.b);
-          pdf.circle(margin + 5, currentY + 2, 4, 'F');
-          pdf.setFontSize(13);
-          pdf.setTextColor(0, 0, 0);
-          pdf.text(`${run.colorName}`, margin + 12, currentY + 4);
-          currentY += 8;
-          pdf.setFontSize(9);
-          pdf.setTextColor(130, 130, 130);
-          pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 12, currentY);
-          currentY += 7;
-          pdf.setFontSize(10);
-          pdf.setTextColor(40, 40, 40);
+          pdf.circle(margin + 7, currentY + 4, 6, 'F');
+          pdf.setFontSize(16);
+          pdf.setTextColor(255, 85, 53);
+          pdf.text(`${run.colorName}`, margin + 18, currentY + 6);
+          currentY += 15;
+          pdf.setFontSize(14);
+          pdf.setTextColor(90, 90, 90);
+          pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 5, currentY);
+          currentY += 10;
+          pdf.setFontSize(11);
+          pdf.setTextColor(60, 60, 60);
         }
         
         const col = i % stepsPerRow;
-        const xPos = margin + 10 + (col * columnWidth);
+        const xPos = margin + 5 + (col * columnWidth);
         
         pdf.text(`${stepNumber} - ${toPin}`, xPos, currentY);
         
         // Move to next row after completing a row
         if ((i + 1) % stepsPerRow === 0 && i < run.steps.length - 1) {
-          currentY += 5.5;
+          currentY += 6.5;
         }
       }
       
       // Add spacing after last row
-      currentY += 10;
+      currentY += 12;
     });
     
     // Add QR code on last page

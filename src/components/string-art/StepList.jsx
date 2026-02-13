@@ -163,7 +163,7 @@ export default function StepList({
             Color Run (Lines Per Color Block)
           </h4>
           <p className="text-xs text-gray-500 mb-4">
-            Control how many lines to draw before switching colors (50-250)
+            Control how many lines to draw before switching colors (100-1500)
           </p>
           <div className="space-y-4">
             {selectedColors.slice(0, numColors).map(color => {
@@ -191,9 +191,9 @@ export default function StepList({
                         [color.id]: v
                       }));
                     }}
-                    min={50}
-                    max={250}
-                    step={10}
+                    min={100}
+                    max={1500}
+                    step={50}
                     className="w-full"
                   />
                 </div>

@@ -61,10 +61,10 @@ export default function StringArt() {
     { name: 'Turquoise', hex: '#06b6d4', id: 'TQ' }
   ]);
   const [colorDistribution, setColorDistribution] = useState({
-    C: 100,
-    M: 100,
-    Y: 100,
-    K: 150
+    C: 800,
+    M: 800,
+    Y: 800,
+    K: 1000
   });
   const [shape, setShape] = useState('circle'); // 'circle', 'square', 'rectangle'
   const [brightness, setBrightness] = useState(100);
@@ -1449,7 +1449,7 @@ export default function StringArt() {
                                 const newDist = {};
                                 const activeColors = selectedColors.slice(0, v);
                                 activeColors.forEach((color, idx) => {
-                                  newDist[color.id] = idx === v - 1 ? 150 : 100;
+                                  newDist[color.id] = idx === v - 1 ? 1000 : 800;
                                 });
                                 setColorDistribution(newDist);
                               }}

@@ -95,7 +95,7 @@ export default function ImageUploader({ onUpload }) {
             <input
               id="image-upload"
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
               onChange={handleInputChange}
               className="hidden"
             />

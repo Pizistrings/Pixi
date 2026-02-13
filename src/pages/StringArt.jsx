@@ -46,7 +46,19 @@ export default function StringArt() {
     { name: 'Indigo', hex: '#6366f1', id: 'I' },
     { name: 'Rose', hex: '#f43f5e', id: 'RS' },
     { name: 'Amber', hex: '#f59e0b', id: 'A' },
-    { name: 'Emerald', hex: '#10b981', id: 'E' }
+    { name: 'Emerald', hex: '#10b981', id: 'E' },
+    { name: 'Violet', hex: '#8b5cf6', id: 'V' },
+    { name: 'Fuchsia', hex: '#d946ef', id: 'F' },
+    { name: 'Sky', hex: '#0ea5e9', id: 'SK' },
+    { name: 'Mint', hex: '#5eead4', id: 'MT' },
+    { name: 'Coral', hex: '#ff7f50', id: 'CR' },
+    { name: 'Gold', hex: '#fbbf24', id: 'GD' },
+    { name: 'Navy', hex: '#1e3a8a', id: 'NV' },
+    { name: 'Crimson', hex: '#b91c1c', id: 'CM' },
+    { name: 'Forest', hex: '#047857', id: 'FR' },
+    { name: 'Lavender', hex: '#c084fc', id: 'LV' },
+    { name: 'Peach', hex: '#fb923c', id: 'PC' },
+    { name: 'Turquoise', hex: '#06b6d4', id: 'TQ' }
   ]);
   const [colorDistribution, setColorDistribution] = useState({
     C: 100,
@@ -65,7 +77,7 @@ export default function StringArt() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceDelay, setVoiceDelay] = useState(3);
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [minPinDistance, setMinPinDistance] = useState(40);
+  const [minPinDistance, setMinPinDistance] = useState(30);
   const [currentPhase, setCurrentPhase] = useState(null);
   const [lastAnnouncedPhase, setLastAnnouncedPhase] = useState(null);
   
@@ -1490,9 +1502,9 @@ export default function StringArt() {
                           <Slider
                             value={[minPinDistance]}
                             onValueChange={([v]) => setMinPinDistance(v)}
-                            min={20}
-                            max={100}
-                            step={5}
+                            min={8}
+                            max={50}
+                            step={2}
                             className="w-full"
                           />
                         </div>

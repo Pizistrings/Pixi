@@ -135,7 +135,7 @@ export default function StepList({
                     newColors[idx] = { ...color, hex: e.target.value };
                     setSelectedColors(newColors);
                   }}
-                  className="w-10 h-10 rounded-lg cursor-pointer border-2 border-gray-200"
+                  className="w-10 h-10 rounded cursor-pointer border-2 border-gray-200"
                 />
                 <div className="flex-1">
                   <input
@@ -174,7 +174,7 @@ export default function StepList({
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div
-                        className="w-3 h-3 rounded-full shadow-inner"
+                        className="w-3 h-3 rounded shadow-inner"
                         style={{ backgroundColor: color.hex }}
                       />
                       <Label className="text-xs text-gray-600">{color.name}</Label>
@@ -226,7 +226,7 @@ export default function StepList({
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div
-                        className="w-4 h-4 rounded-full shadow-inner"
+                        className="w-4 h-4 rounded shadow-inner"
                         style={{ backgroundColor: layer.hex }}
                       />
                       <span className={`text-sm font-medium ${

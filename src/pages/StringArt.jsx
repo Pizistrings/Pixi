@@ -285,10 +285,19 @@ export default function StringArt() {
       
       colors.forEach(color => {
         if (color.id === 'K') {
-          // Black always available based on inverse luminance
+          // Black for dark areas
           workingData[color.id][i] = 1 - luminance;
+        } else if (color.id === 'W') {
+          // White for bright/light areas
+          if (luminance > 0.7) {
+            workingData[color.id][i] = luminance; // Strong white in bright areas
+          } else if (luminance > 0.4) {
+            workingData[color.id][i] = (luminance - 0.4) * 2; // Moderate white
+          } else {
+            workingData[color.id][i] = 0; // No white in dark areas
+          }
         } else {
-          // Calculate color confidence
+          // Calculate color confidence for other colors
           const targetR = parseInt(color.hex.slice(1, 3), 16);
           const targetG = parseInt(color.hex.slice(3, 5), 16);
           const targetB = parseInt(color.hex.slice(5, 7), 16);
@@ -301,22 +310,13 @@ export default function StringArt() {
           
           const confidence = Math.max(0, 1 - distance / 441);
           
-          // Apply color confidence zones with luminance logic
-          if (luminance < 0.25) {
-            // Too dark - black only
-            workingData[color.id][i] = 0;
-          } else if (confidence > 0.55 && luminance > 0.35) {
-            // High confidence + good luminance - full color
+          // Colors work across all luminance levels
+          if (confidence > 0.4) {
             workingData[color.id][i] = confidence;
-          } else if (confidence > 0.30 && luminance > 0.35) {
-            // Mid confidence - soft color
-            workingData[color.id][i] = confidence * 0.6;
-          } else if (confidence < 0.15) {
-            // Hard block - color forbidden
-            workingData[color.id][i] = 0;
+          } else if (confidence > 0.2) {
+            workingData[color.id][i] = confidence * 0.5;
           } else {
-            // Low confidence - black preferred
-            workingData[color.id][i] = confidence * 0.3;
+            workingData[color.id][i] = 0;
           }
         }
       });

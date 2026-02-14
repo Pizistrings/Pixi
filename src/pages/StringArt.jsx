@@ -319,32 +319,22 @@ export default function StringArt() {
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      // INITIAL BLACK FOUNDATION (15% - Black only)
-      if (totalStringsDrawn < initialBlackEnd) {
+      if (totalStringsDrawn < 6500) {
+        // 0-6500: Alternate Yellow, Red, White, Black (100 lines each)
+        const cyclePosition = totalStringsDrawn % (linesPerColor * 4);
+        const colorIndex = Math.floor(cyclePosition / linesPerColor);
+        colorId = colorOrder[colorIndex];
+      } else if (totalStringsDrawn >= 7000 && totalStringsDrawn < 8000) {
+        // 7000-8000: Alternate 100 lines per color
+        const adjustedPosition = (totalStringsDrawn - 7000) % (linesPerColor * 4);
+        const colorIndex = Math.floor(adjustedPosition / linesPerColor);
+        colorId = colorOrder[colorIndex];
+      } else if (totalStringsDrawn >= 8000) {
+        // 8000-9000: Solid black
         colorId = 'K';
-      }
-      // ALTERNATING COLOR BLOCKS AND BLACK INTERRUPTIONS
-      else {
-        const remainingStrings = totalStringsDrawn - initialBlackEnd;
-        const blockCycleSize = colorBlockSize + blackInterruptionSize;
-        const positionInCycle = remainingStrings % blockCycleSize;
-        
-        if (positionInCycle < colorBlockSize) {
-          // COLOR BLOCK: 70% current color, 30% black
-          const shouldUseColor = Math.random() < 0.7;
-          
-          if (shouldUseColor && mode === 'color') {
-            // Determine which color based on which cycle we're in
-            const cycleNumber = Math.floor(remainingStrings / blockCycleSize);
-            currentColorIndex = cycleNumber % activeColors.length;
-            colorId = activeColors[currentColorIndex];
-          } else {
-            colorId = 'K';
-          }
-        } else {
-          // BLACK INTERRUPTION: 100% black
-          colorId = 'K';
-        }
+      } else {
+        // 6500-7000: Transition with black
+        colorId = 'K';
       }
       
       let bestPin = -1;

@@ -257,7 +257,14 @@ export default function StringArt() {
     
     // STANDARD COLOR DISTRIBUTION
     // Order: Yellow, Red, White, Black (100 lines each cycle)
-    const colorOrder = ['Y', 'R', 'W', 'K'];
+    // Find colors by ID, fallback to available colors if not found
+    const findColorById = (id) => colors.find(c => c.id === id);
+    const yellowColor = findColorById('Y') || colors[0];
+    const redColor = findColorById('R') || colors[1] || colors[0];
+    const whiteColor = findColorById('W') || colors[2] || colors[1] || colors[0];
+    const blackColor = findColorById('K') || colors[colors.length - 1];
+    
+    const colorOrder = [yellowColor.id, redColor.id, whiteColor.id, blackColor.id];
     const linesPerColor = 100;
     
     // Initialize working data for each color

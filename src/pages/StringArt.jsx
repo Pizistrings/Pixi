@@ -31,11 +31,12 @@ export default function StringArt() {
   const [lineOpacity, setLineOpacity] = useState(0.08);
   const [numColors, setNumColors] = useState(3);
   const [selectedColors, setSelectedColors] = useState([
+    { name: 'Yellow', hex: '#ffd60a', id: 'Y' },
+    { name: 'Red', hex: '#dc2626', id: 'R' },
+    { name: 'White', hex: '#ffffff', id: 'W' },
+    { name: 'Black', hex: '#1a1a1a', id: 'K' },
     { name: 'Cyan', hex: '#00b4d8', id: 'C' },
     { name: 'Magenta', hex: '#e63946', id: 'M' },
-    { name: 'Yellow', hex: '#ffd60a', id: 'Y' },
-    { name: 'Black', hex: '#1a1a1a', id: 'K' },
-    { name: 'Red', hex: '#dc2626', id: 'R' },
     { name: 'Green', hex: '#16a34a', id: 'G' },
     { name: 'Blue', hex: '#2563eb', id: 'B' },
     { name: 'Orange', hex: '#ea580c', id: 'O' },

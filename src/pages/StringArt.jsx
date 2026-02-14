@@ -255,10 +255,10 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // MUZO-STYLE BLOCK DISTRIBUTION
-    const initialBlackEnd = Math.floor(numStrings * 0.15); // Initial Black Foundation: 15%
-    const colorBlockSize = Math.floor((numStrings - initialBlackEnd) / (activeColors.length * 2)); // Divide remaining among color blocks and black interruptions
-    const blackInterruptionSize = Math.floor(colorBlockSize * 0.4); // Black interruption is 40% of color block size
+    // STANDARD COLOR DISTRIBUTION
+    // Order: Yellow, Red, White, Black (100 lines each cycle)
+    const colorOrder = ['Y', 'R', 'W', 'K'];
+    const linesPerColor = 100;
     
     // Initialize working data for each color
     const workingData = {};

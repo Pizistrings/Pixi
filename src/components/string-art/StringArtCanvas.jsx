@@ -95,6 +95,18 @@ const StringArtCanvas = forwardRef(({
     ctx.fillStyle = '#fafafa';
     ctx.fillRect(0, 0, size, size);
 
+    // Draw source image as subtle overlay
+    if (sourceImage) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = sourceImage;
+      if (img.complete) {
+        ctx.globalAlpha = 0.3;
+        ctx.drawImage(img, 0, 0, size, size);
+        ctx.globalAlpha = 1;
+      }
+    }
+
     // Draw frame border (subtle)
     ctx.strokeStyle = '#e5e5e5';
     ctx.lineWidth = 2;

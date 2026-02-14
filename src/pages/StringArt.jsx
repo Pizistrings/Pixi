@@ -327,22 +327,40 @@ export default function StringArt() {
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      if (totalStringsDrawn < 6500) {
-        // 0-6500: Alternate Yellow, Red, White, Black (100 lines each)
-        const cyclePosition = totalStringsDrawn % (linesPerColor * 4);
+      if (totalStringsDrawn < 3000) {
+        // Phase 1 (0-3000): Colors only (Y, R, W) - build outline and structure
+        const colorCycle = [yellowColor.id, redColor.id, whiteColor.id];
+        const cyclePosition = totalStringsDrawn % (linesPerColor * 3);
+        const colorIndex = Math.floor(cyclePosition / linesPerColor);
+        colorId = colorCycle[colorIndex];
+      } else if (totalStringsDrawn < 6000) {
+        // Phase 2 (3000-6000): 70% colors, 30% black - add depth
+        const cycleLength = linesPerColor * 10;
+        const cyclePosition = (totalStringsDrawn - 3000) % cycleLength;
+        if (cyclePosition < linesPerColor * 7) {
+          // 7 blocks of colors
+          const colorCycle = [yellowColor.id, redColor.id, whiteColor.id];
+          const colorIndex = Math.floor((cyclePosition / linesPerColor) % 3);
+          colorId = colorCycle[colorIndex];
+        } else {
+          // 3 blocks of black
+          colorId = blackColor.id;
+        }
+      } else if (totalStringsDrawn < 8000) {
+        // Phase 3 (6000-8000): 50% colors, 50% black - balanced detail
+        const cyclePosition = (totalStringsDrawn - 6000) % (linesPerColor * 4);
         const colorIndex = Math.floor(cyclePosition / linesPerColor);
         colorId = colorOrder[colorIndex];
-      } else if (totalStringsDrawn >= 7000 && totalStringsDrawn < 8000) {
-        // 7000-8000: Alternate 100 lines per color
-        const adjustedPosition = (totalStringsDrawn - 7000) % (linesPerColor * 4);
-        const colorIndex = Math.floor(adjustedPosition / linesPerColor);
-        colorId = colorOrder[colorIndex];
-      } else if (totalStringsDrawn >= 8000) {
-        // 8000-9000: Solid black
-        colorId = 'K';
       } else {
-        // 6500-7000: Transition with black
-        colorId = 'K';
+        // Phase 4 (8000-9000): 80% black, 20% colors - fine details
+        const cycleLength = linesPerColor * 5;
+        const cyclePosition = (totalStringsDrawn - 8000) % cycleLength;
+        if (cyclePosition < linesPerColor * 4) {
+          colorId = blackColor.id;
+        } else {
+          const colorCycle = [yellowColor.id, redColor.id, whiteColor.id];
+          colorId = colorCycle[0];
+        }
       }
       
       let bestPin = -1;

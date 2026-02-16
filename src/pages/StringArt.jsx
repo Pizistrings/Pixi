@@ -634,10 +634,13 @@ export default function StringArt() {
       }
     });
     
-    // Add QR code on new page
-    pdf.addPage();
-    let currentY = margin + 20;
+    // Add QR code on last page
+    if (currentY + 60 > pageHeight - margin) {
+      pdf.addPage();
+      currentY = margin;
+    }
     
+    currentY += 5;
     pdf.setFontSize(12);
     pdf.setTextColor(0, 0, 0);
     pdf.text('Share with friends', pageWidth / 2, currentY, { align: 'center' });

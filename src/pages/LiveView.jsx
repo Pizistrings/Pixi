@@ -268,9 +268,34 @@ export default function LiveView() {
   const currentPath = pattern?.paths?.[currentStep - 1];
   const currentColor = currentPath && pattern ? pattern.colors.find(c => c.id === currentPath.c) : null;
 
+  // Get recent steps for display
+  const getRecentSteps = () => {
+    if (!pattern || !pattern.paths) return [];
+    const steps = [];
+    const currentIdx = currentStep - 1;
+    
+    for (let i = Math.max(0, currentIdx - 3); i <= Math.min(pattern.paths.length - 1, currentIdx + 3); i++) {
+      const path = pattern.paths[i];
+      if (path) {
+        const color = pattern.colors.find(c => c.id === path.c);
+        steps.push({
+          step: i + 1,
+          toPin: path.t,
+          color: color?.h || '#1a1a1a',
+          colorName: color?.n || 'Black',
+          isCurrent: i === currentIdx
+        });
+      }
+    }
+    
+    return steps;
+  };
+
+  const recentSteps = getRecentSteps();
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <Link to={createPageUrl('StringArt')}>
@@ -304,182 +329,259 @@ export default function LiveView() {
           </div>
         </div>
 
-        {/* Canvas Display */}
-        {pattern && (
-          <Card className="bg-white border-0 shadow-sm p-6 mb-6">
-            <StringArtCanvas
-              ref={canvasRef}
-              stringPaths={pattern.paths}
-              currentStep={currentStep}
-              numPins={pattern.pins}
-              colors={pattern.colors.map(c => ({ name: c.n, hex: c.h, id: c.id }))}
-              isProcessing={false}
-              lineWidth={1}
-              lineOpacity={0.08}
-              shape="circle"
-            />
-          </Card>
-        )}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left Column - Canvas */}
+          <div className="lg:col-span-1">
+            {pattern && (
+              <Card className="bg-white border-0 shadow-sm p-6">
+                <StringArtCanvas
+                  ref={canvasRef}
+                  stringPaths={pattern.paths}
+                  currentStep={currentStep}
+                  numPins={pattern.pins}
+                  colors={pattern.colors.map(c => ({ name: c.n, hex: c.h, id: c.id }))}
+                  isProcessing={false}
+                  lineWidth={1}
+                  lineOpacity={0.08}
+                  shape={pattern.shape || 'circle'}
+                />
+              </Card>
+            )}
+          </div>
 
-        {/* Pin to Pin Display */}
-        {currentPath && (
-          <Card className="bg-white border-0 shadow-sm p-6 mb-6">
-            <motion.div
-              key={`${currentStep}-info`}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              {/* Color indicator */}
-              {currentColor && (
-                <div className="flex items-center justify-center gap-3 mb-6">
-                  <div
-                    className="w-16 h-16 rounded-full shadow-lg"
-                    style={{ backgroundColor: currentColor.h }}
-                  />
-                  <div>
-                    <div className="text-sm text-gray-500">Current Color</div>
-                    <div className="text-2xl font-semibold text-gray-900">{currentColor.n}</div>
+          {/* Right Column - Current Step Info & Controls */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Current Step Display */}
+            <Card className="bg-white border-0 shadow-sm p-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4">Current Step</h3>
+              {pattern ? (
+                <motion.div
+                  key={currentStep}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-4 text-center"
+                >
+                  <div className="text-7xl font-light text-gray-900">
+                    {currentStep}
                   </div>
-                </div>
-              )}
-
-              {/* Pin numbers */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-6 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-500 mb-2">From Pin</div>
-                  <div className="text-5xl font-bold text-gray-700">{currentPath.f}</div>
-                </div>
-                <div className="text-center p-6 bg-[#ff6b35] bg-opacity-10 rounded-lg">
-                  <div className="text-sm text-[#ff6b35] mb-2">To Pin</div>
-                  <div className="text-5xl font-bold text-[#ff6b35]">{currentPath.t}</div>
-                </div>
-              </div>
-            </motion.div>
-          </Card>
-        )}
-
-        {/* Progress */}
-        <Card className="bg-white border-0 shadow-sm p-4 mb-6">
-          <div className="mb-2">
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#ff6b35] transition-all duration-300"
-                style={{ width: `${pattern ? (currentStep / pattern.totalSteps) * 100 : 0}%` }}
-              />
-            </div>
-          </div>
-          <Slider
-            value={[currentStep]}
-            onValueChange={([v]) => {
-              setCurrentStep(v);
-              setIsPlaying(false);
-            }}
-            min={0}
-            max={pattern?.totalSteps || 0}
-            step={1}
-            className="mb-2"
-          />
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>{currentStep.toLocaleString()}</span>
-            <span>{pattern ? Math.round((currentStep / pattern.totalSteps) * 100) : 0}%</span>
-            <span>{pattern?.totalSteps.toLocaleString() || 0}</span>
-          </div>
-        </Card>
-
-        {/* Controls */}
-        <Card className="bg-white border-0 shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => {
-                setCurrentStep(0);
-                setIsPlaying(false);
-              }}
-              className="h-12 w-12"
-            >
-              <SkipBack className="w-5 h-5" />
-            </Button>
-
-            <Button
-              size="icon"
-              onClick={() => {
-                if (pattern && currentStep >= pattern.totalSteps) {
-                  setCurrentStep(0);
-                }
-                setIsPlaying(!isPlaying);
-              }}
-              className="h-16 w-16 bg-[#ff6b35] hover:bg-[#e55a2b]"
-            >
-              {isPlaying ? (
-                <Pause className="w-7 h-7" />
+                  {currentColor && (
+                    <div className="flex items-center justify-center gap-3">
+                      <div
+                        className="w-16 h-16 rounded-full shadow-lg"
+                        style={{ backgroundColor: currentColor.h }}
+                      />
+                      <div>
+                        <div className="text-sm text-gray-500">Color</div>
+                        <div className="text-2xl font-semibold text-gray-900">{currentColor.n}</div>
+                      </div>
+                    </div>
+                  )}
+                  {currentPath && currentStep > 0 && pattern.paths?.[currentStep - 2]?.c !== currentPath.c && (
+                    <div className="flex items-center justify-center gap-2 text-[#ff6b35] text-sm bg-orange-50 p-3 rounded-lg mx-auto max-w-fit">
+                      <span className="text-lg">⚠️</span>
+                      <span className="font-semibold">Change color!</span>
+                    </div>
+                  )}
+                </motion.div>
               ) : (
-                <Play className="w-7 h-7 ml-1" />
+                <div className="text-gray-400 text-sm text-center py-8">
+                  Load a pattern to see progress
+                </div>
               )}
-            </Button>
+            </Card>
 
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => pattern && setCurrentStep(pattern.totalSteps)}
-              className="h-12 w-12"
-            >
-              <SkipForward className="w-5 h-5" />
-            </Button>
-          </div>
+            {/* Step List */}
+            <Card className="bg-white border-0 shadow-sm p-6">
+              <h3 className="text-sm text-gray-500 mb-4">Step list</h3>
+              {recentSteps.length > 0 ? (
+                <div className="space-y-2">
+                  {recentSteps.map((step, idx) => (
+                    <motion.div
+                      key={step.step}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className={`flex items-center gap-3 py-1.5 px-2 rounded-lg transition-colors ${
+                        step.isCurrent ? 'bg-gray-50' : ''
+                      }`}
+                    >
+                      <div
+                        className={`w-3 h-3 rounded-full transition-transform ${
+                          step.isCurrent ? 'scale-125 ring-2 ring-offset-2' : 'opacity-60'
+                        }`}
+                        style={{ 
+                          backgroundColor: step.color,
+                          ringColor: step.color 
+                        }}
+                      />
+                      <span className={`text-sm ${
+                        step.isCurrent 
+                          ? 'font-semibold text-gray-900' 
+                          : 'text-gray-400'
+                      }`}>
+                        {step.step}
+                      </span>
+                      <span className={`text-sm ml-auto ${
+                        step.isCurrent 
+                          ? 'font-semibold text-[#ff6b35]' 
+                          : 'text-gray-400'
+                      }`}>
+                        → {step.toPin}
+                      </span>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-gray-400 text-xs text-center py-4">
+                  Steps will appear here
+                </div>
+              )}
+            </Card>
 
-          <div className="space-y-4">
-            {/* Voice Delay */}
-            <div>
-              <div className="flex justify-between mb-2">
-                <Label className="text-sm">Voice Delay</Label>
-                <span className="text-sm text-gray-600">{voiceDelay} seconds</span>
+            {/* Progress and Playback Controls */}
+            <Card className="bg-white border-0 shadow-sm p-6">
+              {/* Progress */}
+              <div className="mb-6">
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
+                  <div
+                    className="h-full bg-[#ff6b35] transition-all duration-300"
+                    style={{ width: `${pattern ? (currentStep / pattern.totalSteps) * 100 : 0}%` }}
+                  />
+                </div>
+                <Slider
+                  value={[currentStep]}
+                  onValueChange={([v]) => {
+                    setCurrentStep(v);
+                    setIsPlaying(false);
+                  }}
+                  min={0}
+                  max={pattern?.totalSteps || 0}
+                  step={1}
+                  className="mb-2"
+                />
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>{currentStep.toLocaleString()}</span>
+                  <span>{pattern ? Math.round((currentStep / pattern.totalSteps) * 100) : 0}%</span>
+                  <span>{pattern?.totalSteps.toLocaleString() || 0}</span>
+                </div>
               </div>
-              <Slider
-                value={[voiceDelay]}
-                onValueChange={([v]) => setVoiceDelay(v)}
-                min={1}
-                max={10}
-                step={1}
-              />
-            </div>
 
-            {/* Voice */}
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2">
-                {voiceEnabled ? <Mic className="w-4 h-4 text-[#ff6b35]" /> : <MicOff className="w-4 h-4 text-gray-400" />}
-                <span className="text-sm font-medium">Voice Guide</span>
+              {/* Controls */}
+              <div className="flex items-center justify-center gap-3 mb-6">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    setCurrentStep(0);
+                    setIsPlaying(false);
+                  }}
+                  className="h-12 w-12"
+                >
+                  <SkipBack className="w-5 h-5" />
+                </Button>
+
+                <Button
+                  size="icon"
+                  onClick={() => {
+                    if (pattern && currentStep >= pattern.totalSteps) {
+                      setCurrentStep(0);
+                    }
+                    setIsPlaying(!isPlaying);
+                  }}
+                  className="h-16 w-16 bg-[#ff6b35] hover:bg-[#e55a2b]"
+                >
+                  {isPlaying ? (
+                    <Pause className="w-7 h-7" />
+                  ) : (
+                    <Play className="w-7 h-7 ml-1" />
+                  )}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => pattern && setCurrentStep(pattern.totalSteps)}
+                  className="h-12 w-12"
+                >
+                  <SkipForward className="w-5 h-5" />
+                </Button>
               </div>
-              <Button
-                variant={voiceEnabled ? "default" : "outline"}
-                size="sm"
-                onClick={() => setVoiceEnabled(!voiceEnabled)}
-                className={voiceEnabled ? "bg-[#ff6b35] hover:bg-[#e55a2b]" : ""}
-              >
-                {voiceEnabled ? 'On' : 'Off'}
-              </Button>
-            </div>
 
+              <div className="space-y-4">
+                {/* Speed Control */}
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <Label className="text-sm">Speed</Label>
+                    <span className="text-sm text-gray-600">{speed}x</span>
+                  </div>
+                  <Select value={speed.toString()} onValueChange={(v) => setSpeed(Number(v))}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1x</SelectItem>
+                      <SelectItem value="5">5x</SelectItem>
+                      <SelectItem value="10">10x</SelectItem>
+                      <SelectItem value="25">25x</SelectItem>
+                      <SelectItem value="50">50x</SelectItem>
+                      <SelectItem value="100">100x</SelectItem>
+                      <SelectItem value="200">200x</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
+                {/* Voice Delay */}
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <Label className="text-sm">Voice Delay</Label>
+                    <span className="text-sm text-gray-600">{voiceDelay} seconds</span>
+                  </div>
+                  <Slider
+                    value={[voiceDelay]}
+                    onValueChange={([v]) => setVoiceDelay(v)}
+                    min={1}
+                    max={10}
+                    step={1}
+                  />
+                </div>
+
+                {/* Voice Toggle */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    {voiceEnabled ? <Mic className="w-4 h-4 text-[#ff6b35]" /> : <MicOff className="w-4 h-4 text-gray-400" />}
+                    <span className="text-sm font-medium">Voice Guide</span>
+                  </div>
+                  <Button
+                    variant={voiceEnabled ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setVoiceEnabled(!voiceEnabled)}
+                    className={voiceEnabled ? "bg-[#ff6b35] hover:bg-[#e55a2b]" : ""}
+                  >
+                    {voiceEnabled ? 'On' : 'Off'}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Voice Commands */}
+            {voiceEnabled && (
+              <Card className="bg-blue-50 border-blue-200 p-4">
+                <h3 className="text-sm font-semibold text-blue-900 mb-2">Voice Commands</h3>
+                <div className="text-xs text-blue-800 space-y-1">
+                  <p>• Voice says pin number only (e.g., "245", "390")</p>
+                  <p>• Delay: {voiceDelay} seconds between announcements</p>
+                  <p>• "Next" - Next step</p>
+                  <p>• "Previous" / "Back" - Previous step</p>
+                  <p>• "Repeat" - Repeat current pin</p>
+                  <p>• "Play" - Start auto-play</p>
+                  <p>• "Pause" / "Stop" - Pause</p>
+                  <p>• "Reset" - Go to start</p>
+                </div>
+              </Card>
+            )}
           </div>
-        </Card>
-
-        {/* Voice Commands */}
-        {voiceEnabled && (
-          <Card className="bg-blue-50 border-blue-200 p-4">
-            <h3 className="text-sm font-semibold text-blue-900 mb-2">Voice Commands</h3>
-            <div className="text-xs text-blue-800 space-y-1">
-              <p>• Voice says pin number only (e.g., "245", "390")</p>
-              <p>• Delay: {voiceDelay} seconds between announcements</p>
-              <p>• "Next" - Next step</p>
-              <p>• "Previous" / "Back" - Previous step</p>
-              <p>• "Repeat" - Repeat current pin</p>
-              <p>• "Play" - Start auto-play</p>
-              <p>• "Pause" / "Stop" - Pause</p>
-              <p>• "Reset" - Go to start</p>
-            </div>
-          </Card>
-        )}
+        </div>
       </div>
     </div>
   );

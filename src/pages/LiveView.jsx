@@ -406,7 +406,7 @@ export default function LiveView() {
                 )}
               </div>
               {displaySteps.length > 0 ? (
-                <div className="grid grid-cols-6 gap-x-8 gap-y-1 text-sm auto-rows-min">
+                <div className="grid grid-cols-5 grid-flow-col auto-cols-fr gap-x-8 gap-y-1 text-sm" style={{ gridTemplateRows: 'repeat(20, minmax(0, 1fr))' }}>
                   {displaySteps.map((step) => (
                     <div
                       key={step.step}

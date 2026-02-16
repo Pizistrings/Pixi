@@ -495,7 +495,7 @@ export default function StringArt() {
     const QRCode = (await import('qrcode')).default;
     const { base44 } = await import('@/api/base44Client');
     
-    const pdf = new jsPDF('l', 'mm', 'a4');
+    const pdf = new jsPDF('p', 'mm', 'a4');
     const pageHeight = pdf.internal.pageSize.height;
     const pageWidth = pdf.internal.pageSize.width;
     const margin = 10;
@@ -589,32 +589,19 @@ export default function StringArt() {
       pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 5, currentY);
       currentY += 10;
       
-      // Display steps vertically in columns: "stepNum - toPin"
+      // Display step pairs in grid format: "stepNum - toPin"
       pdf.setFontSize(11);
       pdf.setTextColor(60, 60, 60);
       
-      const numColumns = 5;
-      const columnWidth = 55;
-      const lineHeight = 5;
-      
-      // Calculate how many rows fit on the first page
-      let availableHeight = pageHeight - currentY - margin;
-      let maxLinesPerColumn = Math.floor(availableHeight / lineHeight);
-      let stepsPerPage = maxLinesPerColumn * numColumns;
-      let startY = currentY;
-      let pageStepOffset = 0;
+      const stepsPerRow = 5;
+      const columnWidth = 38;
       
       for (let i = 0; i < run.steps.length; i++) {
         const stepNumber = run.startStep + i;
         const toPin = run.steps[i];
         
-        // Determine position within current page
-        const indexInPage = i - pageStepOffset;
-        const col = Math.floor(indexInPage / maxLinesPerColumn);
-        const row = indexInPage % maxLinesPerColumn;
-        
-        // Check if we need a new page (filled all columns)
-        if (col >= numColumns) {
+        // Check if we need a new page
+        if (currentY + 6 > pageHeight - margin) {
           pdf.addPage();
           currentY = margin;
           
@@ -629,36 +616,23 @@ export default function StringArt() {
           pdf.setTextColor(90, 90, 90);
           pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 5, currentY);
           currentY += 10;
-          
-          // Recalculate for new page
-          availableHeight = pageHeight - currentY - margin;
-          maxLinesPerColumn = Math.floor(availableHeight / lineHeight);
-          stepsPerPage = maxLinesPerColumn * numColumns;
-          startY = currentY;
-          pageStepOffset = i;
-          
           pdf.setFontSize(11);
           pdf.setTextColor(60, 60, 60);
-          
-          // Recalculate position for this step on new page
-          const newIndexInPage = i - pageStepOffset;
-          const newCol = Math.floor(newIndexInPage / maxLinesPerColumn);
-          const newRow = newIndexInPage % maxLinesPerColumn;
-          
-          const xPos = margin + 5 + (newCol * columnWidth);
-          const yPos = startY + (newRow * lineHeight);
-          pdf.text(`${stepNumber} - ${toPin}`, xPos, yPos);
-        } else {
-          const xPos = margin + 5 + (col * columnWidth);
-          const yPos = startY + (row * lineHeight);
-          pdf.text(`${stepNumber} - ${toPin}`, xPos, yPos);
+        }
+        
+        const col = i % stepsPerRow;
+        const xPos = margin + 5 + (col * columnWidth);
+        
+        pdf.text(`${stepNumber} - ${toPin}`, xPos, currentY);
+        
+        // Move to next row after completing a row
+        if ((i + 1) % stepsPerRow === 0 && i < run.steps.length - 1) {
+          currentY += 6.5;
         }
       }
       
-      // Calculate final Y position after all steps
-      const remainingSteps = run.steps.length - pageStepOffset;
-      const rowsUsed = Math.ceil(remainingSteps / numColumns);
-      currentY = startY + (Math.min(rowsUsed, maxLinesPerColumn) * lineHeight) + 12;
+      // Add spacing after last row
+      currentY += 12;
     });
     
     // Add QR code on last page
@@ -831,14 +805,49 @@ export default function StringArt() {
     }
   };
 
-  // Voice announcements
+  // Voice announcements with phases
   useEffect(() => {
     if (!voiceEnabled || !isGenerated || currentStep === 0) return;
     
-    // Announce pin number only
+    const phase1End = Math.floor(totalSteps * 0.12);
+    const phase2End = Math.floor(totalSteps * 0.72);
+    
+    let phase = null;
+    if (currentStep <= phase1End) phase = 'foundation';
+    else if (currentStep <= phase2End) phase = 'colorBuild';
+    else phase = 'detail';
+    
+    // Announce phase change once
+    if (phase !== lastAnnouncedPhase) {
+      const phaseMessages = {
+        foundation: 'Foundation phase started. Black string only.',
+        colorBuild: 'Color build phase started. Adding colors.',
+        detail: 'Detail phase started. Black dominant.'
+      };
+      
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(phaseMessages[phase]);
+        utterance.rate = 0.9;
+        speechSynthesis.speak(utterance);
+      }
+      setLastAnnouncedPhase(phase);
+      setCurrentPhase(phase);
+    }
+    
+    // Announce pin change
     if (stringPaths[currentStep - 1]) {
       const path = stringPaths[currentStep - 1];
-      const message = `${path.to}`;
+      const currentColor = colorLayers.find(c => c.id === path.color);
+      
+      let message = `From pin ${path.from} to pin ${path.to}`;
+      
+      // Check if color is changing
+      if (currentStep > 1) {
+        const prevPath = stringPaths[currentStep - 2];
+        if (prevPath.color !== path.color && currentColor) {
+          message += `. Change color to ${currentColor.name}`;
+        }
+      }
       
       if ('speechSynthesis' in window) {
         setTimeout(() => {
@@ -848,7 +857,7 @@ export default function StringArt() {
         }, voiceDelay * 1000);
       }
     }
-  }, [voiceEnabled, currentStep, isGenerated, stringPaths, voiceDelay]);
+  }, [voiceEnabled, currentStep, isGenerated, totalSteps, stringPaths, colorLayers, lastAnnouncedPhase, voiceDelay]);
 
   // Voice commands
   useEffect(() => {

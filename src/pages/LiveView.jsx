@@ -268,33 +268,50 @@ export default function LiveView() {
   const currentPath = pattern?.paths?.[currentStep - 1];
   const currentColor = currentPath && pattern ? pattern.colors.find(c => c.id === currentPath.c) : null;
 
-  // Get 100 steps per page for display
-  const getStepsForPage = () => {
+  // Get steps grouped by color for display
+  const getStepsGroupedByColor = () => {
     if (!pattern || !pattern.paths) return [];
     const stepsPerPage = 100;
     const currentPage = Math.floor((currentStep - 1) / stepsPerPage);
     const startIdx = currentPage * stepsPerPage;
     const endIdx = Math.min(startIdx + stepsPerPage, pattern.paths.length);
     
-    const steps = [];
+    const colorGroups = [];
+    let currentColorId = null;
+    let currentGroup = [];
+    
     for (let i = startIdx; i < endIdx; i++) {
       const path = pattern.paths[i];
-      if (path) {
-        const color = pattern.colors.find(c => c.id === path.c);
-        steps.push({
-          step: i + 1,
-          toPin: path.t,
-          color: color?.h || '#1a1a1a',
-          colorName: color?.n || 'Black',
-          isCurrent: i === currentStep - 1
-        });
+      if (!path) continue;
+      
+      const color = pattern.colors.find(c => c.id === path.c);
+      
+      if (currentColorId !== path.c) {
+        if (currentGroup.length > 0) {
+          colorGroups.push(currentGroup);
+        }
+        currentColorId = path.c;
+        currentGroup = [];
       }
+      
+      currentGroup.push({
+        step: i + 1,
+        toPin: path.t,
+        color: color?.h || '#1a1a1a',
+        colorName: color?.n || 'Black',
+        colorId: path.c,
+        isCurrent: i === currentStep - 1
+      });
     }
     
-    return steps;
+    if (currentGroup.length > 0) {
+      colorGroups.push(currentGroup);
+    }
+    
+    return colorGroups;
   };
 
-  const displaySteps = getStepsForPage();
+  const displaySteps = getStepsGroupedByColor();
   const currentPage = Math.floor((currentStep - 1) / 100) + 1;
   const totalPages = pattern ? Math.ceil(pattern.paths.length / 100) : 0;
 
@@ -399,28 +416,41 @@ export default function LiveView() {
             {/* Step List */}
             <Card className="bg-white border-0 shadow-sm p-6">
               <div className="mb-4">
-                {displaySteps.length > 0 && (
-                  <h3 className="text-lg font-medium text-gray-700">
-                    Steps {displaySteps[0].step}-{displaySteps[displaySteps.length - 1].step}
-                  </h3>
-                )}
+                <h3 className="text-lg font-medium text-gray-700">
+                  Steps {currentPage * 100 + 1}-{Math.min((currentPage + 1) * 100, pattern?.totalSteps || 0)}
+                </h3>
               </div>
               {displaySteps.length > 0 ? (
-                <div className="grid grid-cols-5 grid-flow-col auto-cols-fr gap-x-8 gap-y-1 text-sm" style={{ gridTemplateRows: 'repeat(20, minmax(0, 1fr))' }}>
-                  {displaySteps.map((step) => (
-                    <div
-                      key={step.step}
-                      className={`flex items-center gap-2 ${
-                        step.isCurrent ? 'font-bold text-gray-900' : 'text-gray-600'
-                      }`}
-                    >
-                      <span className={step.isCurrent ? 'text-gray-900' : 'text-gray-400'}>
-                        {step.step}
-                      </span>
-                      <span>-</span>
-                      <span className={step.isCurrent ? 'text-[#ff6b35] font-bold' : 'text-gray-900'}>
-                        {step.toPin}
-                      </span>
+                <div className="space-y-6">
+                  {displaySteps.map((colorGroup, groupIdx) => (
+                    <div key={groupIdx}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: colorGroup[0].color }}
+                        />
+                        <h4 className="text-sm font-semibold text-gray-700">
+                          {colorGroup[0].colorName}
+                        </h4>
+                      </div>
+                      <div className="grid grid-cols-5 grid-flow-col auto-cols-fr gap-x-8 gap-y-1 text-sm" style={{ gridTemplateRows: `repeat(${Math.ceil(colorGroup.length / 5)}, minmax(0, 1fr))` }}>
+                        {colorGroup.map((step) => (
+                          <div
+                            key={step.step}
+                            className={`flex items-center gap-2 ${
+                              step.isCurrent ? 'font-bold text-gray-900' : 'text-gray-600'
+                            }`}
+                          >
+                            <span className={step.isCurrent ? 'text-gray-900' : 'text-gray-400'}>
+                              {step.step}
+                            </span>
+                            <span>-</span>
+                            <span className={step.isCurrent ? 'text-[#ff6b35] font-bold' : 'text-gray-900'}>
+                              {step.toPin}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>

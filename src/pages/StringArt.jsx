@@ -596,15 +596,15 @@ export default function StringArt() {
       const numColumns = 5;
       const columnWidth = 55;
       const lineHeight = 5;
+      const headerHeight = 30;
       let startY = currentY;
-      let maxLinesPerColumn = Math.floor((pageHeight - currentY - margin - 15) / lineHeight);
+      let maxLinesPerColumn = Math.floor((pageHeight - currentY - margin) / lineHeight);
       
       for (let i = 0; i < run.steps.length; i++) {
         const stepNumber = run.startStep + i;
         const toPin = run.steps[i];
         
         const stepsPerPage = maxLinesPerColumn * numColumns;
-        const pageIndex = Math.floor(i / stepsPerPage);
         const indexInPage = i % stepsPerPage;
         const col = Math.floor(indexInPage / maxLinesPerColumn);
         const row = indexInPage % maxLinesPerColumn;
@@ -613,8 +613,6 @@ export default function StringArt() {
         if (i > 0 && indexInPage === 0) {
           pdf.addPage();
           currentY = margin;
-          startY = currentY;
-          maxLinesPerColumn = Math.floor((pageHeight - currentY - margin - 15) / lineHeight);
           
           // Repeat color header
           pdf.setFillColor(rgb.r, rgb.g, rgb.b);
@@ -623,12 +621,13 @@ export default function StringArt() {
           pdf.setTextColor(255, 85, 53);
           pdf.text(`${run.colorName}`, margin + 18, currentY + 6);
           currentY += 15;
-          startY = currentY;
           pdf.setFontSize(14);
           pdf.setTextColor(90, 90, 90);
           pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 5, currentY);
           currentY += 10;
+          
           startY = currentY;
+          maxLinesPerColumn = Math.floor((pageHeight - currentY - margin) / lineHeight);
           pdf.setFontSize(11);
           pdf.setTextColor(60, 60, 60);
         }

@@ -525,30 +525,42 @@ export default function StringArt() {
       console.error('QR generation error:', error);
     }
     
-    // Group consecutive color runs with step ranges
-    const colorRuns = [];
-    let currentRun = null;
+    // Group steps into pages of 100
+    const stepsPerPage = 100;
+    const pageGroups = [];
     
-    stringPaths.forEach((path, idx) => {
-      if (!currentRun || currentRun.colorId !== path.color) {
-        if (currentRun) {
-          colorRuns.push(currentRun);
+    for (let i = 0; i < stringPaths.length; i += stepsPerPage) {
+      const pageSteps = stringPaths.slice(i, i + stepsPerPage);
+      const colorRuns = [];
+      let currentRun = null;
+      
+      pageSteps.forEach((path, idx) => {
+        if (!currentRun || currentRun.colorId !== path.color) {
+          if (currentRun) {
+            colorRuns.push(currentRun);
+          }
+          const color = colorLayers.find(l => l.id === path.color);
+          currentRun = {
+            colorId: path.color,
+            colorName: color?.name || 'Unknown',
+            colorHex: color?.hex || '#000000',
+            startStep: i + idx + 1,
+            endStep: i + idx + 1,
+            steps: []
+          };
         }
-        const color = colorLayers.find(l => l.id === path.color);
-        currentRun = {
-          colorId: path.color,
-          colorName: color?.name || 'Unknown',
-          colorHex: color?.hex || '#000000',
-          startStep: idx + 1,
-          endStep: idx + 1,
-          steps: []
-        };
+        currentRun.endStep = i + idx + 1;
+        currentRun.steps.push({ step: i + idx + 1, pin: path.to });
+      });
+      if (currentRun) {
+        colorRuns.push(currentRun);
       }
-      currentRun.endStep = idx + 1;
-      currentRun.steps.push(path.to);
-    });
-    if (currentRun) {
-      colorRuns.push(currentRun);
+      
+      pageGroups.push({
+        startStep: i + 1,
+        endStep: Math.min(i + stepsPerPage, stringPaths.length),
+        colorRuns
+      });
     }
     
     let currentY = margin;

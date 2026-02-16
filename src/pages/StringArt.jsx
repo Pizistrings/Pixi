@@ -805,49 +805,14 @@ export default function StringArt() {
     }
   };
 
-  // Voice announcements with phases
+  // Voice announcements
   useEffect(() => {
     if (!voiceEnabled || !isGenerated || currentStep === 0) return;
     
-    const phase1End = Math.floor(totalSteps * 0.12);
-    const phase2End = Math.floor(totalSteps * 0.72);
-    
-    let phase = null;
-    if (currentStep <= phase1End) phase = 'foundation';
-    else if (currentStep <= phase2End) phase = 'colorBuild';
-    else phase = 'detail';
-    
-    // Announce phase change once
-    if (phase !== lastAnnouncedPhase) {
-      const phaseMessages = {
-        foundation: 'Foundation phase started. Black string only.',
-        colorBuild: 'Color build phase started. Adding colors.',
-        detail: 'Detail phase started. Black dominant.'
-      };
-      
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(phaseMessages[phase]);
-        utterance.rate = 0.9;
-        speechSynthesis.speak(utterance);
-      }
-      setLastAnnouncedPhase(phase);
-      setCurrentPhase(phase);
-    }
-    
-    // Announce pin change
+    // Announce pin number only
     if (stringPaths[currentStep - 1]) {
       const path = stringPaths[currentStep - 1];
-      const currentColor = colorLayers.find(c => c.id === path.color);
-      
-      let message = `From pin ${path.from} to pin ${path.to}`;
-      
-      // Check if color is changing
-      if (currentStep > 1) {
-        const prevPath = stringPaths[currentStep - 2];
-        if (prevPath.color !== path.color && currentColor) {
-          message += `. Change color to ${currentColor.name}`;
-        }
-      }
+      const message = `${path.to}`;
       
       if ('speechSynthesis' in window) {
         setTimeout(() => {
@@ -857,7 +822,7 @@ export default function StringArt() {
         }, voiceDelay * 1000);
       }
     }
-  }, [voiceEnabled, currentStep, isGenerated, totalSteps, stringPaths, colorLayers, lastAnnouncedPhase, voiceDelay]);
+  }, [voiceEnabled, currentStep, isGenerated, stringPaths, voiceDelay]);
 
   // Voice commands
   useEffect(() => {

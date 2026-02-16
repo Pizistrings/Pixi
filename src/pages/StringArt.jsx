@@ -589,12 +589,9 @@ export default function StringArt() {
       pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 5, currentY);
       currentY += 10;
       
-      // Display step pairs in grid format: "stepNum - toPin"
+      // Display steps in single vertical column
       pdf.setFontSize(11);
       pdf.setTextColor(60, 60, 60);
-      
-      const stepsPerRow = 5;
-      const columnWidth = 38;
       
       for (let i = 0; i < run.steps.length; i++) {
         const stepNumber = run.startStep + i;
@@ -620,19 +617,15 @@ export default function StringArt() {
           pdf.setTextColor(60, 60, 60);
         }
         
-        const col = i % stepsPerRow;
-        const xPos = margin + 5 + (col * columnWidth);
+        // Single column at left margin
+        pdf.text(`${stepNumber} - ${toPin}`, margin + 15, currentY);
         
-        pdf.text(`${stepNumber} - ${toPin}`, xPos, currentY);
-        
-        // Move to next row after completing a row
-        if ((i + 1) % stepsPerRow === 0 && i < run.steps.length - 1) {
-          currentY += 6.5;
-        }
+        // Move to next row
+        currentY += 5.5;
       }
       
-      // Add spacing after last row
-      currentY += 12;
+      // Add spacing after steps
+      currentY += 8;
     });
     
     // Add QR code on last page

@@ -268,13 +268,16 @@ export default function LiveView() {
   const currentPath = pattern?.paths?.[currentStep - 1];
   const currentColor = currentPath && pattern ? pattern.colors.find(c => c.id === currentPath.c) : null;
 
-  // Get recent steps for display
-  const getRecentSteps = () => {
+  // Get 100 steps per page for display
+  const getStepsForPage = () => {
     if (!pattern || !pattern.paths) return [];
-    const steps = [];
-    const currentIdx = currentStep - 1;
+    const stepsPerPage = 100;
+    const currentPage = Math.floor((currentStep - 1) / stepsPerPage);
+    const startIdx = currentPage * stepsPerPage;
+    const endIdx = Math.min(startIdx + stepsPerPage, pattern.paths.length);
     
-    for (let i = Math.max(0, currentIdx - 3); i <= Math.min(pattern.paths.length - 1, currentIdx + 3); i++) {
+    const steps = [];
+    for (let i = startIdx; i < endIdx; i++) {
       const path = pattern.paths[i];
       if (path) {
         const color = pattern.colors.find(c => c.id === path.c);
@@ -283,7 +286,7 @@ export default function LiveView() {
           toPin: path.t,
           color: color?.h || '#1a1a1a',
           colorName: color?.n || 'Black',
-          isCurrent: i === currentIdx
+          isCurrent: i === currentStep - 1
         });
       }
     }
@@ -291,7 +294,9 @@ export default function LiveView() {
     return steps;
   };
 
-  const recentSteps = getRecentSteps();
+  const displaySteps = getStepsForPage();
+  const currentPage = Math.floor((currentStep - 1) / 100) + 1;
+  const totalPages = pattern ? Math.ceil(pattern.paths.length / 100) : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -393,43 +398,40 @@ export default function LiveView() {
 
             {/* Step List */}
             <Card className="bg-white border-0 shadow-sm p-6">
-              <h3 className="text-sm text-gray-500 mb-4">Step list</h3>
-              {recentSteps.length > 0 ? (
-                <div className="space-y-2">
-                  {recentSteps.map((step, idx) => (
-                    <motion.div
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm text-gray-500">Step list</h3>
+                <span className="text-xs text-gray-400">
+                  Page {currentPage} of {totalPages}
+                </span>
+              </div>
+              {displaySteps.length > 0 ? (
+                <div className="max-h-[500px] overflow-y-auto space-y-1">
+                  {displaySteps.map((step) => (
+                    <div
                       key={step.step}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      className={`flex items-center gap-3 py-1.5 px-2 rounded-lg transition-colors ${
-                        step.isCurrent ? 'bg-gray-50' : ''
+                      className={`flex items-center gap-3 py-1.5 px-2 rounded transition-colors ${
+                        step.isCurrent ? 'bg-gray-100' : ''
                       }`}
                     >
                       <div
-                        className={`w-3 h-3 rounded-full transition-transform ${
-                          step.isCurrent ? 'scale-125 ring-2 ring-offset-2' : 'opacity-60'
-                        }`}
-                        style={{ 
-                          backgroundColor: step.color,
-                          ringColor: step.color 
-                        }}
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: step.color }}
                       />
                       <span className={`text-sm ${
                         step.isCurrent 
                           ? 'font-semibold text-gray-900' 
-                          : 'text-gray-400'
+                          : 'text-gray-600'
                       }`}>
                         {step.step}
                       </span>
                       <span className={`text-sm ml-auto ${
                         step.isCurrent 
                           ? 'font-semibold text-[#ff6b35]' 
-                          : 'text-gray-400'
+                          : 'text-gray-500'
                       }`}>
                         → {step.toPin}
                       </span>
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
               ) : (

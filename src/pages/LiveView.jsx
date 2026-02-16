@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Home, Mic, MicOff } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Home, Mic, MicOff, Download, Video } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card } from "@/components/ui/card";
 import { createPageUrl } from '@/utils';
 import { Link } from 'react-router-dom';
+import StringArtCanvas from '@/components/string-art/StringArtCanvas';
+import { toast } from 'sonner';
 
 export default function LiveView() {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -18,23 +20,46 @@ export default function LiveView() {
   const [voiceDelay, setVoiceDelay] = useState(3);
   const [pattern, setPattern] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
+  const [showCanvas, setShowCanvas] = useState(true);
   
   const animationRef = useRef(null);
   const recognitionRef = useRef(null);
   const wakeLockRef = useRef(null);
+  const canvasRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordedChunksRef = useRef([]);
 
-  // Load pattern from localStorage (set from StringArt page)
+  // Load pattern from localStorage or URL hash
   useEffect(() => {
-    const loadPattern = () => {
+    const loadPattern = async () => {
       try {
-        const savedPattern = localStorage.getItem('currentPattern');
-        if (savedPattern) {
-          const data = JSON.parse(savedPattern);
-          setPattern(data);
+        // Check URL hash for shared pattern
+        const hash = window.location.hash;
+        if (hash.startsWith('#pattern/')) {
+          const patternUrl = decodeURIComponent(hash.replace('#pattern/', ''));
+          const response = await fetch(patternUrl);
+          const data = await response.json();
           
-          // Restore last step
-          const lastStep = parseInt(localStorage.getItem('liveViewStep') || '0');
-          setCurrentStep(lastStep);
+          // Convert compact format to full format if needed
+          const fullPattern = {
+            paths: data.paths?.map(p => ({ f: p.f, t: p.t, c: p.c })) || [],
+            colors: data.colors?.map(c => ({ n: c.n, h: c.h, c: c.c, id: c.id })) || [],
+            pins: data.pins || 370,
+            totalSteps: data.total || data.totalSteps || data.paths?.length || 0
+          };
+          setPattern(fullPattern);
+        } else {
+          // Load from localStorage
+          const savedPattern = localStorage.getItem('currentPattern');
+          if (savedPattern) {
+            const data = JSON.parse(savedPattern);
+            setPattern(data);
+            
+            // Restore last step
+            const lastStep = parseInt(localStorage.getItem('liveViewStep') || '0');
+            setCurrentStep(lastStep);
+          }
         }
       } catch (error) {
         console.error('Failed to load pattern:', error);
@@ -161,6 +186,56 @@ export default function LiveView() {
     };
   }, []);
 
+  // Video recording functions
+  const startRecording = async () => {
+    if (!canvasRef.current) return;
+
+    try {
+      const canvas = canvasRef.current;
+      const stream = canvas.captureStream(30); // 30 FPS
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp9',
+        videoBitsPerSecond: 2500000
+      });
+
+      recordedChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `string-art-${Date.now()}.webm`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success('Video saved!');
+      };
+
+      mediaRecorder.start();
+      mediaRecorderRef.current = mediaRecorder;
+      setIsRecording(true);
+      toast.success('Recording started');
+    } catch (error) {
+      console.error('Recording error:', error);
+      toast.error('Failed to start recording');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      setIsPlaying(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -205,8 +280,53 @@ export default function LiveView() {
             </Button>
           </Link>
           <h1 className="text-xl font-semibold text-gray-900">Live View</h1>
-          <div className="w-20" /> {/* Spacer */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCanvas(!showCanvas)}
+            >
+              {showCanvas ? 'Hide' : 'Show'} Canvas
+            </Button>
+            {isRecording ? (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={stopRecording}
+              >
+                <div className="w-2 h-2 rounded-full bg-white animate-pulse mr-2" />
+                Stop Recording
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={startRecording}
+                disabled={!pattern}
+              >
+                <Video className="w-4 h-4 mr-2" />
+                Record
+              </Button>
+            )}
+          </div>
         </div>
+
+        {/* Canvas Display */}
+        {showCanvas && pattern && (
+          <Card className="bg-white border-0 shadow-sm p-6 mb-6">
+            <StringArtCanvas
+              ref={canvasRef}
+              stringPaths={pattern.paths}
+              currentStep={currentStep}
+              numPins={pattern.pins}
+              colors={pattern.colors.map(c => ({ name: c.n, hex: c.h, id: c.id }))}
+              isProcessing={false}
+              lineWidth={1}
+              lineOpacity={0.08}
+              shape="circle"
+            />
+          </Card>
+        )}
 
         {/* Current Step Display */}
         <Card className="bg-white border-0 shadow-sm p-8 mb-6">

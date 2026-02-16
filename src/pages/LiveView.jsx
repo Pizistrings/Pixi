@@ -406,7 +406,7 @@ export default function LiveView() {
                 )}
               </div>
               {displaySteps.length > 0 ? (
-                <div className="grid grid-cols-5 gap-x-6 gap-y-1 text-sm">
+                <div className="grid grid-cols-6 gap-x-8 gap-y-1 text-sm auto-rows-min">
                   {displaySteps.map((step) => (
                     <div
                       key={step.step}

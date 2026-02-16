@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Download, Settings, RefreshCw, FileText, QrCode, Mic, MicOff } from 'lucide-react';
+import { Upload, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Download, Settings, RefreshCw, FileText, QrCode, Mic, MicOff, Save, FolderOpen } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
+import { toast } from 'sonner';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -81,6 +83,9 @@ export default function StringArt() {
   const [minPinDistance, setMinPinDistance] = useState(30);
   const [currentPhase, setCurrentPhase] = useState(null);
   const [lastAnnouncedPhase, setLastAnnouncedPhase] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showLoadMenu, setShowLoadMenu] = useState(false);
+  const [savedProjects, setSavedProjects] = useState([]);
   
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -940,6 +945,78 @@ export default function StringArt() {
     setColorLayers(updatedLayers);
   };
 
+  const saveProject = async () => {
+    if (!isGenerated || !canvasRef.current) {
+      toast.error('Generate a pattern first');
+      return;
+    }
+
+    const projectName = prompt('Enter project name:');
+    if (!projectName) return;
+
+    setIsSaving(true);
+    try {
+      // Convert canvas to blob and upload
+      const blob = await new Promise(resolve => canvasRef.current.toBlob(resolve, 'image/jpeg', 0.8));
+      const imageFile = new File([blob], 'preview.jpg', { type: 'image/jpeg' });
+      const { file_url } = await base44.integrations.Core.UploadFile({ file: imageFile });
+
+      // Save project
+      await base44.entities.StringArtProject.create({
+        title: projectName,
+        preview_image: file_url,
+        pattern_data: {
+          paths: stringPaths,
+          colors: colorLayers,
+          numPins: numPins,
+          totalSteps: totalSteps,
+          shape: shape,
+          lineWidth: lineWidth,
+          lineOpacity: lineOpacity,
+          minPinDistance: minPinDistance
+        }
+      });
+
+      toast.success('Project saved!');
+      loadSavedProjects();
+    } catch (error) {
+      console.error('Save error:', error);
+      toast.error('Failed to save project');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const loadSavedProjects = async () => {
+    try {
+      const projects = await base44.entities.StringArtProject.list('-created_date', 20);
+      setSavedProjects(projects);
+    } catch (error) {
+      console.error('Load error:', error);
+    }
+  };
+
+  const loadProject = (project) => {
+    const data = project.pattern_data;
+    setStringPaths(data.paths);
+    setColorLayers(data.colors);
+    setNumPins(data.numPins);
+    setTotalSteps(data.totalSteps);
+    setShape(data.shape);
+    setLineWidth(data.lineWidth || 1);
+    setLineOpacity(data.lineOpacity || 0.08);
+    setMinPinDistance(data.minPinDistance || 30);
+    setIsGenerated(true);
+    setCurrentStep(0);
+    setImage(project.preview_image);
+    setShowLoadMenu(false);
+    toast.success(`Loaded: ${project.title}`);
+  };
+
+  useEffect(() => {
+    loadSavedProjects();
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -1086,6 +1163,41 @@ export default function StringArt() {
 
               {/* Action buttons */}
               <div className="flex gap-3 mt-4">
+                <div className="relative">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowLoadMenu(!showLoadMenu)}
+                  >
+                    <FolderOpen className="w-4 h-4 mr-2" />
+                    Load
+                  </Button>
+                  {showLoadMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="absolute top-full mt-2 left-0 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10 min-w-[280px] max-h-[400px] overflow-y-auto"
+                    >
+                      {savedProjects.length > 0 ? (
+                        savedProjects.map((project) => (
+                          <button
+                            key={project.id}
+                            onClick={() => loadProject(project)}
+                            className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 flex items-center gap-3 border-b border-gray-100 last:border-0"
+                          >
+                            <img src={project.preview_image} alt="" className="w-12 h-12 object-cover rounded" />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">{project.title}</div>
+                              <div className="text-xs text-gray-500">{project.pattern_data.totalSteps?.toLocaleString()} steps</div>
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-sm text-gray-500">No saved projects</div>
+                      )}
+                    </motion.div>
+                  )}
+                </div>
+
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -1118,14 +1230,24 @@ export default function StringArt() {
                 </Button>
                 
                 {isGenerated && (
-                  <div className="relative">
+                  <>
                     <Button
                       variant="outline"
-                      onClick={() => setShowExportMenu(!showExportMenu)}
+                      onClick={saveProject}
+                      disabled={isSaving}
                     >
-                      <Download className="w-4 h-4 mr-2" />
-                      Export
+                      <Save className="w-4 h-4 mr-2" />
+                      {isSaving ? 'Saving...' : 'Save'}
                     </Button>
+                    
+                    <div className="relative">
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowExportMenu(!showExportMenu)}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Export
+                      </Button>
                     {showExportMenu && (
                       <motion.div
                         initial={{ opacity: 0, y: -10 }}
@@ -1174,7 +1296,8 @@ export default function StringArt() {
                         </button>
                       </motion.div>
                     )}
-                  </div>
+                    </div>
+                  </>
                 )}
               </div>
             </div>

@@ -398,38 +398,28 @@ export default function LiveView() {
 
             {/* Step List */}
             <Card className="bg-white border-0 shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm text-gray-500">Step list</h3>
-                <span className="text-xs text-gray-400">
-                  Page {currentPage} of {totalPages}
-                </span>
+              <div className="mb-4">
+                {displaySteps.length > 0 && (
+                  <h3 className="text-lg font-medium text-gray-700">
+                    Steps {displaySteps[0].step}-{displaySteps[displaySteps.length - 1].step}
+                  </h3>
+                )}
               </div>
               {displaySteps.length > 0 ? (
-                <div className="max-h-[500px] overflow-y-auto space-y-1">
+                <div className="grid grid-cols-5 gap-x-6 gap-y-1 text-sm">
                   {displaySteps.map((step) => (
                     <div
                       key={step.step}
-                      className={`flex items-center gap-3 py-1.5 px-2 rounded transition-colors ${
-                        step.isCurrent ? 'bg-gray-100' : ''
+                      className={`flex items-center gap-2 ${
+                        step.isCurrent ? 'font-bold text-gray-900' : 'text-gray-600'
                       }`}
                     >
-                      <div
-                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: step.color }}
-                      />
-                      <span className={`text-sm ${
-                        step.isCurrent 
-                          ? 'font-semibold text-gray-900' 
-                          : 'text-gray-600'
-                      }`}>
+                      <span className={step.isCurrent ? 'text-gray-900' : 'text-gray-400'}>
                         {step.step}
                       </span>
-                      <span className={`text-sm ml-auto ${
-                        step.isCurrent 
-                          ? 'font-semibold text-[#ff6b35]' 
-                          : 'text-gray-500'
-                      }`}>
-                        → {step.toPin}
+                      <span>-</span>
+                      <span className={step.isCurrent ? 'text-[#ff6b35] font-bold' : 'text-gray-900'}>
+                        {step.toPin}
                       </span>
                     </div>
                   ))}

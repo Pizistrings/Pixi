@@ -589,19 +589,25 @@ export default function StringArt() {
       pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 5, currentY);
       currentY += 10;
       
-      // Display step pairs in grid format: "stepNum - toPin"
+      // Display steps vertically in columns: "stepNum - toPin"
       pdf.setFontSize(11);
       pdf.setTextColor(60, 60, 60);
       
-      const stepsPerRow = 5;
-      const columnWidth = 38;
+      const numColumns = 5;
+      const columnWidth = 55;
+      const lineHeight = 5;
+      const maxLinesPerColumn = Math.floor((pageHeight - currentY - margin - 15) / lineHeight);
+      const startY = currentY;
       
       for (let i = 0; i < run.steps.length; i++) {
         const stepNumber = run.startStep + i;
         const toPin = run.steps[i];
         
-        // Check if we need a new page
-        if (currentY + 6 > pageHeight - margin) {
+        const col = Math.floor(i / maxLinesPerColumn) % numColumns;
+        const row = i % maxLinesPerColumn;
+        
+        // Check if we need a new page (all columns filled)
+        if (col === 0 && row === 0 && i > 0) {
           pdf.addPage();
           currentY = margin;
           
@@ -620,19 +626,15 @@ export default function StringArt() {
           pdf.setTextColor(60, 60, 60);
         }
         
-        const col = i % stepsPerRow;
         const xPos = margin + 5 + (col * columnWidth);
+        const yPos = (col === 0 && row === 0 && i > 0 ? currentY : startY) + (row * lineHeight);
         
-        pdf.text(`${stepNumber} - ${toPin}`, xPos, currentY);
-        
-        // Move to next row after completing a row
-        if ((i + 1) % stepsPerRow === 0 && i < run.steps.length - 1) {
-          currentY += 6.5;
-        }
+        pdf.text(`${stepNumber} - ${toPin}`, xPos, yPos);
       }
       
-      // Add spacing after last row
-      currentY += 12;
+      // Calculate final Y position after all steps
+      const totalRows = Math.ceil(run.steps.length / numColumns);
+      currentY = startY + (Math.min(totalRows, maxLinesPerColumn) * lineHeight) + 12;
     });
     
     // Add QR code on last page

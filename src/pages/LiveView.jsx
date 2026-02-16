@@ -414,7 +414,7 @@ export default function LiveView() {
             </Card>
 
             {/* Step List */}
-            <Card className="bg-white border-0 shadow-sm p-6">
+            <Card className="bg-white border-0 shadow-sm p-6 max-h-96 overflow-y-auto">
               <div className="mb-4">
                 <h3 className="text-lg font-medium text-gray-700">
                   Steps {currentPage * 100 + 1}-{Math.min((currentPage + 1) * 100, pattern?.totalSteps || 0)}
@@ -424,7 +424,7 @@ export default function LiveView() {
                 <div className="space-y-6">
                   {displaySteps.map((colorGroup, groupIdx) => (
                     <div key={groupIdx}>
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center gap-2 mb-2">
                         <div
                           className="w-4 h-4 rounded-full"
                           style={{ backgroundColor: colorGroup[0].color }}
@@ -433,19 +433,19 @@ export default function LiveView() {
                           {colorGroup[0].colorName}
                         </h4>
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-0.5 ml-6">
                         {colorGroup.map((step) => (
                           <div
                             key={step.step}
                             className={`flex items-center gap-2 text-sm ${
-                              step.isCurrent ? 'font-bold text-gray-900' : 'text-gray-600'
+                              step.isCurrent ? 'font-bold text-[#ff6b35]' : 'text-gray-600'
                             }`}
                           >
-                            <span className={step.isCurrent ? 'text-gray-900' : 'text-gray-400'}>
+                            <span className="w-8 text-right">
                               {step.step}
                             </span>
                             <span>-</span>
-                            <span className={step.isCurrent ? 'text-[#ff6b35] font-bold' : 'text-gray-900'}>
+                            <span className="font-bold">
                               {step.toPin}
                             </span>
                           </div>

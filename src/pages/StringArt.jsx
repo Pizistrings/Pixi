@@ -1037,9 +1037,9 @@ export default function StringArt() {
         {!image ? (
           <ImageUploader onUpload={handleImageUpload} />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Canvas Area */}
-            <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Canvas Area - LEFT */}
+            <div>
               <Card className="bg-white border-0 shadow-sm overflow-hidden">
                 <div className="p-6">
                   <StringArtCanvas
@@ -1054,110 +1054,6 @@ export default function StringArt() {
                     lineOpacity={lineOpacity}
                     shape={shape}
                   />
-                </div>
-                
-                {/* Progress bar */}
-                {isGenerated && (
-                  <div className="px-6 pb-2">
-                    <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
-                      <motion.div
-                        className="h-full bg-[#ff6b35]"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(currentStep / totalSteps) * 100}%` }}
-                        transition={{ duration: 0.1 }}
-                      />
-                    </div>
-                    <div className="flex justify-between mt-2 text-xs text-gray-400">
-                      <span className="text-[#ff6b35] font-medium">{currentStep.toLocaleString()} / {totalSteps.toLocaleString()}</span>
-                      <span>⏱ {getElapsedTime()}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Controls */}
-                <div className="px-6 pb-6">
-                  <div className="flex items-center justify-center gap-2 bg-gray-50 rounded-lg p-3">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleReset}
-                      disabled={!isGenerated}
-                      className="hover:bg-white"
-                    >
-                      <SkipBack className="w-4 h-4" />
-                    </Button>
-                    
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handlePlayPause}
-                      disabled={!isGenerated}
-                      className="hover:bg-white w-12 h-12"
-                    >
-                      {isPlaying ? (
-                        <Pause className="w-5 h-5" />
-                      ) : (
-                        <Play className="w-5 h-5 ml-0.5" />
-                      )}
-                    </Button>
-                    
-                    <Select value={speed.toString()} onValueChange={(v) => setSpeed(Number(v))}>
-                      <SelectTrigger className="w-24 bg-white border-gray-200">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">⏱ 1x</SelectItem>
-                        <SelectItem value="5">⏱ 5x</SelectItem>
-                        <SelectItem value="10">⏱ 10x</SelectItem>
-                        <SelectItem value="25">⏱ 25x</SelectItem>
-                        <SelectItem value="50">⏱ 50x</SelectItem>
-                        <SelectItem value="100">⏱ 100x</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setSoundEnabled(!soundEnabled)}
-                      disabled={!isGenerated}
-                      className="hover:bg-white"
-                    >
-                      {soundEnabled ? (
-                        <Volume2 className="w-4 h-4" />
-                      ) : (
-                        <VolumeX className="w-4 h-4" />
-                      )}
-                    </Button>
-
-                    <div className="relative">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setVoiceEnabled(!voiceEnabled)}
-                        disabled={!isGenerated}
-                        className={`hover:bg-white ${voiceEnabled ? 'bg-[#ff6b35] text-white hover:bg-[#e55a2b]' : ''}`}
-                      >
-                        {voiceEnabled ? (
-                          <Mic className="w-4 h-4" />
-                        ) : (
-                          <MicOff className="w-4 h-4" />
-                        )}
-                      </Button>
-                      {voiceEnabled && (
-                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-                      )}
-                    </div>
-                    
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleSkipToEnd}
-                      disabled={!isGenerated}
-                      className="hover:bg-white"
-                    >
-                      <SkipForward className="w-4 h-4" />
-                    </Button>
-                  </div>
                 </div>
               </Card>
 
@@ -1302,11 +1198,11 @@ export default function StringArt() {
               </div>
             </div>
 
-            {/* Side Panel */}
+            {/* Right Panel - Current Step & Step List */}
             <div className="space-y-4">
               {/* Current Step Info */}
               <Card className="bg-white border-0 shadow-sm p-6">
-                <h3 className="text-sm text-gray-500 mb-3">Current step</h3>
+                <h3 className="text-sm font-semibold text-gray-700 mb-4">Current step</h3>
                 
                 {isGenerated ? (
                   <AnimatePresence mode="wait">
@@ -1317,36 +1213,106 @@ export default function StringArt() {
                       exit={{ opacity: 0, y: -10 }}
                       className="space-y-4"
                     >
-                      <span className="text-5xl font-light text-gray-900">
-                        {currentStep}
-                      </span>
-                      
-                      <div className="text-xs text-gray-500 pt-2 border-t">
-                        Total Pins: <span className="font-medium text-gray-700">{numPins}</span>
+                      <div className="text-center">
+                        <span className="text-7xl font-light text-gray-900">
+                          {stringPaths[currentStep - 1]?.to || 0}
+                        </span>
                       </div>
                       
+                      {getCurrentColor() && currentStep > 0 && stringPaths[currentStep - 1] && stringPaths[currentStep - 2]?.color !== stringPaths[currentStep - 1]?.color && (
+                        <div className="flex items-center gap-2 text-[#ff6b35] text-sm bg-orange-50 p-3 rounded-lg">
+                          <span className="text-lg">⚠️</span>
+                          <span className="font-semibold">Change color!</span>
+                        </div>
+                      )}
+                      
                       {getCurrentColor() && (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2 text-[#ff6b35] text-sm">
-                            <span className="text-lg">⚠</span>
-                            <span className="font-medium">Change color!</span>
-                          </div>
-                          
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-10 h-10 rounded-full shadow-inner"
-                              style={{ backgroundColor: getCurrentColor()?.hex }}
-                            />
-                            <span className="font-medium text-gray-700">
+                        <div className="flex items-center justify-center gap-3 py-3">
+                          <div
+                            className="w-14 h-14 rounded-full shadow-lg"
+                            style={{ backgroundColor: getCurrentColor()?.hex }}
+                          />
+                          <div className="text-left">
+                            <div className="text-xs text-gray-500">Color</div>
+                            <span className="font-semibold text-lg text-gray-900">
                               {getCurrentColor()?.name}
                             </span>
                           </div>
                         </div>
                       )}
+
+                      {/* Controls */}
+                      <div className="flex items-center justify-center gap-2 border-t pt-4">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleReset}
+                          className="hover:bg-gray-100"
+                        >
+                          <SkipBack className="w-4 h-4" />
+                        </Button>
+                        
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handlePlayPause}
+                          className="hover:bg-gray-100 w-12 h-12"
+                        >
+                          {isPlaying ? (
+                            <Pause className="w-5 h-5" />
+                          ) : (
+                            <Play className="w-5 h-5 ml-0.5" />
+                          )}
+                        </Button>
+                        
+                        <Select value={speed.toString()} onValueChange={(v) => setSpeed(Number(v))}>
+                          <SelectTrigger className="w-20 h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">1x</SelectItem>
+                            <SelectItem value="5">5x</SelectItem>
+                            <SelectItem value="10">10x</SelectItem>
+                            <SelectItem value="25">25x</SelectItem>
+                            <SelectItem value="50">50x</SelectItem>
+                            <SelectItem value="100">100x</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setSoundEnabled(!soundEnabled)}
+                          className="hover:bg-gray-100"
+                        >
+                          {soundEnabled ? (
+                            <Volume2 className="w-4 h-4" />
+                          ) : (
+                            <VolumeX className="w-4 h-4" />
+                          )}
+                        </Button>
+                        
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleSkipToEnd}
+                          className="hover:bg-gray-100"
+                        >
+                          <SkipForward className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      {/* Progress */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span className="text-[#ff6b35] font-semibold">{currentStep}</span>
+                          <span className="text-gray-400">⏱ {getElapsedTime()}</span>
+                        </div>
+                      </div>
                     </motion.div>
                   </AnimatePresence>
                 ) : (
-                  <div className="text-gray-400 text-sm">
+                  <div className="text-gray-400 text-sm text-center py-8">
                     Generate string art to see progress
                   </div>
                 )}

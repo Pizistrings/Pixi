@@ -433,11 +433,11 @@ export default function LiveView() {
                           {colorGroup[0].colorName}
                         </h4>
                       </div>
-                      <div className="grid grid-cols-5 grid-flow-col auto-cols-fr gap-x-8 gap-y-1 text-sm" style={{ gridTemplateRows: `repeat(${Math.ceil(colorGroup.length / 5)}, minmax(0, 1fr))` }}>
+                      <div className="space-y-1">
                         {colorGroup.map((step) => (
                           <div
                             key={step.step}
-                            className={`flex items-center gap-2 ${
+                            className={`flex items-center gap-2 text-sm ${
                               step.isCurrent ? 'font-bold text-gray-900' : 'text-gray-600'
                             }`}
                           >

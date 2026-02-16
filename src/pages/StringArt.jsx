@@ -596,21 +596,25 @@ export default function StringArt() {
       const numColumns = 5;
       const columnWidth = 55;
       const lineHeight = 5;
-      const headerHeight = 30;
+      
+      // Calculate how many rows fit on the first page
+      let availableHeight = pageHeight - currentY - margin;
+      let maxLinesPerColumn = Math.floor(availableHeight / lineHeight);
+      let stepsPerPage = maxLinesPerColumn * numColumns;
       let startY = currentY;
-      let maxLinesPerColumn = Math.floor((pageHeight - currentY - margin) / lineHeight);
+      let pageStepOffset = 0;
       
       for (let i = 0; i < run.steps.length; i++) {
         const stepNumber = run.startStep + i;
         const toPin = run.steps[i];
         
-        const stepsPerPage = maxLinesPerColumn * numColumns;
-        const indexInPage = i % stepsPerPage;
+        // Determine position within current page
+        const indexInPage = i - pageStepOffset;
         const col = Math.floor(indexInPage / maxLinesPerColumn);
         const row = indexInPage % maxLinesPerColumn;
         
-        // Check if we need a new page (all columns filled)
-        if (i > 0 && indexInPage === 0) {
+        // Check if we need a new page (filled all columns)
+        if (col >= numColumns) {
           pdf.addPage();
           currentY = margin;
           
@@ -626,22 +630,35 @@ export default function StringArt() {
           pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 5, currentY);
           currentY += 10;
           
+          // Recalculate for new page
+          availableHeight = pageHeight - currentY - margin;
+          maxLinesPerColumn = Math.floor(availableHeight / lineHeight);
+          stepsPerPage = maxLinesPerColumn * numColumns;
           startY = currentY;
-          maxLinesPerColumn = Math.floor((pageHeight - currentY - margin) / lineHeight);
+          pageStepOffset = i;
+          
           pdf.setFontSize(11);
           pdf.setTextColor(60, 60, 60);
+          
+          // Recalculate position for this step on new page
+          const newIndexInPage = i - pageStepOffset;
+          const newCol = Math.floor(newIndexInPage / maxLinesPerColumn);
+          const newRow = newIndexInPage % maxLinesPerColumn;
+          
+          const xPos = margin + 5 + (newCol * columnWidth);
+          const yPos = startY + (newRow * lineHeight);
+          pdf.text(`${stepNumber} - ${toPin}`, xPos, yPos);
+        } else {
+          const xPos = margin + 5 + (col * columnWidth);
+          const yPos = startY + (row * lineHeight);
+          pdf.text(`${stepNumber} - ${toPin}`, xPos, yPos);
         }
-        
-        const xPos = margin + 5 + (col * columnWidth);
-        const yPos = startY + (row * lineHeight);
-        
-        pdf.text(`${stepNumber} - ${toPin}`, xPos, yPos);
       }
       
       // Calculate final Y position after all steps
-      const stepsOnLastPage = run.steps.length % (maxLinesPerColumn * numColumns) || (maxLinesPerColumn * numColumns);
-      const rowsOnLastPage = Math.ceil(stepsOnLastPage / numColumns);
-      currentY = startY + (rowsOnLastPage * lineHeight) + 12;
+      const remainingSteps = run.steps.length - pageStepOffset;
+      const rowsUsed = Math.ceil(remainingSteps / numColumns);
+      currentY = startY + (Math.min(rowsUsed, maxLinesPerColumn) * lineHeight) + 12;
     });
     
     // Add QR code on last page

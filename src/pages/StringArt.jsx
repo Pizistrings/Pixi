@@ -495,7 +495,7 @@ export default function StringArt() {
     const QRCode = (await import('qrcode')).default;
     const { base44 } = await import('@/api/base44Client');
     
-    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pdf = new jsPDF('l', 'mm', 'a4');
     const pageHeight = pdf.internal.pageSize.height;
     const pageWidth = pdf.internal.pageSize.width;
     const margin = 10;

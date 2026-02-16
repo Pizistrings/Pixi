@@ -563,81 +563,75 @@ export default function StringArt() {
       });
     }
     
-    let currentY = margin;
-    
-    // Add title
-    pdf.setFontSize(16);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text('String Art Pattern Guide', pageWidth / 2, currentY, { align: 'center' });
-    currentY += 8;
-    
-    pdf.setFontSize(9);
-    pdf.setTextColor(100, 100, 100);
-    pdf.text(`Total Steps: ${totalSteps.toLocaleString()} | Pins: ${numPins}`, pageWidth / 2, currentY, { align: 'center' });
-    currentY += 6;
-    
-    colorRuns.forEach((run, runIdx) => {
-      const rgb = hexToRgb(run.colorHex);
-      
-      // Check if section fits on current page (needs space for header + at least 2 rows)
-      if (currentY + 25 > pageHeight - margin) {
+    pageGroups.forEach((pageGroup, pageIdx) => {
+      if (pageIdx > 0) {
         pdf.addPage();
-        currentY = margin;
       }
       
-      // Large color circle (left side)
-      pdf.setFillColor(rgb.r, rgb.g, rgb.b);
-      pdf.circle(margin + 7, currentY + 4, 6, 'F');
+      let currentY = margin;
       
-      // Color name (right of circle)
-      pdf.setFontSize(16);
-      pdf.setTextColor(255, 85, 53); // Orange color
-      pdf.text(`${run.colorName}`, margin + 18, currentY + 6);
-      currentY += 15;
-      
-      // Steps range
+      // Page title
       pdf.setFontSize(14);
-      pdf.setTextColor(90, 90, 90);
-      pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 5, currentY);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(`Steps ${pageGroup.startStep}-${pageGroup.endStep}`, pageWidth / 2, currentY, { align: 'center' });
+      currentY += 8;
+      
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Total: ${totalSteps.toLocaleString()} | Pins: ${numPins}`, pageWidth / 2, currentY, { align: 'center' });
       currentY += 10;
       
-      // Display steps in single vertical column
-      pdf.setFontSize(11);
+      // Display color groups for this page
+      pageGroup.colorRuns.forEach((run) => {
+        const rgb = hexToRgb(run.colorHex);
+        
+        // Color header
+        pdf.setFillColor(rgb.r, rgb.g, rgb.b);
+        pdf.circle(margin + 5, currentY + 3, 4, 'F');
+        pdf.setFontSize(12);
+        pdf.setTextColor(255, 85, 53);
+        pdf.text(run.colorName, margin + 12, currentY + 5);
+        currentY += 8;
+      });
+      
+      currentY += 2;
+      
+      // Calculate grid layout for 100 steps
+      const cols = 5;
+      const rows = 20;
+      const colWidth = (contentWidth - 5) / cols;
+      const rowHeight = 5.5;
+      
+      pdf.setFontSize(9);
       pdf.setTextColor(60, 60, 60);
       
-      for (let i = 0; i < run.steps.length; i++) {
-        const stepNumber = run.startStep + i;
-        const toPin = run.steps[i];
+      // Flatten all steps on this page
+      const allSteps = [];
+      pageGroup.colorRuns.forEach(run => {
+        run.steps.forEach(step => {
+          allSteps.push(step);
+        });
+      });
+      
+      // Draw in grid
+      for (let i = 0; i < allSteps.length; i++) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const xPos = margin + (col * colWidth);
+        const yPos = currentY + (row * rowHeight);
         
-        // Check if we need a new page
-        if (currentY + 6 > pageHeight - margin) {
-          pdf.addPage();
-          currentY = margin;
-          
-          // Repeat color header
-          pdf.setFillColor(rgb.r, rgb.g, rgb.b);
-          pdf.circle(margin + 7, currentY + 4, 6, 'F');
-          pdf.setFontSize(16);
-          pdf.setTextColor(255, 85, 53);
-          pdf.text(`${run.colorName}`, margin + 18, currentY + 6);
-          currentY += 15;
-          pdf.setFontSize(14);
-          pdf.setTextColor(90, 90, 90);
-          pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 5, currentY);
-          currentY += 10;
-          pdf.setFontSize(11);
-          pdf.setTextColor(60, 60, 60);
+        const step = allSteps[i];
+        const color = pageGroup.colorRuns.find(r => 
+          step.step >= r.startStep && step.step <= r.endStep
+        );
+        
+        if (color) {
+          const rgb = hexToRgb(color.colorHex);
+          pdf.setTextColor(rgb.r, rgb.g, rgb.b);
         }
         
-        // Single column at left margin
-        pdf.text(`${stepNumber} - ${toPin}`, margin + 15, currentY);
-        
-        // Move to next row
-        currentY += 5.5;
+        pdf.text(`${step.step} - ${step.pin}`, xPos, yPos);
       }
-      
-      // Add spacing after steps
-      currentY += 8;
     });
     
     // Add QR code on last page

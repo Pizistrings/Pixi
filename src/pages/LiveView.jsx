@@ -281,13 +281,6 @@ export default function LiveView() {
           </Link>
           <h1 className="text-xl font-semibold text-gray-900">Live View</h1>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowCanvas(!showCanvas)}
-            >
-              {showCanvas ? 'Hide' : 'Show'} Canvas
-            </Button>
             {isRecording ? (
               <Button
                 variant="destructive"
@@ -312,7 +305,7 @@ export default function LiveView() {
         </div>
 
         {/* Canvas Display */}
-        {showCanvas && pattern && (
+        {pattern && (
           <Card className="bg-white border-0 shadow-sm p-6 mb-6">
             <StringArtCanvas
               ref={canvasRef}
@@ -328,58 +321,42 @@ export default function LiveView() {
           </Card>
         )}
 
-        {/* Current Step Display */}
-        <Card className="bg-white border-0 shadow-sm p-8 mb-6">
-          <div className="text-center">
-            <div className="text-sm text-gray-500 mb-2">PDF Pattern</div>
-            <motion.div
-              key={currentStep}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="text-8xl font-light text-gray-900 mb-4"
-            >
-              {currentStep}
-            </motion.div>
-            <div className="text-sm text-gray-400">
-              of {pattern?.totalSteps.toLocaleString() || 0}
-            </div>
-          </div>
-
-          {currentPath && (
+        {/* Pin to Pin Display */}
+        {currentPath && (
+          <Card className="bg-white border-0 shadow-sm p-6 mb-6">
             <motion.div
               key={`${currentStep}-info`}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-8 pt-6 border-t border-gray-100"
             >
               {/* Color indicator */}
               {currentColor && (
                 <div className="flex items-center justify-center gap-3 mb-6">
                   <div
-                    className="w-12 h-12 rounded-full shadow-lg"
+                    className="w-16 h-16 rounded-full shadow-lg"
                     style={{ backgroundColor: currentColor.h }}
                   />
                   <div>
-                    <div className="text-xs text-gray-500">Color</div>
-                    <div className="text-lg font-medium text-gray-900">{currentColor.n}</div>
+                    <div className="text-sm text-gray-500">Current Color</div>
+                    <div className="text-2xl font-semibold text-gray-900">{currentColor.n}</div>
                   </div>
                 </div>
               )}
 
               {/* Pin numbers */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-xs text-gray-500 mb-1">From Pin</div>
-                  <div className="text-3xl font-semibold text-gray-700">{currentPath.f}</div>
+                <div className="text-center p-6 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-500 mb-2">From Pin</div>
+                  <div className="text-5xl font-bold text-gray-700">{currentPath.f}</div>
                 </div>
-                <div className="text-center p-4 bg-[#ff6b35] bg-opacity-10 rounded-lg">
-                  <div className="text-xs text-[#ff6b35] mb-1">To Pin</div>
-                  <div className="text-3xl font-semibold text-[#ff6b35]">{currentPath.t}</div>
+                <div className="text-center p-6 bg-[#ff6b35] bg-opacity-10 rounded-lg">
+                  <div className="text-sm text-[#ff6b35] mb-2">To Pin</div>
+                  <div className="text-5xl font-bold text-[#ff6b35]">{currentPath.t}</div>
                 </div>
               </div>
             </motion.div>
-          )}
-        </Card>
+          </Card>
+        )}
 
         {/* Progress */}
         <Card className="bg-white border-0 shadow-sm p-4 mb-6">

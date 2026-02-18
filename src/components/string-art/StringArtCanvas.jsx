@@ -93,28 +93,26 @@ const StringArtCanvas = forwardRef(({
 
     const ctx = canvas.getContext('2d');
     
+    const h = shape === 'rectangle' ? Math.round(size * 0.75) : size;
+
     // Clear and set background
     ctx.fillStyle = '#fafafa';
-    ctx.fillRect(0, 0, size, size);
+    ctx.fillRect(0, 0, size, h);
 
-    // Draw frame border (subtle)
+    // Draw frame border
     ctx.strokeStyle = '#e5e5e5';
     ctx.lineWidth = 2;
     ctx.beginPath();
     const centerX = size / 2;
-    const centerY = size / 2;
+    const centerY = h / 2;
     
     if (shape === 'circle') {
       const radius = (size / 2) - 10;
       ctx.arc(centerX, centerY, radius + 5, 0, 2 * Math.PI);
     } else if (shape === 'square') {
-      const sideLength = size - 20;
-      ctx.rect(10, 10, sideLength + 10, sideLength + 10);
+      ctx.rect(10, 10, size - 20, size - 20);
     } else if (shape === 'rectangle') {
-      const width = size - 20;
-      const height = (size * 0.7);
-      const offsetY = (size - height) / 2;
-      ctx.rect(10, offsetY, width + 10, height + 10);
+      ctx.rect(10, 10, size - 20, h - 20);
     }
     ctx.stroke();
 

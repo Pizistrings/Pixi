@@ -198,7 +198,7 @@ const StringArtCanvas = forwardRef(({
   }, [stringPaths, currentStep, pins, colors, size, lineWidth, lineOpacity, shape]);
 
   return (
-    <div ref={containerRef} className="relative aspect-square w-full max-w-[500px] mx-auto">
+    <div ref={containerRef} className="relative w-full max-w-[500px] mx-auto" style={{ aspectRatio: shape === 'rectangle' ? '4/3' : '1/1' }}>
       {/* Background pattern */}
       <div 
         className="absolute inset-0 rounded-lg"

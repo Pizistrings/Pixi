@@ -64,10 +64,10 @@ export default function StringArt() {
     { name: 'Turquoise', hex: '#06b6d4', id: 'TQ' }
   ]);
   const [colorDistribution, setColorDistribution] = useState({
-    C: 800,
-    M: 800,
-    Y: 800,
-    K: 1000
+    C: 100,
+    M: 100,
+    Y: 100,
+    K: 100
   });
   const [shape, setShape] = useState('circle'); // 'circle', 'square', 'rectangle'
   const [brightness, setBrightness] = useState(100);

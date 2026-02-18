@@ -257,21 +257,10 @@ export default function StringArt() {
       });
     }
     
-    let currentColorIndex = 0;
-    let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // STANDARD COLOR DISTRIBUTION
-    // Order: Yellow, Red, White, Black (100 lines each cycle)
-    // Find colors by ID, fallback to available colors if not found
-    const findColorById = (id) => colors.find(c => c.id === id);
-    const yellowColor = findColorById('Y') || colors[0];
-    const redColor = findColorById('R') || colors[1] || colors[0];
-    const whiteColor = findColorById('W') || colors[2] || colors[1] || colors[0];
-    const blackColor = findColorById('K') || colors[colors.length - 1];
-    
-    const colorOrder = [yellowColor.id, redColor.id, whiteColor.id, blackColor.id];
-    const linesPerColor = 100;
+    // Build color cycle based on colorRunLengths (per-color distribution)
+    const totalPerCycle = activeColors.reduce((sum, id) => sum + (colorRunLengths[id] || 100), 0);
     
     // Initialize working data for each color
     const workingData = {};

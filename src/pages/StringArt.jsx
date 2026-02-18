@@ -1500,8 +1500,8 @@ export default function StringArt() {
                                 setNumColors(v);
                                 const newDist = {};
                                 const activeColors = selectedColors.slice(0, v);
-                                activeColors.forEach((color, idx) => {
-                                  newDist[color.id] = idx === v - 1 ? 1000 : 800;
+                                activeColors.forEach((color) => {
+                                  newDist[color.id] = 100;
                                 });
                                 setColorDistribution(newDist);
                               }}

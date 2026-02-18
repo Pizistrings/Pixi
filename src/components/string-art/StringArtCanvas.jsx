@@ -225,7 +225,7 @@ const StringArtCanvas = forwardRef(({
       <canvas
         ref={canvasRef}
         width={size}
-        height={size}
+        height={canvasHeight}
         className="w-full h-full rounded-lg shadow-inner relative z-10"
         style={{ background: '#fafafa' }}
       />

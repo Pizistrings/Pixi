@@ -299,18 +299,26 @@ export default function StringArt() {
     
     const minLinesPerColor = 100;
     
+    const blackReserved = 1000; // last N lines are always black
+    const colorStrings = numStrings - blackReserved;
+
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
-      
-      // Cycle through colors using each color's configured run length
-      const posInCycle = totalStringsDrawn % totalPerCycle;
-      let cumulative = 0;
-      colorId = activeColors[activeColors.length - 1]; // fallback
-      for (const id of activeColors) {
-        cumulative += (colorRunLengths[id] || 100);
-        if (posInCycle < cumulative) {
-          colorId = id;
-          break;
+
+      // Last 1000 lines are always black
+      if (totalStringsDrawn >= colorStrings) {
+        colorId = 'K';
+      } else {
+        // Cycle through colors using each color's configured run length
+        const posInCycle = totalStringsDrawn % totalPerCycle;
+        let cumulative = 0;
+        colorId = activeColors[activeColors.length - 1]; // fallback
+        for (const id of activeColors) {
+          cumulative += (colorRunLengths[id] || 100);
+          if (posInCycle < cumulative) {
+            colorId = id;
+            break;
+          }
         }
       }
       

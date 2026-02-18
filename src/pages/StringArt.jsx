@@ -321,22 +321,16 @@ export default function StringArt() {
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      if (totalStringsDrawn < 6500) {
-        // 0-6500: Alternate Yellow, Red, White, Black (100 lines each)
-        const cyclePosition = totalStringsDrawn % (linesPerColor * 4);
-        const colorIndex = Math.floor(cyclePosition / linesPerColor);
-        colorId = colorOrder[colorIndex];
-      } else if (totalStringsDrawn >= 7000 && totalStringsDrawn < 8000) {
-        // 7000-8000: Alternate 100 lines per color
-        const adjustedPosition = (totalStringsDrawn - 7000) % (linesPerColor * 4);
-        const colorIndex = Math.floor(adjustedPosition / linesPerColor);
-        colorId = colorOrder[colorIndex];
-      } else if (totalStringsDrawn >= 8000) {
-        // 8000-9000: Solid black
-        colorId = 'K';
-      } else {
-        // 6500-7000: Transition with black
-        colorId = 'K';
+      // Cycle through colors using each color's configured run length
+      const posInCycle = totalStringsDrawn % totalPerCycle;
+      let cumulative = 0;
+      colorId = activeColors[activeColors.length - 1]; // fallback
+      for (const id of activeColors) {
+        cumulative += (colorRunLengths[id] || 100);
+        if (posInCycle < cumulative) {
+          colorId = id;
+          break;
+        }
       }
       
       let bestPin = -1;

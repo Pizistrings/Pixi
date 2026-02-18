@@ -18,6 +18,8 @@ const StringArtCanvas = forwardRef(({
   const [pins, setPins] = useState([]);
   const [size, setSize] = useState(500);
 
+  const canvasHeight = shape === 'rectangle' ? Math.round(size * 0.75) : size;
+
   useImperativeHandle(ref, () => canvasRef.current);
 
   // Generate pin positions

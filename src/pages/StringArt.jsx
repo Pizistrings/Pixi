@@ -290,9 +290,10 @@ export default function StringArt() {
             Math.pow(b - targetB, 2)
           );
           
+          // Boost confidence with a power curve to make colors more vivid
           const confidence = Math.max(0, 1 - distance / 441);
-          // Always give a minimum score so every selected color gets drawn
-          workingData[color.id][i] = Math.max(0.05, confidence);
+          const boosted = Math.pow(confidence, 0.4); // <1 exponent = pushes values higher
+          workingData[color.id][i] = Math.max(0.15, boosted);
         }
       });
     }

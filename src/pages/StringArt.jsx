@@ -64,10 +64,10 @@ export default function StringArt() {
     { name: 'Turquoise', hex: '#06b6d4', id: 'TQ' }
   ]);
   const [colorDistribution, setColorDistribution] = useState({
-    C: 100,
-    M: 100,
-    Y: 100,
-    K: 100
+    C: 800,
+    M: 800,
+    Y: 800,
+    K: 1000
   });
   const [shape, setShape] = useState('circle'); // 'circle', 'square', 'rectangle'
   const [brightness, setBrightness] = useState(100);
@@ -257,10 +257,21 @@ export default function StringArt() {
       });
     }
     
+    let currentColorIndex = 0;
+    let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // Build color cycle based on colorRunLengths (per-color distribution)
-    const totalPerCycle = activeColors.reduce((sum, id) => sum + (colorRunLengths[id] || 100), 0);
+    // STANDARD COLOR DISTRIBUTION
+    // Order: Yellow, Red, White, Black (100 lines each cycle)
+    // Find colors by ID, fallback to available colors if not found
+    const findColorById = (id) => colors.find(c => c.id === id);
+    const yellowColor = findColorById('Y') || colors[0];
+    const redColor = findColorById('R') || colors[1] || colors[0];
+    const whiteColor = findColorById('W') || colors[2] || colors[1] || colors[0];
+    const blackColor = findColorById('K') || colors[colors.length - 1];
+    
+    const colorOrder = [yellowColor.id, redColor.id, whiteColor.id, blackColor.id];
+    const linesPerColor = 100;
     
     // Initialize working data for each color
     const workingData = {};
@@ -268,18 +279,21 @@ export default function StringArt() {
       workingData[color.id] = new Float32Array(size * size);
     });
     
-    // Generate separation maps based on color similarity
+    // Generate separation maps with luminance-aware logic
     for (let i = 0; i < size * size; i++) {
       const r = imageData.data[i * 4];
       const g = imageData.data[i * 4 + 1];
       const b = imageData.data[i * 4 + 2];
       
+      // Calculate luminance
       const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
       
       colors.forEach(color => {
         if (color.id === 'K') {
+          // Black always available based on inverse luminance
           workingData[color.id][i] = 1 - luminance;
         } else {
+          // Calculate color confidence
           const targetR = parseInt(color.hex.slice(1, 3), 16);
           const targetG = parseInt(color.hex.slice(3, 5), 16);
           const targetB = parseInt(color.hex.slice(5, 7), 16);
@@ -290,37 +304,50 @@ export default function StringArt() {
             Math.pow(b - targetB, 2)
           );
           
-          // Boost confidence with a power curve to make colors more vivid
           const confidence = Math.max(0, 1 - distance / 441);
-          const boosted = Math.pow(confidence, 0.4); // <1 exponent = pushes values higher
-          workingData[color.id][i] = Math.max(0.15, boosted);
+          
+          // Apply color confidence zones with luminance logic
+          if (luminance < 0.25) {
+            // Too dark - black only
+            workingData[color.id][i] = 0;
+          } else if (confidence > 0.55 && luminance > 0.35) {
+            // High confidence + good luminance - full color
+            workingData[color.id][i] = confidence;
+          } else if (confidence > 0.30 && luminance > 0.35) {
+            // Mid confidence - soft color
+            workingData[color.id][i] = confidence * 0.6;
+          } else if (confidence < 0.15) {
+            // Hard block - color forbidden
+            workingData[color.id][i] = 0;
+          } else {
+            // Low confidence - black preferred
+            workingData[color.id][i] = confidence * 0.3;
+          }
         }
       });
     }
     
     const minLinesPerColor = 100;
     
-    const blackReserved = 1000; // last N lines are always black
-    const colorStrings = numStrings - blackReserved;
-
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
-
-      // Last 1000 lines are always black
-      if (totalStringsDrawn >= colorStrings) {
+      
+      if (totalStringsDrawn < 6500) {
+        // 0-6500: Alternate Yellow, Red, White, Black (100 lines each)
+        const cyclePosition = totalStringsDrawn % (linesPerColor * 4);
+        const colorIndex = Math.floor(cyclePosition / linesPerColor);
+        colorId = colorOrder[colorIndex];
+      } else if (totalStringsDrawn >= 7000 && totalStringsDrawn < 8000) {
+        // 7000-8000: Alternate 100 lines per color
+        const adjustedPosition = (totalStringsDrawn - 7000) % (linesPerColor * 4);
+        const colorIndex = Math.floor(adjustedPosition / linesPerColor);
+        colorId = colorOrder[colorIndex];
+      } else if (totalStringsDrawn >= 8000) {
+        // 8000-9000: Solid black
         colorId = 'K';
       } else {
-        // Cycle through colors using each color's configured run length
-        const posInCycle = totalStringsDrawn % totalPerCycle;
-        let cumulative = 0;
-        colorId = activeColors[activeColors.length - 1]; // fallback
-        for (const id of activeColors) {
-          cumulative += (colorRunLengths[id] || 100);
-          if (posInCycle < cumulative) {
-            colorId = id;
-            break;
-          }
-        }
+        // 6500-7000: Transition with black
+        colorId = 'K';
       }
       
       let bestPin = -1;
@@ -383,7 +410,7 @@ export default function StringArt() {
         const x = Math.floor(x1 + (x2 - x1) * t / steps);
         const y = Math.floor(y1 + (y2 - y1) * t / steps);
         if (x >= 0 && x < size && y >= 0 && y < size) {
-          workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.03);
+          workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
         }
       }
       
@@ -1501,8 +1528,8 @@ export default function StringArt() {
                                 setNumColors(v);
                                 const newDist = {};
                                 const activeColors = selectedColors.slice(0, v);
-                                activeColors.forEach((color) => {
-                                  newDist[color.id] = 100;
+                                activeColors.forEach((color, idx) => {
+                                  newDist[color.id] = idx === v - 1 ? 1000 : 800;
                                 });
                                 setColorDistribution(newDist);
                               }}

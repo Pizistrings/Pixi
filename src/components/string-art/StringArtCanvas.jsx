@@ -18,8 +18,6 @@ const StringArtCanvas = forwardRef(({
   const [pins, setPins] = useState([]);
   const [size, setSize] = useState(500);
 
-  const canvasHeight = shape === 'rectangle' ? Math.round(size * 0.75) : size;
-
   useImperativeHandle(ref, () => canvasRef.current);
 
   // Generate pin positions
@@ -29,26 +27,24 @@ const StringArtCanvas = forwardRef(({
     const centerY = size / 2;
     const padding = 15;
 
-    const h = shape === 'rectangle' ? Math.round(size * 0.75) : size;
-    const cx = size / 2;
-    const cy = h / 2;
-
     if (shape === 'circle') {
       const radius = (size / 2) - padding;
       for (let i = 0; i < numPins; i++) {
         const angle = (2 * Math.PI * i) / numPins;
         newPins.push({
-          x: cx + radius * Math.cos(angle),
-          y: cy + radius * Math.sin(angle),
+          x: centerX + radius * Math.cos(angle),
+          y: centerY + radius * Math.sin(angle),
           index: i
         });
       }
     } else if (shape === 'square') {
       const sideLength = size - (padding * 2);
       const pinsPerSide = Math.floor(numPins / 4);
+      
       for (let i = 0; i < numPins; i++) {
         const side = Math.floor(i / pinsPerSide);
         const posOnSide = (i % pinsPerSide) / pinsPerSide;
+        
         if (side === 0) {
           newPins.push({ x: padding + posOnSide * sideLength, y: padding, index: i });
         } else if (side === 1) {
@@ -61,7 +57,9 @@ const StringArtCanvas = forwardRef(({
       }
     } else if (shape === 'rectangle') {
       const width = size - (padding * 2);
-      const height = h - (padding * 2);
+      const height = (size * 0.7) - (padding * 2);
+      const offsetY = (size - height - padding * 2) / 2;
+      
       const perimeter = 2 * (width + height);
       const pinsTop = Math.floor((width / perimeter) * numPins);
       const pinsRight = Math.floor((height / perimeter) * numPins);
@@ -70,16 +68,16 @@ const StringArtCanvas = forwardRef(({
       
       let pinIndex = 0;
       for (let i = 0; i < pinsTop; i++, pinIndex++) {
-        newPins.push({ x: padding + (i / pinsTop) * width, y: padding, index: pinIndex });
+        newPins.push({ x: padding + (i / pinsTop) * width, y: padding + offsetY, index: pinIndex });
       }
       for (let i = 0; i < pinsRight; i++, pinIndex++) {
-        newPins.push({ x: size - padding, y: padding + (i / pinsRight) * height, index: pinIndex });
+        newPins.push({ x: size - padding, y: padding + offsetY + (i / pinsRight) * height, index: pinIndex });
       }
       for (let i = 0; i < pinsBottom; i++, pinIndex++) {
-        newPins.push({ x: size - padding - (i / pinsBottom) * width, y: h - padding, index: pinIndex });
+        newPins.push({ x: size - padding - (i / pinsBottom) * width, y: padding + offsetY + height, index: pinIndex });
       }
       for (let i = 0; i < pinsLeft; i++, pinIndex++) {
-        newPins.push({ x: padding, y: h - padding - (i / pinsLeft) * height, index: pinIndex });
+        newPins.push({ x: padding, y: padding + offsetY + height - (i / pinsLeft) * height, index: pinIndex });
       }
     }
     
@@ -93,26 +91,28 @@ const StringArtCanvas = forwardRef(({
 
     const ctx = canvas.getContext('2d');
     
-    const h = shape === 'rectangle' ? Math.round(size * 0.75) : size;
-
     // Clear and set background
     ctx.fillStyle = '#fafafa';
-    ctx.fillRect(0, 0, size, h);
+    ctx.fillRect(0, 0, size, size);
 
-    // Draw frame border
+    // Draw frame border (subtle)
     ctx.strokeStyle = '#e5e5e5';
     ctx.lineWidth = 2;
     ctx.beginPath();
     const centerX = size / 2;
-    const centerY = h / 2;
+    const centerY = size / 2;
     
     if (shape === 'circle') {
       const radius = (size / 2) - 10;
       ctx.arc(centerX, centerY, radius + 5, 0, 2 * Math.PI);
     } else if (shape === 'square') {
-      ctx.rect(10, 10, size - 20, size - 20);
+      const sideLength = size - 20;
+      ctx.rect(10, 10, sideLength + 10, sideLength + 10);
     } else if (shape === 'rectangle') {
-      ctx.rect(10, 10, size - 20, h - 20);
+      const width = size - 20;
+      const height = (size * 0.7);
+      const offsetY = (size - height) / 2;
+      ctx.rect(10, offsetY, width + 10, height + 10);
     }
     ctx.stroke();
 
@@ -198,7 +198,7 @@ const StringArtCanvas = forwardRef(({
   }, [stringPaths, currentStep, pins, colors, size, lineWidth, lineOpacity, shape]);
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-[500px] mx-auto" style={{ aspectRatio: shape === 'rectangle' ? '4/3' : '1/1' }}>
+    <div ref={containerRef} className="relative aspect-square w-full max-w-[500px] mx-auto">
       {/* Background pattern */}
       <div 
         className="absolute inset-0 rounded-lg"
@@ -225,7 +225,7 @@ const StringArtCanvas = forwardRef(({
       <canvas
         ref={canvasRef}
         width={size}
-        height={canvasHeight}
+        height={size}
         className="w-full h-full rounded-lg shadow-inner relative z-10"
         style={{ background: '#fafafa' }}
       />

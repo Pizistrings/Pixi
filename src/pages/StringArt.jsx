@@ -1566,9 +1566,9 @@ export default function StringArt() {
                           <Slider
                             value={[lineOpacity]}
                             onValueChange={([v]) => setLineOpacity(v)}
-                            min={0.01}
-                            max={0.05}
-                            step={0.01}
+                            min={0.10}
+                            max={0.50}
+                            step={0.05}
                             className="w-full"
                           />
                         </div>

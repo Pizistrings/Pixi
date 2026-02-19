@@ -337,27 +337,24 @@ export default function StringArt() {
       });
     }
     
-    const minLinesPerColor = 100;
+    // All colors except black cycle evenly; last 1000 lines go solid black
+    const nonBlackOrder = colorOrder.filter(id => id !== blackColor.id);
+    const cycleLength = linesPerColor * nonBlackOrder.length;
+    const blackStartAt = numStrings - 1000;
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      if (totalStringsDrawn < 6500) {
-        // 0-6500: Alternate Yellow, Red, White, Black (100 lines each)
-        const cyclePosition = totalStringsDrawn % (linesPerColor * 4);
-        const colorIndex = Math.floor(cyclePosition / linesPerColor);
-        colorId = colorOrder[colorIndex];
-      } else if (totalStringsDrawn >= 7000 && totalStringsDrawn < 8000) {
-        // 7000-8000: Alternate 100 lines per color
-        const adjustedPosition = (totalStringsDrawn - 7000) % (linesPerColor * 4);
-        const colorIndex = Math.floor(adjustedPosition / linesPerColor);
-        colorId = colorOrder[colorIndex];
-      } else if (totalStringsDrawn >= 8000) {
-        // 8000-9000: Solid black
+      if (mode === 'mono') {
+        colorId = 'K';
+      } else if (totalStringsDrawn >= blackStartAt) {
+        // Last 1000 lines: solid black for detail
         colorId = 'K';
       } else {
-        // 6500-7000: Transition with black
-        colorId = 'K';
+        // Cycle evenly through all detected colors
+        const cyclePosition = totalStringsDrawn % cycleLength;
+        const colorIndex = Math.floor(cyclePosition / linesPerColor) % nonBlackOrder.length;
+        colorId = nonBlackOrder[colorIndex];
       }
       
       let bestPin = -1;

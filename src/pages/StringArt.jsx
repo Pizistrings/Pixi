@@ -273,111 +273,107 @@ export default function StringArt() {
       });
     }
     
-    // Sort colors by how much they appear in the image (descending), always keep black last
-    const nonBlackColors = colors.filter(c => c.id !== 'K');
+    // Sort non-black colors by image score, keep only those with meaningful presence
     const blackColor = colors.find(c => c.id === 'K') || colors[colors.length - 1];
-    
-    nonBlackColors.sort((a, b) => colorScores[b.id] - colorScores[a.id]);
-    
-    // Build color order: top detected colors + black
-    const colorOrder = [...nonBlackColors.map(c => c.id), blackColor.id];
-    const linesPerColor = 100;
-    
+    const nonBlackColors = colors.filter(c => c.id !== 'K');
+
+    // Normalize scores
+    const maxScore = Math.max(...nonBlackColors.map(c => colorScores[c.id]), 1);
+    // Only keep colors that have at least 15% of the top color's score
+    const activeNonBlack = nonBlackColors
+      .filter(c => colorScores[c.id] / maxScore >= 0.15)
+      .sort((a, b) => colorScores[b.id] - colorScores[a.id]);
+
+    // Allocate lines proportionally to score, but cap at (numStrings - 1500) total for non-black
+    const blackLines = 1500;
+    const colorBudget = numStrings - blackLines;
+    const totalScore = activeNonBlack.reduce((s, c) => s + colorScores[c.id], 0) || 1;
+    const colorAlloc = {}; // id -> number of lines allocated
+    activeNonBlack.forEach(c => {
+      colorAlloc[c.id] = Math.max(200, Math.round((colorScores[c.id] / totalScore) * colorBudget));
+    });
+    colorAlloc[blackColor.id] = blackLines;
+
+    // Build a flat draw schedule: [colorId, colorId, ...]
+    // Interleave colors in blocks of 100 so they blend well
+    const blockSize = 100;
+    const schedule = [];
+    // Build blocks for each color
+    const colorBlocks = {};
+    activeNonBlack.forEach(c => {
+      colorBlocks[c.id] = Math.round(colorAlloc[c.id] / blockSize);
+    });
+    colorBlocks[blackColor.id] = Math.round(blackLines / blockSize);
+
+    // Interleave: cycle through non-black blocks, then append black blocks at the end
+    const nonBlackIds = activeNonBlack.map(c => c.id);
+    const maxNonBlackBlocks = Math.max(...nonBlackIds.map(id => colorBlocks[id]), 0);
+    for (let block = 0; block < maxNonBlackBlocks; block++) {
+      nonBlackIds.forEach(id => {
+        if (block < colorBlocks[id]) {
+          for (let j = 0; j < blockSize; j++) schedule.push(id);
+        }
+      });
+    }
+    // Append black at the end
+    for (let j = 0; j < colorBlocks[blackColor.id] * blockSize; j++) schedule.push(blackColor.id);
+
     // Initialize working data for each color
     const workingData = {};
     colors.forEach(color => {
       workingData[color.id] = new Float32Array(size * size);
     });
-    
-    // Generate separation maps with luminance-aware logic
+
+    // Generate per-color pixel maps: how much does each pixel "need" this color?
     for (let i = 0; i < size * size; i++) {
       const r = imageData.data[i * 4];
       const g = imageData.data[i * 4 + 1];
       const b = imageData.data[i * 4 + 2];
-      
-      // Calculate luminance
       const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-      
+
       colors.forEach(color => {
         if (color.id === 'K') {
-          // Black always available based on inverse luminance
-          workingData[color.id][i] = 1 - luminance;
+          // Black draws in dark areas
+          workingData[color.id][i] = luminance < 0.5 ? (1 - luminance) : 0;
         } else {
-          // Calculate color confidence
           const targetR = parseInt(color.hex.slice(1, 3), 16);
           const targetG = parseInt(color.hex.slice(3, 5), 16);
           const targetB = parseInt(color.hex.slice(5, 7), 16);
-          
           const distance = Math.sqrt(
-            Math.pow(r - targetR, 2) +
-            Math.pow(g - targetG, 2) +
-            Math.pow(b - targetB, 2)
+            (r - targetR) ** 2 + (g - targetG) ** 2 + (b - targetB) ** 2
           );
-          
           const confidence = Math.max(0, 1 - distance / 441);
-          
-          // Apply color confidence zones with luminance logic
-          if (luminance < 0.25) {
-            // Too dark - black only
-            workingData[color.id][i] = 0;
-          } else if (confidence > 0.55 && luminance > 0.35) {
-            // High confidence + good luminance - full color
+          // Only draw color where it genuinely matches AND pixel isn't too dark
+          if (confidence > 0.45 && luminance > 0.3) {
             workingData[color.id][i] = confidence;
-          } else if (confidence > 0.30 && luminance > 0.35) {
-            // Mid confidence - soft color
-            workingData[color.id][i] = confidence * 0.6;
-          } else if (confidence < 0.15) {
-            // Hard block - color forbidden
-            workingData[color.id][i] = 0;
           } else {
-            // Low confidence - black preferred
-            workingData[color.id][i] = confidence * 0.3;
+            workingData[color.id][i] = 0;
           }
         }
       });
     }
-    
-    // All colors except black cycle evenly; last 1000 lines go solid black
-    const nonBlackOrder = colorOrder.filter(id => id !== blackColor.id);
-    const cycleLength = linesPerColor * nonBlackOrder.length;
-    const blackStartAt = numStrings - 1000;
-    
-    for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
-      let colorId;
-      
-      if (mode === 'mono') {
-        colorId = 'K';
-      } else if (totalStringsDrawn >= blackStartAt) {
-        // Last 1000 lines: solid black for detail
-        colorId = 'K';
-      } else {
-        // Cycle evenly through all detected colors
-        const cyclePosition = totalStringsDrawn % cycleLength;
-        const colorIndex = Math.floor(cyclePosition / linesPerColor) % nonBlackOrder.length;
-        colorId = nonBlackOrder[colorIndex];
-      }
-      
+
+    const minScoreThreshold = 0.05; // skip drawing if no good match found
+
+    for (let i = 0; i < schedule.length; i++) {
+      const colorId = mode === 'mono' ? 'K' : schedule[i];
+
       let bestPin = -1;
       let bestScore = -Infinity;
-      
-      // Find the best next pin
+
       for (let nextPin = 0; nextPin < numPins; nextPin++) {
         if (nextPin === currentPin) continue;
-        
-        // Skip nearby pins with proper wrapping
         const pinDist = Math.abs(nextPin - currentPin);
         const wrappedDist = Math.min(pinDist, numPins - pinDist);
         if (wrappedDist < minPinDistance) continue;
-        
-        // Calculate line score
+
         const x1 = pins[currentPin].x;
         const y1 = pins[currentPin].y;
         const x2 = pins[nextPin].x;
         const y2 = pins[nextPin].y;
-        
         const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
         const steps = Math.ceil(dist);
-        
+
         let score = 0;
         for (let t = 0; t < steps; t++) {
           const x = Math.floor(x1 + (x2 - x1) * t / steps);
@@ -387,40 +383,34 @@ export default function StringArt() {
           }
         }
         score /= steps;
-        
+
         if (score > bestScore) {
           bestScore = score;
           bestPin = nextPin;
         }
       }
-      
-      if (bestPin === -1) break;
-      
-      // Add the string path
-      paths.push({
-        from: currentPin,
-        to: bestPin,
-        color: colorId,
-        step: paths.length
-      });
+
+      // Skip this line if score is too low (color doesn't belong here)
+      if (bestPin === -1 || bestScore < minScoreThreshold) continue;
+
+      paths.push({ from: currentPin, to: bestPin, color: colorId, step: paths.length });
       layerCounts[colorId] = (layerCounts[colorId] || 0) + 1;
-      
-      // Subtract the drawn line from working data
+
       const x1 = pins[currentPin].x;
       const y1 = pins[currentPin].y;
       const x2 = pins[bestPin].x;
       const y2 = pins[bestPin].y;
       const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
       const steps = Math.ceil(dist);
-      
+
       for (let t = 0; t < steps; t++) {
         const x = Math.floor(x1 + (x2 - x1) * t / steps);
         const y = Math.floor(y1 + (y2 - y1) * t / steps);
         if (x >= 0 && x < size && y >= 0 && y < size) {
-          workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
+          workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.06);
         }
       }
-      
+
       currentPin = bestPin;
     }
     

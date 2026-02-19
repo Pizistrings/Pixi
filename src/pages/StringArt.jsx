@@ -245,32 +245,42 @@ export default function StringArt() {
     const paths = [];
     const layerCounts = {};
     
-    const activeColors = mode === 'mono' ? ['K'] : colors.map(c => c.id);
+    let currentPin = Math.floor(Math.random() * numPins);
     
-    // Use color run to alternate between colors
-    const colorRunLengths = {};
-    if (mode === 'mono') {
-      colorRunLengths.K = numStrings;
-    } else {
-      activeColors.forEach(id => {
-        colorRunLengths[id] = colorDistribution[id] || 100;
+    // DETECT dominant colors from the image
+    // Sample pixels and find which of the available colors are most present
+    const colorScores = {};
+    colors.forEach(color => { colorScores[color.id] = 0; });
+    
+    const sampleStep = 4; // sample every 4th pixel
+    for (let i = 0; i < size * size; i += sampleStep) {
+      const r = imageData.data[i * 4];
+      const g = imageData.data[i * 4 + 1];
+      const b = imageData.data[i * 4 + 2];
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      
+      colors.forEach(color => {
+        if (color.id === 'K') {
+          colorScores[color.id] += (1 - luminance);
+        } else {
+          const tr = parseInt(color.hex.slice(1, 3), 16);
+          const tg = parseInt(color.hex.slice(3, 5), 16);
+          const tb = parseInt(color.hex.slice(5, 7), 16);
+          const dist = Math.sqrt((r-tr)**2 + (g-tg)**2 + (b-tb)**2);
+          const conf = Math.max(0, 1 - dist / 441);
+          if (conf > 0.3 && luminance > 0.25) colorScores[color.id] += conf;
+        }
       });
     }
     
-    let currentColorIndex = 0;
-    let stringsInCurrentRun = 0;
-    let currentPin = Math.floor(Math.random() * numPins);
+    // Sort colors by how much they appear in the image (descending), always keep black last
+    const nonBlackColors = colors.filter(c => c.id !== 'K');
+    const blackColor = colors.find(c => c.id === 'K') || colors[colors.length - 1];
     
-    // STANDARD COLOR DISTRIBUTION
-    // Order: Yellow, Red, White, Black (100 lines each cycle)
-    // Find colors by ID, fallback to available colors if not found
-    const findColorById = (id) => colors.find(c => c.id === id);
-    const yellowColor = findColorById('Y') || colors[0];
-    const redColor = findColorById('R') || colors[1] || colors[0];
-    const whiteColor = findColorById('W') || colors[2] || colors[1] || colors[0];
-    const blackColor = findColorById('K') || colors[colors.length - 1];
+    nonBlackColors.sort((a, b) => colorScores[b.id] - colorScores[a.id]);
     
-    const colorOrder = [yellowColor.id, redColor.id, whiteColor.id, blackColor.id];
+    // Build color order: top detected colors + black
+    const colorOrder = [...nonBlackColors.map(c => c.id), blackColor.id];
     const linesPerColor = 100;
     
     // Initialize working data for each color

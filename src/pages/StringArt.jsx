@@ -1545,14 +1545,14 @@ export default function StringArt() {
                         <div>
                           <div className="flex justify-between mb-2">
                             <Label className="text-xs text-gray-500">Line Thickness</Label>
-                            <span className="text-xs text-gray-700 font-medium">{lineWidth.toFixed(1)}px</span>
+                            <span className="text-xs text-gray-700 font-medium">{lineWidth.toFixed(2)}px</span>
                           </div>
                           <Slider
                             value={[lineWidth]}
                             onValueChange={([v]) => setLineWidth(v)}
-                            min={0.1}
-                            max={2}
-                            step={0.1}
+                            min={0.25}
+                            max={1.00}
+                            step={0.05}
                             className="w-full"
                           />
                         </div>
@@ -1566,9 +1566,9 @@ export default function StringArt() {
                           <Slider
                             value={[lineOpacity]}
                             onValueChange={([v]) => setLineOpacity(v)}
-                            min={0.05}
-                            max={0.5}
-                            step={0.05}
+                            min={0.01}
+                            max={0.05}
+                            step={0.01}
                             className="w-full"
                           />
                         </div>

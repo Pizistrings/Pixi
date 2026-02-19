@@ -30,7 +30,7 @@ export default function StringArt() {
   const [numPins, setNumPins] = useState(370);
   const [numStrings, setNumStrings] = useState(9000);
   const [lineWidth, setLineWidth] = useState(0.5);
-  const [lineOpacity, setLineOpacity] = useState(0.03);
+  const [lineOpacity, setLineOpacity] = useState(0.20);
   const [numColors, setNumColors] = useState(3);
   const [selectedColors, setSelectedColors] = useState([
     { name: 'Yellow', hex: '#ffd60a', id: 'Y' },

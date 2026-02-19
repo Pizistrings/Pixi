@@ -1040,7 +1040,7 @@ export default function StringArt() {
                     stringPaths={stringPaths}
                     currentStep={currentStep}
                     numPins={numPins}
-                    colors={colors}
+                    colors={colorLayers.length > 0 ? colorLayers : colors}
                     isProcessing={isProcessing}
                     sourceImage={image}
                     lineWidth={lineWidth}

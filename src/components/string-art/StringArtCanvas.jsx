@@ -95,8 +95,8 @@ const StringArtCanvas = forwardRef(({
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
-    // Clear with deep black background for maximum contrast
-    ctx.fillStyle = '#0a0a0a';
+    // White background
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, size, size);
 
     const centerX = size / 2;
@@ -104,7 +104,7 @@ const StringArtCanvas = forwardRef(({
 
     // Draw subtle frame border
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.strokeStyle = 'rgba(0,0,0,0.12)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     if (shape === 'circle') {

@@ -381,14 +381,26 @@ export default function StringArt() {
         const y2 = pins[nextPin].y;
         
         const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-        const steps = Math.ceil(dist);
+        // Use 2x sub-pixel sampling for higher scoring accuracy
+        const steps = Math.ceil(dist * 2);
         
         let score = 0;
         for (let t = 0; t < steps; t++) {
-          const x = Math.floor(x1 + (x2 - x1) * t / steps);
-          const y = Math.floor(y1 + (y2 - y1) * t / steps);
-          if (x >= 0 && x < size && y >= 0 && y < size) {
-            score += workingData[colorId][y * size + x];
+          const fx = x1 + (x2 - x1) * t / steps;
+          const fy = y1 + (y2 - y1) * t / steps;
+          // Bilinear interpolation for smooth scoring
+          const xi = Math.floor(fx);
+          const yi = Math.floor(fy);
+          const xf = fx - xi;
+          const yf = fy - yi;
+          const xi1 = Math.min(xi + 1, size - 1);
+          const yi1 = Math.min(yi + 1, size - 1);
+          if (xi >= 0 && xi < size && yi >= 0 && yi < size) {
+            const v00 = workingData[colorId][yi * size + xi];
+            const v10 = workingData[colorId][yi * size + xi1];
+            const v01 = workingData[colorId][yi1 * size + xi];
+            const v11 = workingData[colorId][yi1 * size + xi1];
+            score += v00 * (1 - xf) * (1 - yf) + v10 * xf * (1 - yf) + v01 * (1 - xf) * yf + v11 * xf * yf;
           }
         }
         score /= steps;

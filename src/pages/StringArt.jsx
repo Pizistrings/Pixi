@@ -348,8 +348,8 @@ export default function StringArt() {
         // 0-1500: Solid black
         colorId = blackColor.id;
       } else if (totalStringsDrawn < 7000) {
-        // 1500-7000: Alternate Yellow, Red, White, Black (100 lines each)
-        const adjustedPosition = (totalStringsDrawn - 1500) % (linesPerColor * 4);
+        // 1500-7000: Alternate through colorOrder (100 lines each)
+        const adjustedPosition = (totalStringsDrawn - 1500) % (linesPerColor * colorOrder.length);
         const colorIndex = Math.floor(adjustedPosition / linesPerColor);
         colorId = colorOrder[colorIndex];
       } else if (totalStringsDrawn < 8000) {

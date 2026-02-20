@@ -84,83 +84,90 @@ const StringArtCanvas = forwardRef(({
     setPins(newPins);
   }, [numPins, size, shape]);
 
-  // Draw string art
+  // Draw string art (high quality)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || pins.length === 0) return;
 
-    const ctx = canvas.getContext('2d');
-    
-    // Clear and set background
-    ctx.fillStyle = '#fafafa';
+    const ctx = canvas.getContext('2d', { alpha: false });
+
+    // Enable best quality rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // Clear with deep black background for maximum contrast
+    ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, size, size);
 
-    // Draw frame border (subtle)
-    ctx.strokeStyle = '#e5e5e5';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
     const centerX = size / 2;
     const centerY = size / 2;
-    
+
+    // Draw subtle frame border
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
     if (shape === 'circle') {
-      const radius = (size / 2) - 10;
+      const radius = (size / 2) - 14;
       ctx.arc(centerX, centerY, radius + 5, 0, 2 * Math.PI);
     } else if (shape === 'square') {
-      const sideLength = size - 20;
-      ctx.rect(10, 10, sideLength + 10, sideLength + 10);
+      ctx.rect(14, 14, size - 28, size - 28);
     } else if (shape === 'rectangle') {
-      const width = size - 20;
-      const height = (size * 0.7);
-      const offsetY = (size - height) / 2;
-      ctx.rect(10, offsetY, width + 10, height + 10);
+      const h = (size * 0.7);
+      const oY = (size - h) / 2;
+      ctx.rect(14, oY, size - 28, h);
     }
     ctx.stroke();
+    ctx.restore();
 
-    // Draw pins as small dots with numbers
-    ctx.fillStyle = '#d4d4d4';
+    // Draw pins
+    ctx.save();
     pins.forEach(pin => {
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
       ctx.beginPath();
-      ctx.arc(pin.x, pin.y, 2, 0, 2 * Math.PI);
+      ctx.arc(pin.x, pin.y, 1.8, 0, 2 * Math.PI);
       ctx.fill();
     });
+    ctx.restore();
 
-    // Draw pin numbers outside the frame
-    ctx.font = '9px system-ui, sans-serif';
-    ctx.fillStyle = '#999';
+    // Draw pin numbers (scaled for high-res canvas)
+    ctx.save();
+    ctx.font = `${Math.round(size / 80)}px system-ui, sans-serif`;
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    
     pins.forEach(pin => {
-      // Calculate offset direction (outward from center)
       const dx = pin.x - centerX;
       const dy = pin.y - centerY;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      
       if (dist > 0) {
-        // Place number 12 pixels outside the pin
-        const offsetX = (dx / dist) * 12;
-        const offsetY = (dy / dist) * 12;
-        ctx.fillText(pin.index.toString(), pin.x + offsetX, pin.y + offsetY);
+        const off = size / 50;
+        ctx.fillText(pin.index.toString(), pin.x + (dx / dist) * off, pin.y + (dy / dist) * off);
       }
     });
+    ctx.restore();
 
-    // Create color map
+    // Build color map with hex -> rgba
     const colorMap = {};
     colors.forEach(c => {
       colorMap[c.id] = c.hex;
     });
 
-    // Draw strings up to current step
+    // Draw all strings with high-quality compositing
+    ctx.save();
     ctx.lineWidth = lineWidth;
-    ctx.globalAlpha = lineOpacity;
+    ctx.lineCap = 'round';
+
+    // Use 'lighter' blend mode for additive color blending — gives glowing filament look
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = lineOpacity * 0.9;
 
     for (let i = 0; i < currentStep && i < stringPaths.length; i++) {
       const path = stringPaths[i];
       const fromPin = pins[path.from];
       const toPin = pins[path.to];
-
       if (fromPin && toPin) {
-        ctx.strokeStyle = colorMap[path.color] || '#1a1a1a';
+        ctx.strokeStyle = colorMap[path.color] || '#ffffff';
         ctx.beginPath();
         ctx.moveTo(fromPin.x, fromPin.y);
         ctx.lineTo(toPin.x, toPin.y);
@@ -168,31 +175,32 @@ const StringArtCanvas = forwardRef(({
       }
     }
 
-    ctx.globalAlpha = 1;
+    ctx.restore();
 
-    // Draw current string being added (highlighted)
+    // Highlight current string
     if (currentStep > 0 && currentStep <= stringPaths.length) {
       const currentPath = stringPaths[currentStep - 1];
       const fromPin = pins[currentPath?.from];
       const toPin = pins[currentPath?.to];
-
       if (fromPin && toPin) {
-        ctx.strokeStyle = '#ff6b35';
-        ctx.lineWidth = 1.5;
-        ctx.globalAlpha = 0.8;
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = '#ff9955';
+        ctx.lineWidth = lineWidth * 2.5;
+        ctx.lineCap = 'round';
+        ctx.globalAlpha = 0.75;
+        ctx.shadowColor = '#ff6b35';
+        ctx.shadowBlur = 12;
         ctx.beginPath();
         ctx.moveTo(fromPin.x, fromPin.y);
         ctx.lineTo(toPin.x, toPin.y);
         ctx.stroke();
-        ctx.globalAlpha = 1;
-
-        // Draw indicator arrow
-        const midX = (fromPin.x + toPin.x) / 2;
-        const midY = (fromPin.y + toPin.y) / 2;
-        ctx.fillStyle = '#ff6b35';
+        // Endpoint dot
+        ctx.fillStyle = '#ff9955';
         ctx.beginPath();
-        ctx.arc(toPin.x, toPin.y, 4, 0, 2 * Math.PI);
+        ctx.arc(toPin.x, toPin.y, lineWidth * 3, 0, 2 * Math.PI);
         ctx.fill();
+        ctx.restore();
       }
     }
   }, [stringPaths, currentStep, pins, colors, size, lineWidth, lineOpacity, shape]);

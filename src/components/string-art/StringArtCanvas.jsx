@@ -234,8 +234,8 @@ const StringArtCanvas = forwardRef(({
         ref={canvasRef}
         width={size}
         height={size}
-        className="w-full h-full rounded-lg shadow-inner relative z-10"
-        style={{ background: '#fafafa' }}
+        className="w-full h-full rounded-lg relative z-10"
+        style={{ background: '#0a0a0a', boxShadow: '0 0 40px rgba(0,0,0,0.6) inset' }}
       />
 
       {/* Processing overlay */}

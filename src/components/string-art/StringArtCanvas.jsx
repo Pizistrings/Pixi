@@ -207,28 +207,8 @@ const StringArtCanvas = forwardRef(({
 
   return (
     <div ref={containerRef} className="relative aspect-square w-full max-w-[500px] mx-auto">
-      {/* Background pattern */}
-      <div 
-        className="absolute inset-0 rounded-lg"
-        style={{
-          background: `
-            repeating-linear-gradient(
-              0deg,
-              transparent,
-              transparent 10px,
-              rgba(0,0,0,0.02) 10px,
-              rgba(0,0,0,0.02) 11px
-            ),
-            repeating-linear-gradient(
-              90deg,
-              transparent,
-              transparent 10px,
-              rgba(0,0,0,0.02) 10px,
-              rgba(0,0,0,0.02) 11px
-            )
-          `
-        }}
-      />
+      {/* Dark background */}
+      <div className="absolute inset-0 rounded-lg bg-[#0a0a0a]" />
       
       <canvas
         ref={canvasRef}

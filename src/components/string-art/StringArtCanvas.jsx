@@ -207,15 +207,15 @@ const StringArtCanvas = forwardRef(({
 
   return (
     <div ref={containerRef} className="relative aspect-square w-full max-w-[500px] mx-auto">
-      {/* Dark background */}
-      <div className="absolute inset-0 rounded-lg bg-[#0a0a0a]" />
+      {/* White background */}
+      <div className="absolute inset-0 rounded-lg bg-white" />
       
       <canvas
         ref={canvasRef}
         width={size}
         height={size}
         className="w-full h-full rounded-lg relative z-10"
-        style={{ background: '#0a0a0a', boxShadow: '0 0 40px rgba(0,0,0,0.6) inset' }}
+        style={{ background: '#ffffff' }}
       />
 
       {/* Processing overlay */}

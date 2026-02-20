@@ -38,7 +38,7 @@ export default function StringArt() {
     { name: 'White', hex: '#ffffff', id: 'W' },
     { name: 'Black', hex: '#1a1a1a', id: 'K' },
     { name: 'Cyan', hex: '#00b4d8', id: 'C' },
-    { name: 'Magenta', hex: '#e63946', id: 'M' },
+    { name: 'Blue', hex: '#2563eb', id: 'B' },
     { name: 'Green', hex: '#16a34a', id: 'G' },
     { name: 'Blue', hex: '#2563eb', id: 'B' },
     { name: 'Orange', hex: '#ea580c', id: 'O' },

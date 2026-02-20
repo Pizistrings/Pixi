@@ -133,7 +133,7 @@ const StringArtCanvas = forwardRef(({
     // Draw pin numbers (scaled for high-res canvas)
     ctx.save();
     ctx.font = `${Math.round(size / 80)}px system-ui, sans-serif`;
-    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     pins.forEach(pin => {

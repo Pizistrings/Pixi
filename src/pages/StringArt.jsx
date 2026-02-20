@@ -269,8 +269,20 @@ export default function StringArt() {
     const redColor = findColorById('R') || colors[1] || colors[0];
     const whiteColor = findColorById('W') || colors[2] || colors[1] || colors[0];
     const blackColor = findColorById('K') || colors[colors.length - 1];
+    const cyanColor = findColorById('C');
+    const blueColor = findColorById('B');
+    const greenColor = findColorById('G');
     
-    const colorOrder = [yellowColor.id, redColor.id, whiteColor.id, blackColor.id];
+    // Base order: Yellow, Red, [Cyan if present], [Blue if present], [Green if present], White, Black
+    const colorOrder = [
+      yellowColor.id,
+      redColor.id,
+      ...(cyanColor ? [cyanColor.id] : []),
+      ...(blueColor ? [blueColor.id] : []),
+      ...(greenColor ? [greenColor.id] : []),
+      whiteColor.id,
+      blackColor.id,
+    ];
     const linesPerColor = 100;
     
     // Initialize working data for each color

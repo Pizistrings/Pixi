@@ -185,12 +185,12 @@ const StringArtCanvas = forwardRef(({
       if (fromPin && toPin) {
         ctx.save();
         ctx.globalCompositeOperation = 'source-over';
-        ctx.strokeStyle = '#ff9955';
-        ctx.lineWidth = lineWidth * 2.5;
+        ctx.strokeStyle = '#ff4400';
+        ctx.lineWidth = lineWidth * 2;
         ctx.lineCap = 'round';
-        ctx.globalAlpha = 0.75;
-        ctx.shadowColor = '#ff6b35';
-        ctx.shadowBlur = 12;
+        ctx.globalAlpha = 0.85;
+        ctx.shadowColor = '#ff4400';
+        ctx.shadowBlur = 6;
         ctx.beginPath();
         ctx.moveTo(fromPin.x, fromPin.y);
         ctx.lineTo(toPin.x, toPin.y);

@@ -196,7 +196,7 @@ const StringArtCanvas = forwardRef(({
         ctx.lineTo(toPin.x, toPin.y);
         ctx.stroke();
         // Endpoint dot
-        ctx.fillStyle = '#ff9955';
+        ctx.fillStyle = '#ff4400';
         ctx.beginPath();
         ctx.arc(toPin.x, toPin.y, lineWidth * 3, 0, 2 * Math.PI);
         ctx.fill();

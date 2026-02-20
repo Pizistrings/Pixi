@@ -422,19 +422,29 @@ export default function StringArt() {
       });
       layerCounts[colorId] = (layerCounts[colorId] || 0) + 1;
       
-      // Subtract the drawn line from working data
+      // Subtract the drawn line from working data (sub-pixel accurate)
       const x1 = pins[currentPin].x;
       const y1 = pins[currentPin].y;
       const x2 = pins[bestPin].x;
       const y2 = pins[bestPin].y;
       const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-      const steps = Math.ceil(dist);
+      const steps = Math.ceil(dist * 2);
+      const subtractAmount = 0.03; // gentler subtraction for finer detail
       
       for (let t = 0; t < steps; t++) {
-        const x = Math.floor(x1 + (x2 - x1) * t / steps);
-        const y = Math.floor(y1 + (y2 - y1) * t / steps);
-        if (x >= 0 && x < size && y >= 0 && y < size) {
-          workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
+        const fx = x1 + (x2 - x1) * t / steps;
+        const fy = y1 + (y2 - y1) * t / steps;
+        const xi = Math.floor(fx);
+        const yi = Math.floor(fy);
+        const xf = fx - xi;
+        const yf = fy - yi;
+        const xi1 = Math.min(xi + 1, size - 1);
+        const yi1 = Math.min(yi + 1, size - 1);
+        if (xi >= 0 && xi < size && yi >= 0 && yi < size) {
+          workingData[colorId][yi * size + xi] = Math.max(0, workingData[colorId][yi * size + xi] - subtractAmount * (1 - xf) * (1 - yf));
+          workingData[colorId][yi * size + xi1] = Math.max(0, workingData[colorId][yi * size + xi1] - subtractAmount * xf * (1 - yf));
+          workingData[colorId][yi1 * size + xi] = Math.max(0, workingData[colorId][yi1 * size + xi] - subtractAmount * (1 - xf) * yf);
+          workingData[colorId][yi1 * size + xi1] = Math.max(0, workingData[colorId][yi1 * size + xi1] - subtractAmount * xf * yf);
         }
       }
       

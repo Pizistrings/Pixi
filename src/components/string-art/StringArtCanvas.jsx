@@ -123,7 +123,7 @@ const StringArtCanvas = forwardRef(({
     // Draw pins
     ctx.save();
     pins.forEach(pin => {
-      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.beginPath();
       ctx.arc(pin.x, pin.y, 1.8, 0, 2 * Math.PI);
       ctx.fill();

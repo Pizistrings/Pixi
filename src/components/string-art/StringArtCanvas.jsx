@@ -158,16 +158,16 @@ const StringArtCanvas = forwardRef(({
     ctx.lineWidth = lineWidth;
     ctx.lineCap = 'round';
 
-    // Use 'lighter' blend mode for additive color blending — gives glowing filament look
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = lineOpacity * 0.9;
+    // Multiply blend mode works great on white background — colors darken naturally
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = lineOpacity;
 
     for (let i = 0; i < currentStep && i < stringPaths.length; i++) {
       const path = stringPaths[i];
       const fromPin = pins[path.from];
       const toPin = pins[path.to];
       if (fromPin && toPin) {
-        ctx.strokeStyle = colorMap[path.color] || '#ffffff';
+        ctx.strokeStyle = colorMap[path.color] || '#000000';
         ctx.beginPath();
         ctx.moveTo(fromPin.x, fromPin.y);
         ctx.lineTo(toPin.x, toPin.y);

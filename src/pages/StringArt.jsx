@@ -350,42 +350,58 @@ export default function StringArt() {
 
     const totalDemand = Object.values(colorDemand).reduce((a, b) => a + b, 0) || 1;
 
-    // Guarantee black at least 20% and at most 50% of total strings
-    const rawBlackRatio = colorDemand[blackColor.id] / totalDemand;
-    const blackRatio = Math.max(0.20, Math.min(0.50, rawBlackRatio));
-    const blackBudget = Math.round(blackRatio * numStrings);
+    // Reserve last 1000 strings for black (user requirement)
+    const finalBlackReserve = 1000;
+    const budgetableStrings = numStrings - finalBlackReserve;
 
-    // Distribute remaining strings among non-black colors proportionally
+    // Black gets at least 25% of the budgetable portion (for structure/shadows)
+    const rawBlackRatio = colorDemand[blackColor.id] / totalDemand;
+    const blackRatio = Math.max(0.25, Math.min(0.45, rawBlackRatio));
+    const blackBudget = Math.round(blackRatio * budgetableStrings);
+
+    // Distribute remaining among non-black colors proportionally to their image demand
     const colorBudget = {};
-    colorBudget[blackColor.id] = blackBudget;
+    colorBudget[blackColor.id] = blackBudget + finalBlackReserve;
     const nonBlackColors = colors.filter(c => c.id !== blackColor.id);
     const nonBlackDemand = nonBlackColors.reduce((s, c) => s + colorDemand[c.id], 0) || 1;
-    const remainingStrings = numStrings - blackBudget;
+    const remainingStrings = budgetableStrings - blackBudget;
     nonBlackColors.forEach(color => {
-      colorBudget[color.id] = Math.max(50, Math.round((colorDemand[color.id] / nonBlackDemand) * remainingStrings));
+      colorBudget[color.id] = Math.max(80, Math.round((colorDemand[color.id] / nonBlackDemand) * remainingStrings));
     });
 
     // Track how many strings each color has left
     const colorRemaining = { ...colorBudget };
+    // Black remaining excludes the final reserve (managed separately)
+    colorRemaining[blackColor.id] = blackBudget;
+
+    // Max allowed line length to prevent rogue long diagonal streaks (80% of canvas diagonal)
+    const maxLineLen = size * 0.8 * Math.sqrt(2);
 
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
 
-      // For the first 300 strings, always use black to establish structure
-      if (totalStringsDrawn < 300) {
+      // Last 1000: solid black finish
+      if (totalStringsDrawn >= numStrings - finalBlackReserve) {
         colorId = blackColor.id;
+      }
+      // First 500: always black for structural foundation
+      else if (totalStringsDrawn < 500) {
+        colorId = blackColor.id;
+        colorRemaining[blackColor.id] = Math.max(0, colorRemaining[blackColor.id] - 1);
       } else {
-        // Score each candidate color: pick the one whose best line scores highest
-        // weighted by how many strings it still needs to lay down (budget pressure)
+        // Pick color by best scoring line × budget pressure
         let bestColorId = null;
         let bestColorScore = -Infinity;
 
         for (const color of colors) {
-          if ((colorRemaining[color.id] || 0) <= 0) continue;
+          const remaining = color.id === blackColor.id
+            ? colorRemaining[blackColor.id]
+            : (colorRemaining[color.id] || 0);
+          if (remaining <= 0) continue;
 
-          // Sample a few candidate pins to estimate this color's current score potential
+          // Sample candidate pins to estimate this color's current score potential
           let maxLineScore = 0;
-          const sampleStep = Math.max(1, Math.floor(numPins / 20));
+          const sampleStep = Math.max(1, Math.floor(numPins / 24));
           for (let nextPin = 0; nextPin < numPins; nextPin += sampleStep) {
             if (nextPin === currentPin) continue;
             const pinDist = Math.abs(nextPin - currentPin);
@@ -395,6 +411,10 @@ export default function StringArt() {
             const x1 = pins[currentPin].x, y1 = pins[currentPin].y;
             const x2 = pins[nextPin].x, y2 = pins[nextPin].y;
             const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+
+            // Skip rogue long lines
+            if (dist > maxLineLen) continue;
+
             const sampleSteps = Math.max(1, Math.ceil(dist / 4));
             let lineScore = 0;
             for (let t = 0; t < sampleSteps; t++) {
@@ -408,10 +428,10 @@ export default function StringArt() {
             if (lineScore > maxLineScore) maxLineScore = lineScore;
           }
 
-          // Budget pressure: how urgently does this color need to be drawn?
-          const budgetPressure = colorRemaining[color.id] / (colorBudget[color.id] || 1);
-          // Weighted score: actual image demand × urgency
-          const weightedScore = maxLineScore * (0.7 + 0.3 * budgetPressure);
+          // Budget pressure: urgency of this color
+          const budget = color.id === blackColor.id ? blackBudget : (colorBudget[color.id] || 1);
+          const budgetPressure = remaining / budget;
+          const weightedScore = maxLineScore * (0.65 + 0.35 * budgetPressure);
 
           if (weightedScore > bestColorScore) {
             bestColorScore = weightedScore;
@@ -420,9 +440,12 @@ export default function StringArt() {
         }
 
         colorId = bestColorId || blackColor.id;
+        if (colorId === blackColor.id) {
+          colorRemaining[blackColor.id] = Math.max(0, colorRemaining[blackColor.id] - 1);
+        } else {
+          colorRemaining[colorId] = Math.max(0, (colorRemaining[colorId] || 0) - 1);
+        }
       }
-
-      colorRemaining[colorId] = (colorRemaining[colorId] || 0) - 1;
       
       let bestPin = -1;
       let bestScore = -Infinity;

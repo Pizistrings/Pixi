@@ -482,6 +482,7 @@ export default function StringArt() {
         step: paths.length
       });
       layerCounts[colorId] = (layerCounts[colorId] || 0) + 1;
+      // colorRemaining already decremented above
       
       // Subtract the drawn line from working data (sub-pixel accurate)
       const x1 = pins[currentPin].x;

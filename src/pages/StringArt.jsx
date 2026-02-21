@@ -28,7 +28,7 @@ export default function StringArt() {
   const [stringPaths, setStringPaths] = useState([]);
   const [colorLayers, setColorLayers] = useState([]);
   const [numPins, setNumPins] = useState(370);
-  const [numStrings, setNumStrings] = useState(4000);
+  const [numStrings, setNumStrings] = useState(9000);
   const [lineWidth, setLineWidth] = useState(0.5);
   const [lineOpacity, setLineOpacity] = useState(0.20);
   const [numColors, setNumColors] = useState(3);

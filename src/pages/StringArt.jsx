@@ -339,112 +339,27 @@ export default function StringArt() {
       });
     }
     
-    // --- IMAGE-AWARE COLOR BUDGET ---
-    // Measure total "demand" for each color by summing its working map
-    const colorDemand = {};
-    colors.forEach(color => {
-      let total = 0;
-      for (let i = 0; i < size * size; i++) total += workingData[color.id][i];
-      colorDemand[color.id] = total;
-    });
-
-    const totalDemand = Object.values(colorDemand).reduce((a, b) => a + b, 0) || 1;
-
-    // Reserve last 1000 strings for black (user requirement)
-    const finalBlackReserve = 1000;
-    const budgetableStrings = numStrings - finalBlackReserve;
-
-    // Black gets at least 25% of the budgetable portion (for structure/shadows)
-    const rawBlackRatio = colorDemand[blackColor.id] / totalDemand;
-    const blackRatio = Math.max(0.25, Math.min(0.45, rawBlackRatio));
-    const blackBudget = Math.round(blackRatio * budgetableStrings);
-
-    // Distribute remaining among non-black colors proportionally to their image demand
-    const colorBudget = {};
-    colorBudget[blackColor.id] = blackBudget + finalBlackReserve;
-    const nonBlackColors = colors.filter(c => c.id !== blackColor.id);
-    const nonBlackDemand = nonBlackColors.reduce((s, c) => s + colorDemand[c.id], 0) || 1;
-    const remainingStrings = budgetableStrings - blackBudget;
-    nonBlackColors.forEach(color => {
-      colorBudget[color.id] = Math.max(80, Math.round((colorDemand[color.id] / nonBlackDemand) * remainingStrings));
-    });
-
-    // Track how many strings each color has left
-    const colorRemaining = { ...colorBudget };
-    // Black remaining excludes the final reserve (managed separately)
-    colorRemaining[blackColor.id] = blackBudget;
-
-    // Max allowed line length to prevent rogue long diagonal streaks (80% of canvas diagonal)
-    const maxLineLen = size * 0.8 * Math.sqrt(2);
-
+    const minLinesPerColor = 100;
+    
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
-
-      // Last 1000: solid black finish
-      if (totalStringsDrawn >= numStrings - finalBlackReserve) {
+      
+      if (totalStringsDrawn < 1500) {
+        // 0-1500: Solid black
         colorId = blackColor.id;
-      }
-      // First 500: always black for structural foundation
-      else if (totalStringsDrawn < 500) {
-        colorId = blackColor.id;
-        colorRemaining[blackColor.id] = Math.max(0, colorRemaining[blackColor.id] - 1);
+      } else if (totalStringsDrawn < 7000) {
+        // 1500-7000: Alternate through colorOrder (100 lines each)
+        const adjustedPosition = (totalStringsDrawn - 1500) % (linesPerColor * colorOrder.length);
+        const colorIndex = Math.floor(adjustedPosition / linesPerColor);
+        colorId = colorOrder[colorIndex];
+      } else if (totalStringsDrawn < 8000) {
+        // 7000-8000: Alternate White and Black only (100 lines each)
+        const adjustedPosition = (totalStringsDrawn - 7000) % (linesPerColor * 2);
+        const colorIndex = Math.floor(adjustedPosition / linesPerColor);
+        colorId = colorIndex === 0 ? whiteColor.id : blackColor.id;
       } else {
-        // Pick color by best scoring line × budget pressure
-        let bestColorId = null;
-        let bestColorScore = -Infinity;
-
-        for (const color of colors) {
-          const remaining = color.id === blackColor.id
-            ? colorRemaining[blackColor.id]
-            : (colorRemaining[color.id] || 0);
-          if (remaining <= 0) continue;
-
-          // Sample candidate pins to estimate this color's current score potential
-          let maxLineScore = 0;
-          const sampleStep = Math.max(1, Math.floor(numPins / 24));
-          for (let nextPin = 0; nextPin < numPins; nextPin += sampleStep) {
-            if (nextPin === currentPin) continue;
-            const pinDist = Math.abs(nextPin - currentPin);
-            const wrappedDist = Math.min(pinDist, numPins - pinDist);
-            if (wrappedDist < minPinDistance) continue;
-
-            const x1 = pins[currentPin].x, y1 = pins[currentPin].y;
-            const x2 = pins[nextPin].x, y2 = pins[nextPin].y;
-            const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-
-            // Skip rogue long lines
-            if (dist > size * 0.55) continue;
-
-            const sampleSteps = Math.max(1, Math.ceil(dist / 4));
-            let lineScore = 0;
-            for (let t = 0; t < sampleSteps; t++) {
-              const fx = x1 + (x2 - x1) * t / sampleSteps;
-              const fy = y1 + (y2 - y1) * t / sampleSteps;
-              const xi = Math.min(Math.floor(fx), size - 1);
-              const yi = Math.min(Math.floor(fy), size - 1);
-              if (xi >= 0 && yi >= 0) lineScore += workingData[color.id][yi * size + xi];
-            }
-            lineScore /= sampleSteps;
-            if (lineScore > maxLineScore) maxLineScore = lineScore;
-          }
-
-          // Budget pressure: urgency of this color
-          const budget = color.id === blackColor.id ? blackBudget : (colorBudget[color.id] || 1);
-          const budgetPressure = remaining / budget;
-          const weightedScore = maxLineScore * (0.65 + 0.35 * budgetPressure);
-
-          if (weightedScore > bestColorScore) {
-            bestColorScore = weightedScore;
-            bestColorId = color.id;
-          }
-        }
-
-        colorId = bestColorId || blackColor.id;
-        if (colorId === blackColor.id) {
-          colorRemaining[blackColor.id] = Math.max(0, colorRemaining[blackColor.id] - 1);
-        } else {
-          colorRemaining[colorId] = Math.max(0, (colorRemaining[colorId] || 0) - 1);
-        }
+        // 8000-9000: Solid black
+        colorId = blackColor.id;
       }
       
       let bestPin = -1;
@@ -466,8 +381,6 @@ export default function StringArt() {
         const y2 = pins[nextPin].y;
         
         const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-        // Hard cap: skip lines longer than 55% of the canvas size to kill rogue streaks
-        if (dist > size * 0.55) continue;
         const steps = Math.ceil(dist);
         
         let score = 0;

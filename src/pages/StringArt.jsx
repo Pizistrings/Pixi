@@ -413,7 +413,7 @@ export default function StringArt() {
             const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
 
             // Skip rogue long lines
-            if (dist > maxLineLen) continue;
+            if (dist > size * 0.55) continue;
 
             const sampleSteps = Math.max(1, Math.ceil(dist / 4));
             let lineScore = 0;

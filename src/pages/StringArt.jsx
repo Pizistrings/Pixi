@@ -427,8 +427,8 @@ export default function StringArt() {
       const x2 = pins[bestPin].x;
       const y2 = pins[bestPin].y;
       const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-      const steps = Math.ceil(dist * 2);
-      const subtractAmount = 0.03; // gentler subtraction for finer detail
+      const steps = Math.ceil(dist);
+      const subtractAmount = 0.05;
       
       for (let t = 0; t < steps; t++) {
         const fx = x1 + (x2 - x1) * t / steps;

@@ -131,7 +131,7 @@ export default function StringArt() {
     
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    const size = 800; // High-res processing grid
+    const size = 400; // Processing grid (smaller = faster)
     canvas.width = size;
     canvas.height = size;
     

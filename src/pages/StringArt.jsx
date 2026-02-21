@@ -339,28 +339,90 @@ export default function StringArt() {
       });
     }
     
-    const minLinesPerColor = 100;
-    
+    // --- IMAGE-AWARE COLOR BUDGET ---
+    // Measure total "demand" for each color by summing its working map
+    const colorDemand = {};
+    colors.forEach(color => {
+      let total = 0;
+      for (let i = 0; i < size * size; i++) total += workingData[color.id][i];
+      colorDemand[color.id] = total;
+    });
+
+    const totalDemand = Object.values(colorDemand).reduce((a, b) => a + b, 0) || 1;
+
+    // Guarantee black at least 20% and at most 50% of total strings
+    const rawBlackRatio = colorDemand[blackColor.id] / totalDemand;
+    const blackRatio = Math.max(0.20, Math.min(0.50, rawBlackRatio));
+    const blackBudget = Math.round(blackRatio * numStrings);
+
+    // Distribute remaining strings among non-black colors proportionally
+    const colorBudget = {};
+    colorBudget[blackColor.id] = blackBudget;
+    const nonBlackColors = colors.filter(c => c.id !== blackColor.id);
+    const nonBlackDemand = nonBlackColors.reduce((s, c) => s + colorDemand[c.id], 0) || 1;
+    const remainingStrings = numStrings - blackBudget;
+    nonBlackColors.forEach(color => {
+      colorBudget[color.id] = Math.max(50, Math.round((colorDemand[color.id] / nonBlackDemand) * remainingStrings));
+    });
+
+    // Track how many strings each color has left
+    const colorRemaining = { ...colorBudget };
+
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
-      
-      if (totalStringsDrawn < 1500) {
-        // 0-1500: Solid black
+
+      // For the first 300 strings, always use black to establish structure
+      if (totalStringsDrawn < 300) {
         colorId = blackColor.id;
-      } else if (totalStringsDrawn < 7000) {
-        // 1500-7000: Alternate through colorOrder (100 lines each)
-        const adjustedPosition = (totalStringsDrawn - 1500) % (linesPerColor * colorOrder.length);
-        const colorIndex = Math.floor(adjustedPosition / linesPerColor);
-        colorId = colorOrder[colorIndex];
-      } else if (totalStringsDrawn < 8000) {
-        // 7000-8000: Alternate White and Black only (100 lines each)
-        const adjustedPosition = (totalStringsDrawn - 7000) % (linesPerColor * 2);
-        const colorIndex = Math.floor(adjustedPosition / linesPerColor);
-        colorId = colorIndex === 0 ? whiteColor.id : blackColor.id;
       } else {
-        // 8000-9000: Solid black
-        colorId = blackColor.id;
+        // Score each candidate color: pick the one whose best line scores highest
+        // weighted by how many strings it still needs to lay down (budget pressure)
+        let bestColorId = null;
+        let bestColorScore = -Infinity;
+
+        for (const color of colors) {
+          if ((colorRemaining[color.id] || 0) <= 0) continue;
+
+          // Sample a few candidate pins to estimate this color's current score potential
+          let maxLineScore = 0;
+          const sampleStep = Math.max(1, Math.floor(numPins / 20));
+          for (let nextPin = 0; nextPin < numPins; nextPin += sampleStep) {
+            if (nextPin === currentPin) continue;
+            const pinDist = Math.abs(nextPin - currentPin);
+            const wrappedDist = Math.min(pinDist, numPins - pinDist);
+            if (wrappedDist < minPinDistance) continue;
+
+            const x1 = pins[currentPin].x, y1 = pins[currentPin].y;
+            const x2 = pins[nextPin].x, y2 = pins[nextPin].y;
+            const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+            const sampleSteps = Math.max(1, Math.ceil(dist / 4));
+            let lineScore = 0;
+            for (let t = 0; t < sampleSteps; t++) {
+              const fx = x1 + (x2 - x1) * t / sampleSteps;
+              const fy = y1 + (y2 - y1) * t / sampleSteps;
+              const xi = Math.min(Math.floor(fx), size - 1);
+              const yi = Math.min(Math.floor(fy), size - 1);
+              if (xi >= 0 && yi >= 0) lineScore += workingData[color.id][yi * size + xi];
+            }
+            lineScore /= sampleSteps;
+            if (lineScore > maxLineScore) maxLineScore = lineScore;
+          }
+
+          // Budget pressure: how urgently does this color need to be drawn?
+          const budgetPressure = colorRemaining[color.id] / (colorBudget[color.id] || 1);
+          // Weighted score: actual image demand × urgency
+          const weightedScore = maxLineScore * (0.7 + 0.3 * budgetPressure);
+
+          if (weightedScore > bestColorScore) {
+            bestColorScore = weightedScore;
+            bestColorId = color.id;
+          }
+        }
+
+        colorId = bestColorId || blackColor.id;
       }
+
+      colorRemaining[colorId] = (colorRemaining[colorId] || 0) - 1;
       
       let bestPin = -1;
       let bestScore = -Infinity;

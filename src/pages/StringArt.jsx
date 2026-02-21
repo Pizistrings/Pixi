@@ -381,8 +381,7 @@ export default function StringArt() {
         const y2 = pins[nextPin].y;
         
         const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-        // Use 2x sub-pixel sampling for higher scoring accuracy
-        const steps = Math.ceil(dist * 2);
+        const steps = Math.ceil(dist);
         
         let score = 0;
         for (let t = 0; t < steps; t++) {

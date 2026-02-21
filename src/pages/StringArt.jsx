@@ -466,8 +466,8 @@ export default function StringArt() {
         const y2 = pins[nextPin].y;
         
         const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-        // Skip rogue very-long lines (> 80% of diagonal)
-        if (dist > size * 0.8 * Math.sqrt(2)) continue;
+        // Hard cap: skip lines longer than 55% of the canvas size to kill rogue streaks
+        if (dist > size * 0.55) continue;
         const steps = Math.ceil(dist);
         
         let score = 0;

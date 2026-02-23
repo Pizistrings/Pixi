@@ -131,7 +131,7 @@ export default function StringArt() {
     
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    const size = 400; // Processing grid (smaller = faster)
+    const size = 800; // High-res processing grid
     canvas.width = size;
     canvas.height = size;
     
@@ -381,7 +381,8 @@ export default function StringArt() {
         const y2 = pins[nextPin].y;
         
         const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-        const steps = Math.ceil(dist);
+        // Use 2x sub-pixel sampling for higher scoring accuracy
+        const steps = Math.ceil(dist * 2);
         
         let score = 0;
         for (let t = 0; t < steps; t++) {
@@ -427,8 +428,8 @@ export default function StringArt() {
       const x2 = pins[bestPin].x;
       const y2 = pins[bestPin].y;
       const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-      const steps = Math.ceil(dist);
-      const subtractAmount = 0.05;
+      const steps = Math.ceil(dist * 2);
+      const subtractAmount = 0.03; // gentler subtraction for finer detail
       
       for (let t = 0; t < steps; t++) {
         const fx = x1 + (x2 - x1) * t / steps;

@@ -346,23 +346,12 @@ export default function StringArt() {
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      if (totalStringsDrawn < 1500) {
-        // 0-1500: Solid black
-        colorId = blackColor.id;
-      } else if (totalStringsDrawn < 7000) {
-        // 1500-7000: Alternate through colorOrder (100 lines each)
-        const adjustedPosition = (totalStringsDrawn - 1500) % (linesPerColor * colorOrder.length);
-        const colorIndex = Math.floor(adjustedPosition / linesPerColor);
-        colorId = colorOrder[colorIndex];
-      } else if (totalStringsDrawn < 8000) {
-        // 7000-8000: Alternate White and Black only (100 lines each)
-        const adjustedPosition = (totalStringsDrawn - 7000) % (linesPerColor * 2);
-        const colorIndex = Math.floor(adjustedPosition / linesPerColor);
-        colorId = colorIndex === 0 ? whiteColor.id : blackColor.id;
-      } else {
-        // 8000-9000: Solid black
-        colorId = blackColor.id;
-      }
+      // Pure CMYK cycling: C → M → Y → K repeating throughout
+      // This matches the reference algorithm — all channels contribute equally
+      const cycleLength = linesPerColor * colorOrder.length;
+      const cyclePos = totalStringsDrawn % cycleLength;
+      const colorIndex = Math.floor(cyclePos / linesPerColor);
+      colorId = colorOrder[colorIndex];
       
       let bestPin = -1;
       let bestScore = -Infinity;

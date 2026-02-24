@@ -261,26 +261,19 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // STANDARD COLOR DISTRIBUTION
-    // Order: Yellow, Red, White, Black (100 lines each cycle)
-    // Find colors by ID, fallback to available colors if not found
+    // CMYK COLOR DISTRIBUTION
+    // True CMYK algorithm: Cyan, Magenta, Yellow, Black channels
     const findColorById = (id) => colors.find(c => c.id === id);
-    const yellowColor = findColorById('Y') || colors[0];
-    const redColor = findColorById('R') || colors[1] || colors[0];
-    const whiteColor = findColorById('W') || colors[2] || colors[1] || colors[0];
+    const cyanColor = findColorById('C') || colors[0];
+    const magentaColor = findColorById('M') || findColorById('R') || colors[1] || colors[0];
+    const yellowColor = findColorById('Y') || colors[2] || colors[0];
     const blackColor = findColorById('K') || colors[colors.length - 1];
-    const cyanColor = findColorById('C');
-    const blueColor = findColorById('B');
-    const greenColor = findColorById('G');
     
-    // Base order: Yellow, Red, [Cyan if present], [Blue if present], [Green if present], White, Black
+    // CMYK cycle order: C → M → Y → K (100 lines each)
     const colorOrder = [
+      cyanColor.id,
+      magentaColor.id,
       yellowColor.id,
-      redColor.id,
-      ...(cyanColor ? [cyanColor.id] : []),
-      ...(blueColor ? [blueColor.id] : []),
-      ...(greenColor ? [greenColor.id] : []),
-      whiteColor.id,
       blackColor.id,
     ];
     const linesPerColor = 100;

@@ -1533,8 +1533,8 @@ export default function StringArt() {
                           <Slider
                             value={[numStrings]}
                             onValueChange={([v]) => setNumStrings(v)}
-                            min={8000}
-                            max={15000}
+                            min={9000}
+                            max={20000}
                             step={500}
                             className="w-full"
                           />

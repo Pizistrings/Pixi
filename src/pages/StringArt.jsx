@@ -28,19 +28,19 @@ export default function StringArt() {
   const [stringPaths, setStringPaths] = useState([]);
   const [colorLayers, setColorLayers] = useState([]);
   const [numPins, setNumPins] = useState(370);
-  const [numStrings, setNumStrings] = useState(12000);
+  const [numStrings, setNumStrings] = useState(9000);
   const [lineWidth, setLineWidth] = useState(0.5);
   const [lineOpacity, setLineOpacity] = useState(0.20);
-  const [numColors, setNumColors] = useState(4);
+  const [numColors, setNumColors] = useState(3);
   const [selectedColors, setSelectedColors] = useState([
     { name: 'Yellow', hex: '#ffd60a', id: 'Y' },
     { name: 'Red', hex: '#dc2626', id: 'R' },
-    { name: 'White', hex: '#f5f5f5', id: 'W' },
+    { name: 'White', hex: '#ffffff', id: 'W' },
     { name: 'Black', hex: '#1a1a1a', id: 'K' },
     { name: 'Cyan', hex: '#00b4d8', id: 'C' },
     { name: 'Blue', hex: '#2563eb', id: 'B' },
     { name: 'Green', hex: '#16a34a', id: 'G' },
-    { name: 'Magenta', hex: '#d946ef', id: 'M' },
+    { name: 'Blue', hex: '#2563eb', id: 'B' },
     { name: 'Orange', hex: '#ea580c', id: 'O' },
     { name: 'Purple', hex: '#9333ea', id: 'P' },
     { name: 'Pink', hex: '#ec4899', id: 'PK' },
@@ -64,9 +64,9 @@ export default function StringArt() {
     { name: 'Turquoise', hex: '#06b6d4', id: 'TQ' }
   ]);
   const [colorDistribution, setColorDistribution] = useState({
+    C: 800,
+    M: 800,
     Y: 800,
-    R: 800,
-    W: 600,
     K: 1000
   });
   const [shape, setShape] = useState('circle'); // 'circle', 'square', 'rectangle'
@@ -131,7 +131,7 @@ export default function StringArt() {
     
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    const size = 800; // High-res processing grid
+    const size = 400;
     canvas.width = size;
     canvas.height = size;
     
@@ -261,18 +261,28 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // COLOR DISTRIBUTION: Yellow, Red, White, Black as core; Cyan, Blue, Green as optional
+    // STANDARD COLOR DISTRIBUTION
+    // Order: Yellow, Red, White, Black (100 lines each cycle)
+    // Find colors by ID, fallback to available colors if not found
     const findColorById = (id) => colors.find(c => c.id === id);
     const yellowColor = findColorById('Y') || colors[0];
     const redColor = findColorById('R') || colors[1] || colors[0];
-    const whiteColor = findColorById('W') || colors[2] || colors[0];
+    const whiteColor = findColorById('W') || colors[2] || colors[1] || colors[0];
     const blackColor = findColorById('K') || colors[colors.length - 1];
+    const cyanColor = findColorById('C');
+    const blueColor = findColorById('B');
+    const greenColor = findColorById('G');
     
-    // Build cycle order: always include Y, R, W, K; add optional colors if present in active colors
-    const coreOrder = [yellowColor.id, redColor.id, whiteColor.id, blackColor.id];
-    const optionalIds = ['C', 'B', 'G'];
-    const optionalOrder = optionalIds.filter(id => colors.some(c => c.id === id));
-    const colorOrder = [...coreOrder, ...optionalOrder];
+    // Base order: Yellow, Red, [Cyan if present], [Blue if present], [Green if present], White, Black
+    const colorOrder = [
+      yellowColor.id,
+      redColor.id,
+      ...(cyanColor ? [cyanColor.id] : []),
+      ...(blueColor ? [blueColor.id] : []),
+      ...(greenColor ? [greenColor.id] : []),
+      whiteColor.id,
+      blackColor.id,
+    ];
     const linesPerColor = 100;
     
     // Initialize working data for each color
@@ -281,31 +291,50 @@ export default function StringArt() {
       workingData[color.id] = new Float32Array(size * size);
     });
     
-    // Build per-color working maps using color-distance scoring.
-    // Special cases:
-    //   Black (K): uses inverse luminance — draws where image is dark
-    //   White (W): uses luminance — draws where image is bright/light
-    //   Others: proximity to target color in RGB space
+    // Generate separation maps with luminance-aware logic
     for (let i = 0; i < size * size; i++) {
-      const r = imageData.data[i * 4] / 255;
-      const g = imageData.data[i * 4 + 1] / 255;
-      const b = imageData.data[i * 4 + 2] / 255;
-      const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+      const r = imageData.data[i * 4];
+      const g = imageData.data[i * 4 + 1];
+      const b = imageData.data[i * 4 + 2];
+      
+      // Calculate luminance
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
       
       colors.forEach(color => {
         if (color.id === 'K') {
-          // Black: draw in dark areas
+          // Black always available based on inverse luminance
           workingData[color.id][i] = 1 - luminance;
-        } else if (color.id === 'W') {
-          // White: draw in bright/light areas (highlights)
-          workingData[color.id][i] = luminance;
         } else {
-          // All other colors: use color distance
-          const targetR = parseInt(color.hex.slice(1, 3), 16) / 255;
-          const targetG = parseInt(color.hex.slice(3, 5), 16) / 255;
-          const targetB = parseInt(color.hex.slice(5, 7), 16) / 255;
-          const dist = Math.sqrt((r - targetR) ** 2 + (g - targetG) ** 2 + (b - targetB) ** 2);
-          workingData[color.id][i] = Math.max(0, 1 - dist / 1.732);
+          // Calculate color confidence
+          const targetR = parseInt(color.hex.slice(1, 3), 16);
+          const targetG = parseInt(color.hex.slice(3, 5), 16);
+          const targetB = parseInt(color.hex.slice(5, 7), 16);
+          
+          const distance = Math.sqrt(
+            Math.pow(r - targetR, 2) +
+            Math.pow(g - targetG, 2) +
+            Math.pow(b - targetB, 2)
+          );
+          
+          const confidence = Math.max(0, 1 - distance / 441);
+          
+          // Apply color confidence zones with luminance logic
+          if (luminance < 0.25) {
+            // Too dark - black only
+            workingData[color.id][i] = 0;
+          } else if (confidence > 0.55 && luminance > 0.35) {
+            // High confidence + good luminance - full color
+            workingData[color.id][i] = confidence;
+          } else if (confidence > 0.30 && luminance > 0.35) {
+            // Mid confidence - soft color
+            workingData[color.id][i] = confidence * 0.6;
+          } else if (confidence < 0.15) {
+            // Hard block - color forbidden
+            workingData[color.id][i] = 0;
+          } else {
+            // Low confidence - black preferred
+            workingData[color.id][i] = confidence * 0.3;
+          }
         }
       });
     }
@@ -315,12 +344,23 @@ export default function StringArt() {
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      // Pure CMYK cycling: C → M → Y → K repeating throughout
-      // This matches the reference algorithm — all channels contribute equally
-      const cycleLength = linesPerColor * colorOrder.length;
-      const cyclePos = totalStringsDrawn % cycleLength;
-      const colorIndex = Math.floor(cyclePos / linesPerColor);
-      colorId = colorOrder[colorIndex];
+      if (totalStringsDrawn < 1500) {
+        // 0-1500: Solid black
+        colorId = blackColor.id;
+      } else if (totalStringsDrawn < 7000) {
+        // 1500-7000: Alternate through colorOrder (100 lines each)
+        const adjustedPosition = (totalStringsDrawn - 1500) % (linesPerColor * colorOrder.length);
+        const colorIndex = Math.floor(adjustedPosition / linesPerColor);
+        colorId = colorOrder[colorIndex];
+      } else if (totalStringsDrawn < 8000) {
+        // 7000-8000: Alternate White and Black only (100 lines each)
+        const adjustedPosition = (totalStringsDrawn - 7000) % (linesPerColor * 2);
+        const colorIndex = Math.floor(adjustedPosition / linesPerColor);
+        colorId = colorIndex === 0 ? whiteColor.id : blackColor.id;
+      } else {
+        // 8000-9000: Solid black
+        colorId = blackColor.id;
+      }
       
       let bestPin = -1;
       let bestScore = -Infinity;
@@ -341,26 +381,14 @@ export default function StringArt() {
         const y2 = pins[nextPin].y;
         
         const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-        // Use 2x sub-pixel sampling for higher scoring accuracy
-        const steps = Math.ceil(dist * 2);
+        const steps = Math.ceil(dist);
         
         let score = 0;
         for (let t = 0; t < steps; t++) {
-          const fx = x1 + (x2 - x1) * t / steps;
-          const fy = y1 + (y2 - y1) * t / steps;
-          // Bilinear interpolation for smooth scoring
-          const xi = Math.floor(fx);
-          const yi = Math.floor(fy);
-          const xf = fx - xi;
-          const yf = fy - yi;
-          const xi1 = Math.min(xi + 1, size - 1);
-          const yi1 = Math.min(yi + 1, size - 1);
-          if (xi >= 0 && xi < size && yi >= 0 && yi < size) {
-            const v00 = workingData[colorId][yi * size + xi];
-            const v10 = workingData[colorId][yi * size + xi1];
-            const v01 = workingData[colorId][yi1 * size + xi];
-            const v11 = workingData[colorId][yi1 * size + xi1];
-            score += v00 * (1 - xf) * (1 - yf) + v10 * xf * (1 - yf) + v01 * (1 - xf) * yf + v11 * xf * yf;
+          const x = Math.floor(x1 + (x2 - x1) * t / steps);
+          const y = Math.floor(y1 + (y2 - y1) * t / steps);
+          if (x >= 0 && x < size && y >= 0 && y < size) {
+            score += workingData[colorId][y * size + x];
           }
         }
         score /= steps;
@@ -382,29 +410,19 @@ export default function StringArt() {
       });
       layerCounts[colorId] = (layerCounts[colorId] || 0) + 1;
       
-      // Subtract the drawn line from working data (sub-pixel accurate)
+      // Subtract the drawn line from working data
       const x1 = pins[currentPin].x;
       const y1 = pins[currentPin].y;
       const x2 = pins[bestPin].x;
       const y2 = pins[bestPin].y;
       const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-      const steps = Math.ceil(dist * 2);
-      const subtractAmount = 0.03; // gentler subtraction for finer detail
+      const steps = Math.ceil(dist);
       
       for (let t = 0; t < steps; t++) {
-        const fx = x1 + (x2 - x1) * t / steps;
-        const fy = y1 + (y2 - y1) * t / steps;
-        const xi = Math.floor(fx);
-        const yi = Math.floor(fy);
-        const xf = fx - xi;
-        const yf = fy - yi;
-        const xi1 = Math.min(xi + 1, size - 1);
-        const yi1 = Math.min(yi + 1, size - 1);
-        if (xi >= 0 && xi < size && yi >= 0 && yi < size) {
-          workingData[colorId][yi * size + xi] = Math.max(0, workingData[colorId][yi * size + xi] - subtractAmount * (1 - xf) * (1 - yf));
-          workingData[colorId][yi * size + xi1] = Math.max(0, workingData[colorId][yi * size + xi1] - subtractAmount * xf * (1 - yf));
-          workingData[colorId][yi1 * size + xi] = Math.max(0, workingData[colorId][yi1 * size + xi] - subtractAmount * (1 - xf) * yf);
-          workingData[colorId][yi1 * size + xi1] = Math.max(0, workingData[colorId][yi1 * size + xi1] - subtractAmount * xf * yf);
+        const x = Math.floor(x1 + (x2 - x1) * t / steps);
+        const y = Math.floor(y1 + (y2 - y1) * t / steps);
+        if (x >= 0 && x < size && y >= 0 && y < size) {
+          workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
         }
       }
       
@@ -1502,8 +1520,8 @@ export default function StringArt() {
                           <Slider
                             value={[numStrings]}
                             onValueChange={([v]) => setNumStrings(v)}
-                            min={9000}
-                            max={20000}
+                            min={8000}
+                            max={15000}
                             step={500}
                             className="w-full"
                           />

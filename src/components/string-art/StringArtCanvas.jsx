@@ -16,7 +16,7 @@ const StringArtCanvas = forwardRef(({
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [pins, setPins] = useState([]);
-  const [size, setSize] = useState(1000); // High-DPI canvas resolution
+  const [size, setSize] = useState(500);
 
   useImperativeHandle(ref, () => canvasRef.current);
 
@@ -84,90 +84,83 @@ const StringArtCanvas = forwardRef(({
     setPins(newPins);
   }, [numPins, size, shape]);
 
-  // Draw string art (high quality)
+  // Draw string art
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || pins.length === 0) return;
 
-    const ctx = canvas.getContext('2d', { alpha: false });
-
-    // Enable best quality rendering
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-
-    // White background
-    ctx.fillStyle = '#ffffff';
+    const ctx = canvas.getContext('2d');
+    
+    // Clear and set background
+    ctx.fillStyle = '#fafafa';
     ctx.fillRect(0, 0, size, size);
 
+    // Draw frame border (subtle)
+    ctx.strokeStyle = '#e5e5e5';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
     const centerX = size / 2;
     const centerY = size / 2;
-
-    // Draw subtle frame border
-    ctx.save();
-    ctx.strokeStyle = 'rgba(0,0,0,0.12)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
+    
     if (shape === 'circle') {
-      const radius = (size / 2) - 14;
+      const radius = (size / 2) - 10;
       ctx.arc(centerX, centerY, radius + 5, 0, 2 * Math.PI);
     } else if (shape === 'square') {
-      ctx.rect(14, 14, size - 28, size - 28);
+      const sideLength = size - 20;
+      ctx.rect(10, 10, sideLength + 10, sideLength + 10);
     } else if (shape === 'rectangle') {
-      const h = (size * 0.7);
-      const oY = (size - h) / 2;
-      ctx.rect(14, oY, size - 28, h);
+      const width = size - 20;
+      const height = (size * 0.7);
+      const offsetY = (size - height) / 2;
+      ctx.rect(10, offsetY, width + 10, height + 10);
     }
     ctx.stroke();
-    ctx.restore();
 
-    // Draw pins
-    ctx.save();
+    // Draw pins as small dots with numbers
+    ctx.fillStyle = '#d4d4d4';
     pins.forEach(pin => {
-      ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.beginPath();
-      ctx.arc(pin.x, pin.y, 1.8, 0, 2 * Math.PI);
+      ctx.arc(pin.x, pin.y, 2, 0, 2 * Math.PI);
       ctx.fill();
     });
-    ctx.restore();
 
-    // Draw pin numbers (scaled for high-res canvas)
-    ctx.save();
-    ctx.font = `${Math.round(size / 80)}px system-ui, sans-serif`;
-    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    // Draw pin numbers outside the frame
+    ctx.font = '9px system-ui, sans-serif';
+    ctx.fillStyle = '#999';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    
     pins.forEach(pin => {
+      // Calculate offset direction (outward from center)
       const dx = pin.x - centerX;
       const dy = pin.y - centerY;
       const dist = Math.sqrt(dx * dx + dy * dy);
+      
       if (dist > 0) {
-        const off = size / 50;
-        ctx.fillText(pin.index.toString(), pin.x + (dx / dist) * off, pin.y + (dy / dist) * off);
+        // Place number 12 pixels outside the pin
+        const offsetX = (dx / dist) * 12;
+        const offsetY = (dy / dist) * 12;
+        ctx.fillText(pin.index.toString(), pin.x + offsetX, pin.y + offsetY);
       }
     });
-    ctx.restore();
 
-    // Build color map with hex -> rgba
+    // Create color map
     const colorMap = {};
     colors.forEach(c => {
       colorMap[c.id] = c.hex;
     });
 
-    // Draw all strings with high-quality compositing
-    ctx.save();
+    // Draw strings up to current step
     ctx.lineWidth = lineWidth;
-    ctx.lineCap = 'round';
-
-    // Multiply blend mode works great on white background — colors darken naturally
-    ctx.globalCompositeOperation = 'multiply';
     ctx.globalAlpha = lineOpacity;
 
     for (let i = 0; i < currentStep && i < stringPaths.length; i++) {
       const path = stringPaths[i];
       const fromPin = pins[path.from];
       const toPin = pins[path.to];
+
       if (fromPin && toPin) {
-        ctx.strokeStyle = colorMap[path.color] || '#000000';
+        ctx.strokeStyle = colorMap[path.color] || '#1a1a1a';
         ctx.beginPath();
         ctx.moveTo(fromPin.x, fromPin.y);
         ctx.lineTo(toPin.x, toPin.y);
@@ -175,47 +168,66 @@ const StringArtCanvas = forwardRef(({
       }
     }
 
-    ctx.restore();
+    ctx.globalAlpha = 1;
 
-    // Highlight current string
+    // Draw current string being added (highlighted)
     if (currentStep > 0 && currentStep <= stringPaths.length) {
       const currentPath = stringPaths[currentStep - 1];
       const fromPin = pins[currentPath?.from];
       const toPin = pins[currentPath?.to];
+
       if (fromPin && toPin) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.strokeStyle = '#ff4400';
-        ctx.lineWidth = lineWidth * 2;
-        ctx.lineCap = 'round';
-        ctx.globalAlpha = 0.85;
-        ctx.shadowColor = '#ff4400';
-        ctx.shadowBlur = 6;
+        ctx.strokeStyle = '#ff6b35';
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.8;
         ctx.beginPath();
         ctx.moveTo(fromPin.x, fromPin.y);
         ctx.lineTo(toPin.x, toPin.y);
         ctx.stroke();
-        // Endpoint dot
-        ctx.fillStyle = '#ff4400';
+        ctx.globalAlpha = 1;
+
+        // Draw indicator arrow
+        const midX = (fromPin.x + toPin.x) / 2;
+        const midY = (fromPin.y + toPin.y) / 2;
+        ctx.fillStyle = '#ff6b35';
         ctx.beginPath();
-        ctx.arc(toPin.x, toPin.y, lineWidth * 3, 0, 2 * Math.PI);
+        ctx.arc(toPin.x, toPin.y, 4, 0, 2 * Math.PI);
         ctx.fill();
-        ctx.restore();
       }
     }
   }, [stringPaths, currentStep, pins, colors, size, lineWidth, lineOpacity, shape]);
 
   return (
     <div ref={containerRef} className="relative aspect-square w-full max-w-[500px] mx-auto">
-      {/* White background */}
-      <div className="absolute inset-0 rounded-lg bg-white" />
+      {/* Background pattern */}
+      <div 
+        className="absolute inset-0 rounded-lg"
+        style={{
+          background: `
+            repeating-linear-gradient(
+              0deg,
+              transparent,
+              transparent 10px,
+              rgba(0,0,0,0.02) 10px,
+              rgba(0,0,0,0.02) 11px
+            ),
+            repeating-linear-gradient(
+              90deg,
+              transparent,
+              transparent 10px,
+              rgba(0,0,0,0.02) 10px,
+              rgba(0,0,0,0.02) 11px
+            )
+          `
+        }}
+      />
       
       <canvas
         ref={canvasRef}
         width={size}
         height={size}
-        className="w-full h-full rounded-lg relative z-10"
-        style={{ background: '#ffffff' }}
+        className="w-full h-full rounded-lg shadow-inner relative z-10"
+        style={{ background: '#fafafa' }}
       />
 
       {/* Processing overlay */}

@@ -291,50 +291,59 @@ export default function StringArt() {
       workingData[color.id] = new Float32Array(size * size);
     });
     
-    // Generate separation maps with luminance-aware logic
+    // CMYK decomposition: derive true CMYK channels from RGB
+    // This mirrors the algorithm in the reference images
+    const cmykData = {
+      C: new Float32Array(size * size),
+      M: new Float32Array(size * size),
+      Y: new Float32Array(size * size),
+      K: new Float32Array(size * size),
+    };
+    
     for (let i = 0; i < size * size; i++) {
-      const r = imageData.data[i * 4];
-      const g = imageData.data[i * 4 + 1];
-      const b = imageData.data[i * 4 + 2];
+      const r = imageData.data[i * 4] / 255;
+      const g = imageData.data[i * 4 + 1] / 255;
+      const b = imageData.data[i * 4 + 2] / 255;
       
-      // Calculate luminance
-      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      // Standard RGB → CMYK conversion
+      const k = 1 - Math.max(r, g, b);
+      const denom = 1 - k;
+      const c = denom < 1e-6 ? 0 : (1 - r - k) / denom;
+      const m = denom < 1e-6 ? 0 : (1 - g - k) / denom;
+      const y = denom < 1e-6 ? 0 : (1 - b - k) / denom;
+      
+      cmykData.C[i] = Math.max(0, Math.min(1, c));
+      cmykData.M[i] = Math.max(0, Math.min(1, m));
+      cmykData.Y[i] = Math.max(0, Math.min(1, y));
+      cmykData.K[i] = Math.max(0, Math.min(1, k));
+    }
+    
+    // Map each color id to its CMYK channel
+    const channelMap = {
+      'C': cmykData.C,
+      'M': cmykData.M,
+      'Y': cmykData.Y,
+      'K': cmykData.K,
+      // For non-CMYK colors, fall back to color distance
+    };
+    
+    // Build working data: CMYK colors use channel maps, others use color distance
+    for (let i = 0; i < size * size; i++) {
+      const r = imageData.data[i * 4] / 255;
+      const g = imageData.data[i * 4 + 1] / 255;
+      const b = imageData.data[i * 4 + 2] / 255;
       
       colors.forEach(color => {
-        if (color.id === 'K') {
-          // Black always available based on inverse luminance
-          workingData[color.id][i] = 1 - luminance;
+        if (channelMap[color.id]) {
+          // Direct CMYK channel
+          workingData[color.id][i] = channelMap[color.id][i];
         } else {
-          // Calculate color confidence
-          const targetR = parseInt(color.hex.slice(1, 3), 16);
-          const targetG = parseInt(color.hex.slice(3, 5), 16);
-          const targetB = parseInt(color.hex.slice(5, 7), 16);
-          
-          const distance = Math.sqrt(
-            Math.pow(r - targetR, 2) +
-            Math.pow(g - targetG, 2) +
-            Math.pow(b - targetB, 2)
-          );
-          
-          const confidence = Math.max(0, 1 - distance / 441);
-          
-          // Apply color confidence zones with luminance logic
-          if (luminance < 0.25) {
-            // Too dark - black only
-            workingData[color.id][i] = 0;
-          } else if (confidence > 0.55 && luminance > 0.35) {
-            // High confidence + good luminance - full color
-            workingData[color.id][i] = confidence;
-          } else if (confidence > 0.30 && luminance > 0.35) {
-            // Mid confidence - soft color
-            workingData[color.id][i] = confidence * 0.6;
-          } else if (confidence < 0.15) {
-            // Hard block - color forbidden
-            workingData[color.id][i] = 0;
-          } else {
-            // Low confidence - black preferred
-            workingData[color.id][i] = confidence * 0.3;
-          }
+          // For extra colors: use color distance from normalized rgb
+          const targetR = parseInt(color.hex.slice(1, 3), 16) / 255;
+          const targetG = parseInt(color.hex.slice(3, 5), 16) / 255;
+          const targetB = parseInt(color.hex.slice(5, 7), 16) / 255;
+          const dist = Math.sqrt((r-targetR)**2 + (g-targetG)**2 + (b-targetB)**2);
+          workingData[color.id][i] = Math.max(0, 1 - dist / 1.732);
         }
       });
     }

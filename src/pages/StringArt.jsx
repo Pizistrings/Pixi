@@ -341,24 +341,32 @@ export default function StringArt() {
     
     const minLinesPerColor = 100;
     
+    // Color distribution strategy:
+    // Phase 1 (0–500):        Pure black — structural foundation lines
+    // Phase 2 (500–colorEnd): Cycle through all colors, 100 lines each, repeated
+    // Phase 3 (colorEnd–transition): White + Yellow alternating (highlight/glow)
+    // Phase 4 (transition–end): Pure black — shadows, depth, detail (~8-9k lines)
+    const colorPhaseEnd = Math.min(numStrings - 8500, Math.floor(numStrings * 0.15));
+    const whitePhaseEnd = colorPhaseEnd + 500;
+    
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      if (totalStringsDrawn < 1500) {
-        // 0-1500: Solid black
+      if (totalStringsDrawn < 500) {
+        // Phase 1: Pure black foundation
         colorId = blackColor.id;
-      } else if (totalStringsDrawn < 7000) {
-        // 1500-7000: Alternate through colorOrder (100 lines each)
-        const adjustedPosition = (totalStringsDrawn - 1500) % (linesPerColor * colorOrder.length);
+      } else if (totalStringsDrawn < colorPhaseEnd) {
+        // Phase 2: Cycle all colors 100 lines each — vivid color build-up
+        const adjustedPosition = (totalStringsDrawn - 500) % (linesPerColor * colorOrder.length);
         const colorIndex = Math.floor(adjustedPosition / linesPerColor);
-        colorId = colorOrder[colorIndex];
-      } else if (totalStringsDrawn < 8000) {
-        // 7000-8000: Alternate White and Black only (100 lines each)
-        const adjustedPosition = (totalStringsDrawn - 7000) % (linesPerColor * 2);
+        colorId = colorOrder[colorIndex % colorOrder.length];
+      } else if (totalStringsDrawn < whitePhaseEnd) {
+        // Phase 3: White + Yellow alternating highlight (500 lines) — brightens color zones
+        const adjustedPosition = (totalStringsDrawn - colorPhaseEnd) % (linesPerColor * 2);
         const colorIndex = Math.floor(adjustedPosition / linesPerColor);
-        colorId = colorIndex === 0 ? whiteColor.id : blackColor.id;
+        colorId = colorIndex === 0 ? whiteColor.id : yellowColor.id;
       } else {
-        // 8000-9000: Solid black
+        // Phase 4: Solid black — deep shadows and fine detail (~8500+ lines)
         colorId = blackColor.id;
       }
       

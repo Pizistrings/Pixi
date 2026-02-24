@@ -31,7 +31,7 @@ export default function StringArt() {
   const [numStrings, setNumStrings] = useState(12000);
   const [lineWidth, setLineWidth] = useState(0.5);
   const [lineOpacity, setLineOpacity] = useState(0.20);
-  const [numColors, setNumColors] = useState(3);
+  const [numColors, setNumColors] = useState(4);
   const [selectedColors, setSelectedColors] = useState([
     { name: 'Cyan', hex: '#00b4d8', id: 'C' },
     { name: 'Magenta', hex: '#d946ef', id: 'M' },

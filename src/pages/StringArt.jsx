@@ -318,22 +318,22 @@ export default function StringArt() {
           
           const confidence = Math.max(0, 1 - distance / 441);
           
-          // Apply color confidence zones with luminance logic
-          if (luminance < 0.25) {
-            // Too dark - black only
+          // Apply color confidence zones with enhanced vibrancy
+          if (luminance < 0.15) {
+            // Very dark - black only
             workingData[color.id][i] = 0;
-          } else if (confidence > 0.55 && luminance > 0.35) {
-            // High confidence + good luminance - full color
-            workingData[color.id][i] = confidence;
-          } else if (confidence > 0.30 && luminance > 0.35) {
-            // Mid confidence - soft color
-            workingData[color.id][i] = confidence * 0.6;
-          } else if (confidence < 0.15) {
+          } else if (confidence > 0.45 && luminance > 0.25) {
+            // High confidence + decent luminance - boosted vibrant color
+            workingData[color.id][i] = Math.min(1, confidence * 1.3);
+          } else if (confidence > 0.20 && luminance > 0.25) {
+            // Mid confidence - enhanced soft color
+            workingData[color.id][i] = confidence * 0.9;
+          } else if (confidence < 0.10) {
             // Hard block - color forbidden
             workingData[color.id][i] = 0;
           } else {
-            // Low confidence - black preferred
-            workingData[color.id][i] = confidence * 0.3;
+            // Low confidence - slight color allowed
+            workingData[color.id][i] = confidence * 0.5;
           }
         }
       });

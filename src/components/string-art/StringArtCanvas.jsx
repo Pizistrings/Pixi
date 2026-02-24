@@ -16,7 +16,7 @@ const StringArtCanvas = forwardRef(({
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [pins, setPins] = useState([]);
-  const [size, setSize] = useState(500);
+  const [size, setSize] = useState(2500);
 
   useImperativeHandle(ref, () => canvasRef.current);
 

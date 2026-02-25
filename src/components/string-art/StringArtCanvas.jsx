@@ -150,9 +150,9 @@ const StringArtCanvas = forwardRef(({
       colorMap[c.id] = c.hex;
     });
 
-    // Draw strings up to current step with enhanced blending
+    // Draw strings up to current step
     ctx.lineWidth = lineWidth;
-    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = lineOpacity;
 
     for (let i = 0; i < currentStep && i < stringPaths.length; i++) {
       const path = stringPaths[i];
@@ -160,12 +160,7 @@ const StringArtCanvas = forwardRef(({
       const toPin = pins[path.to];
 
       if (fromPin && toPin) {
-        const hexColor = colorMap[path.color] || '#1a1a1a';
-        // Convert hex to rgba for better blending
-        const r = parseInt(hexColor.slice(1, 3), 16);
-        const g = parseInt(hexColor.slice(3, 5), 16);
-        const b = parseInt(hexColor.slice(5, 7), 16);
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${lineOpacity})`;
+        ctx.strokeStyle = colorMap[path.color] || '#1a1a1a';
         ctx.beginPath();
         ctx.moveTo(fromPin.x, fromPin.y);
         ctx.lineTo(toPin.x, toPin.y);
@@ -173,7 +168,6 @@ const StringArtCanvas = forwardRef(({
       }
     }
 
-    ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
 
     // Draw current string being added (highlighted)

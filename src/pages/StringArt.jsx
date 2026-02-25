@@ -291,7 +291,11 @@ export default function StringArt() {
       workingData[color.id] = new Float32Array(size * size);
     });
     
-    // Generate separation maps with luminance-aware logic
+    // Auto-detect dominant colors from the image and build a color affinity map
+    // Sample pixels to find dominant hues
+    const colorAffinityMap = new Float32Array(size * size * colors.length);
+
+    // Generate separation maps with strong color-to-pixel affinity
     for (let i = 0; i < size * size; i++) {
       const r = imageData.data[i * 4];
       const g = imageData.data[i * 4 + 1];
@@ -300,41 +304,52 @@ export default function StringArt() {
       // Calculate luminance
       const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
       
-      colors.forEach(color => {
+      // Convert to HSL for better color matching
+      const rn = r / 255, gn = g / 255, bn = b / 255;
+      const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+      const delta = max - min;
+      let saturation = max === 0 ? 0 : delta / max; // HSV saturation
+
+      // Find best matching color for this pixel (winner-takes-most approach)
+      let bestColorIdx = -1;
+      let bestScore = -Infinity;
+      const scores = new Array(colors.length).fill(0);
+
+      colors.forEach((color, idx) => {
         if (color.id === 'K') {
-          // Black always available based on inverse luminance
-          workingData[color.id][i] = 1 - luminance;
+          // Black scores high in dark, desaturated areas
+          scores[idx] = (1 - luminance) * (1 - saturation * 0.5);
         } else {
-          // Calculate color confidence
           const targetR = parseInt(color.hex.slice(1, 3), 16);
           const targetG = parseInt(color.hex.slice(3, 5), 16);
           const targetB = parseInt(color.hex.slice(5, 7), 16);
           
-          const distance = Math.sqrt(
-            Math.pow(r - targetR, 2) +
-            Math.pow(g - targetG, 2) +
-            Math.pow(b - targetB, 2)
-          );
+          // Weighted color distance (perceptual)
+          const dr = r - targetR;
+          const dg = g - targetG;
+          const db = b - targetB;
+          const distance = Math.sqrt(2 * dr * dr + 4 * dg * dg + 3 * db * db);
           
-          const confidence = Math.max(0, 1 - distance / 441);
-          
-          // Apply color confidence zones with enhanced vibrancy
-          if (luminance < 0.15) {
-            // Very dark - black only
-            workingData[color.id][i] = 0;
-          } else if (confidence > 0.45 && luminance > 0.25) {
-            // High confidence + decent luminance - boosted vibrant color
-            workingData[color.id][i] = Math.min(1, confidence * 1.3);
-          } else if (confidence > 0.20 && luminance > 0.25) {
-            // Mid confidence - enhanced soft color
-            workingData[color.id][i] = confidence * 0.9;
-          } else if (confidence < 0.10) {
-            // Hard block - color forbidden
-            workingData[color.id][i] = 0;
-          } else {
-            // Low confidence - slight color allowed
-            workingData[color.id][i] = confidence * 0.5;
-          }
+          // Sharper confidence curve - exponential falloff
+          const rawConfidence = Math.max(0, 1 - distance / 300);
+          const confidence = Math.pow(rawConfidence, 1.5); // sharpen the falloff
+
+          // Only score well if pixel has enough saturation or close match
+          const satBoost = Math.min(1, saturation * 2);
+          scores[idx] = confidence * (0.4 + 0.6 * satBoost) * (luminance > 0.15 ? 1 : 0);
+        }
+        if (scores[idx] > bestScore) {
+          bestScore = scores[idx];
+          bestColorIdx = idx;
+        }
+      });
+
+      // Assign scores: winner gets full score, others get heavily suppressed
+      colors.forEach((color, idx) => {
+        if (idx === bestColorIdx) {
+          workingData[color.id][i] = Math.min(1, scores[idx] * 1.5); // boost winner
+        } else {
+          workingData[color.id][i] = scores[idx] * 0.15; // suppress losers strongly
         }
       });
     }

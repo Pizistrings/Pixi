@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, Image as ImageIcon, X } from 'lucide-react';
+import { Upload, Image as ImageIcon, X, Crop } from 'lucide-react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import ImageCropper from './ImageCropper';
 
 export default function ImageUploader({ onUpload }) {
   const [isDragging, setIsDragging] = useState(false);

@@ -1,17 +1,50 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Crop, RotateCcw, Check } from 'lucide-react';
+import { RotateCcw, Check } from 'lucide-react';
+
+const SHAPES = [
+  { id: 'circle', label: 'Circle', icon: '⬤' },
+  { id: 'square', label: 'Square', icon: '■' },
+  { id: 'landscape', label: 'Landscape', icon: '▬' },
+  { id: 'portrait', label: 'Portrait', icon: '▮' },
+];
+
+// Aspect ratios for locked shapes
+const ASPECT = {
+  circle: 1,
+  square: 1,
+  landscape: 3 / 2,
+  portrait: 2 / 3,
+};
 
 export default function ImageCropper({ imageSrc, onCrop, onCancel }) {
-  const canvasRef = useRef(null);
   const imgRef = useRef(null);
   const containerRef = useRef(null);
 
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [shape, setShape] = useState('circle');
   const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(null); // 'nw','ne','sw','se'
+  const [isResizing, setIsResizing] = useState(null);
   const [dragStart, setDragStart] = useState(null);
-  const [crop, setCrop] = useState({ x: 10, y: 10, w: 80, h: 80 }); // % values
+  const [crop, setCrop] = useState({ x: 10, y: 10, w: 80, h: 80 });
+
+  // When shape changes, recalculate height to match aspect ratio
+  useEffect(() => {
+    setCrop(prev => {
+      const ratio = ASPECT[shape];
+      const containerEl = containerRef.current;
+      if (!containerEl) return prev;
+      const containerW = containerEl.offsetWidth;
+      const containerH = containerEl.offsetHeight;
+      if (!containerH) return prev;
+      // convert % width to pixels, compute height in %
+      const wPx = (prev.w / 100) * containerW;
+      const hPx = wPx / ratio;
+      const h = (hPx / containerH) * 100;
+      const y = Math.max(0, Math.min(prev.y, 100 - h));
+      return { ...prev, h, y };
+    });
+  }, [shape]);
 
   const getEventPos = (e, container) => {
     const rect = container.getBoundingClientRect();
@@ -25,6 +58,16 @@ export default function ImageCropper({ imageSrc, onCrop, onCancel }) {
 
   const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
 
+  const applyAspect = useCallback((next, containerEl) => {
+    const ratio = ASPECT[shape];
+    const containerW = containerEl.offsetWidth;
+    const containerH = containerEl.offsetHeight;
+    const wPx = (next.w / 100) * containerW;
+    const hPx = wPx / ratio;
+    const h = clamp((hPx / containerH) * 100, 5, 100 - next.y);
+    return { ...next, h };
+  }, [shape]);
+
   const handleMouseDown = useCallback((e, type) => {
     e.preventDefault();
     e.stopPropagation();
@@ -37,35 +80,40 @@ export default function ImageCropper({ imageSrc, onCrop, onCancel }) {
   const handleMouseMove = useCallback((e) => {
     if (!dragStart) return;
     e.preventDefault();
-    const pos = getEventPos(e, containerRef.current);
+    const container = containerRef.current;
+    const pos = getEventPos(e, container);
     const dx = pos.x - dragStart.pos.x;
     const dy = pos.y - dragStart.pos.y;
     const prev = dragStart.crop;
 
     if (isDragging) {
-      setCrop({
+      const next = {
         x: clamp(prev.x + dx, 0, 100 - prev.w),
         y: clamp(prev.y + dy, 0, 100 - prev.h),
         w: prev.w,
         h: prev.h,
-      });
+      };
+      setCrop(next);
     } else if (isResizing) {
       let { x, y, w, h } = prev;
       if (isResizing.includes('e')) w = clamp(prev.w + dx, 10, 100 - x);
-      if (isResizing.includes('s')) h = clamp(prev.h + dy, 10, 100 - y);
       if (isResizing.includes('w')) {
         const newX = clamp(prev.x + dx, 0, prev.x + prev.w - 10);
         w = prev.w - (newX - prev.x);
         x = newX;
       }
-      if (isResizing.includes('n')) {
+      if (isResizing.includes('s') && !['circle','square','landscape','portrait'].includes(shape)) {
+        h = clamp(prev.h + dy, 10, 100 - y);
+      }
+      if (isResizing.includes('n') && !['circle','square','landscape','portrait'].includes(shape)) {
         const newY = clamp(prev.y + dy, 0, prev.y + prev.h - 10);
         h = prev.h - (newY - prev.y);
         y = newY;
       }
-      setCrop({ x, y, w, h });
+      const next = applyAspect({ x, y, w, h }, container);
+      setCrop(next);
     }
-  }, [dragStart, isDragging, isResizing]);
+  }, [dragStart, isDragging, isResizing, applyAspect, shape]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -86,23 +134,43 @@ export default function ImageCropper({ imageSrc, onCrop, onCancel }) {
     };
   }, [handleMouseMove, handleMouseUp]);
 
-  const handleReset = () => setCrop({ x: 10, y: 10, w: 80, h: 80 });
+  const handleReset = () => {
+    setCrop({ x: 10, y: 10, w: 80, h: 80 });
+  };
 
   const handleConfirm = () => {
     const img = imgRef.current;
     if (!img) return;
-    const canvas = document.createElement('canvas');
+
     const naturalW = img.naturalWidth;
     const naturalH = img.naturalHeight;
     const cx = (crop.x / 100) * naturalW;
     const cy = (crop.y / 100) * naturalH;
     const cw = (crop.w / 100) * naturalW;
     const ch = (crop.h / 100) * naturalH;
+
+    const canvas = document.createElement('canvas');
     canvas.width = cw;
     canvas.height = ch;
     const ctx = canvas.getContext('2d');
+
+    // Apply shape mask
+    if (shape === 'circle') {
+      ctx.beginPath();
+      ctx.ellipse(cw / 2, ch / 2, cw / 2, ch / 2, 0, 0, Math.PI * 2);
+      ctx.clip();
+    }
+
     ctx.drawImage(img, cx, cy, cw, ch, 0, 0, cw, ch);
-    onCrop(canvas.toDataURL('image/jpeg', 0.95));
+    onCrop(canvas.toDataURL('image/png', 0.95));
+  };
+
+  // Shape overlay for the preview — circle gets ellipse clip style
+  const cropBoxStyle = {
+    left: `${crop.x}%`, top: `${crop.y}%`,
+    width: `${crop.w}%`, height: `${crop.h}%`,
+    cursor: 'move',
+    position: 'absolute',
   };
 
   const handles = [
@@ -113,8 +181,26 @@ export default function ImageCropper({ imageSrc, onCrop, onCancel }) {
   ];
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-gray-500 text-center">Drag to move • Drag corners to resize</p>
+    <div className="space-y-3">
+      {/* Shape selector */}
+      <div className="flex gap-2 justify-center">
+        {SHAPES.map(s => (
+          <button
+            key={s.id}
+            onClick={() => setShape(s.id)}
+            className={`flex flex-col items-center px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+              shape === s.id
+                ? 'border-[#ff6b35] bg-[#ff6b35]/10 text-[#ff6b35]'
+                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+            }`}
+          >
+            <span className="text-lg leading-none mb-0.5">{s.icon}</span>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      <p className="text-xs text-gray-400 text-center">Drag to move • Drag corners to resize</p>
 
       <div
         ref={containerRef}
@@ -132,7 +218,7 @@ export default function ImageCropper({ imageSrc, onCrop, onCancel }) {
 
         {imgLoaded && (
           <>
-            {/* Dark overlay outside crop */}
+            {/* Dark overlay */}
             <div className="absolute inset-0 pointer-events-none" style={{
               background: `
                 linear-gradient(to right, rgba(0,0,0,0.55) ${crop.x}%, transparent ${crop.x}%),
@@ -150,22 +236,22 @@ export default function ImageCropper({ imageSrc, onCrop, onCancel }) {
 
             {/* Crop box */}
             <div
-              className="absolute border-2 border-white"
-              style={{
-                left: `${crop.x}%`, top: `${crop.y}%`,
-                width: `${crop.w}%`, height: `${crop.h}%`,
-                cursor: 'move',
-                boxShadow: '0 0 0 9999px rgba(0,0,0,0.0)',
-              }}
+              style={cropBoxStyle}
               onMouseDown={(e) => handleMouseDown(e, 'move')}
               onTouchStart={(e) => handleMouseDown(e, 'move')}
             >
-              {/* Rule of thirds grid */}
-              {[33, 66].map(p => (
-                <div key={`v${p}`} className="absolute top-0 bottom-0 border-l border-white/30" style={{ left: `${p}%` }} />
+              {/* Shape border preview */}
+              <div
+                className="absolute inset-0 border-2 border-white pointer-events-none"
+                style={{ borderRadius: shape === 'circle' ? '50%' : '0' }}
+              />
+
+              {/* Rule of thirds (only for non-circle) */}
+              {shape !== 'circle' && [33, 66].map(p => (
+                <div key={`v${p}`} className="absolute top-0 bottom-0 border-l border-white/30 pointer-events-none" style={{ left: `${p}%` }} />
               ))}
-              {[33, 66].map(p => (
-                <div key={`h${p}`} className="absolute left-0 right-0 border-t border-white/30" style={{ top: `${p}%` }} />
+              {shape !== 'circle' && [33, 66].map(p => (
+                <div key={`h${p}`} className="absolute left-0 right-0 border-t border-white/30 pointer-events-none" style={{ top: `${p}%` }} />
               ))}
 
               {/* Corner handles */}
@@ -173,7 +259,7 @@ export default function ImageCropper({ imageSrc, onCrop, onCancel }) {
                 <div
                   key={h.id}
                   className="absolute w-4 h-4 bg-white rounded-sm shadow"
-                  style={{ ...h.style, cursor: h.style.cursor }}
+                  style={{ ...h.style }}
                   onMouseDown={(e) => handleMouseDown(e, h.id)}
                   onTouchStart={(e) => handleMouseDown(e, h.id)}
                 />

@@ -100,28 +100,26 @@ const StringArtCanvas = forwardRef(({
     
     // Clear and set background
     ctx.fillStyle = '#fafafa';
-    ctx.fillRect(0, 0, size, size);
+    ctx.fillRect(0, 0, cW, cH);
 
     // Draw frame border (subtle)
     ctx.strokeStyle = '#e5e5e5';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    const centerX = size / 2;
-    const centerY = size / 2;
+    const centerX = cW / 2;
+    const centerY = cH / 2;
+    const padding = 15;
     
     if (shape === 'circle') {
-      const radius = (size / 2) - 10;
-      ctx.arc(centerX, centerY, radius + 5, 0, 2 * Math.PI);
+      const radius = Math.min(cW, cH) / 2 - padding;
+      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
     } else if (shape === 'square') {
-      const sideLength = size - 20;
-      ctx.rect(10, 10, sideLength + 10, sideLength + 10);
+      const side = Math.min(cW, cH) - padding * 2;
+      const ox = (cW - side) / 2;
+      const oy = (cH - side) / 2;
+      ctx.rect(ox, oy, side, side);
     } else if (shape === 'landscape' || shape === 'portrait') {
-      const isLandscape = shape === 'landscape';
-      const rectW = isLandscape ? size - 30 : Math.round((size - 30) * (2 / 3));
-      const rectH = isLandscape ? Math.round((size - 30) * (2 / 3)) : size - 30;
-      const offsetX = (size - rectW) / 2;
-      const offsetY = (size - rectH) / 2;
-      ctx.rect(offsetX, offsetY, rectW, rectH);
+      ctx.rect(padding, padding, cW - padding * 2, cH - padding * 2);
     }
     ctx.stroke();
 

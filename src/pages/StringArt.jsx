@@ -159,23 +159,23 @@ export default function StringArt() {
     
     // Apply sharpness
     if (sharpness > 0) {
-      const imageData = ctx.getImageData(0, 0, size, size);
+      const imageData = ctx.getImageData(0, 0, canvasW, canvasH);
       const data = imageData.data;
       const factor = sharpness / 10;
       
       for (let i = 0; i < data.length; i += 4) {
         const index = i / 4;
-        const x = index % size;
-        const y = Math.floor(index / size);
+        const x = index % canvasW;
+        const y = Math.floor(index / canvasW);
         
-        if (x > 0 && x < size - 1 && y > 0 && y < size - 1) {
+        if (x > 0 && x < canvasW - 1 && y > 0 && y < canvasH - 1) {
           for (let c = 0; c < 3; c++) {
             const center = data[i + c];
             const neighbors = 
-              data[((y - 1) * size + x) * 4 + c] +
-              data[((y + 1) * size + x) * 4 + c] +
-              data[(y * size + (x - 1)) * 4 + c] +
-              data[(y * size + (x + 1)) * 4 + c];
+              data[((y - 1) * canvasW + x) * 4 + c] +
+              data[((y + 1) * canvasW + x) * 4 + c] +
+              data[(y * canvasW + (x - 1)) * 4 + c] +
+              data[(y * canvasW + (x + 1)) * 4 + c];
             data[i + c] = Math.max(0, Math.min(255, center + factor * (center - neighbors / 4)));
           }
         }

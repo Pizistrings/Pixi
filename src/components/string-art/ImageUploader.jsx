@@ -120,49 +120,60 @@ export default function ImageUploader({ onUpload }) {
             />
           </motion.label>
         ) : (
-          <div className="p-8">
-            <div className="relative max-w-sm mx-auto">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="aspect-square rounded-xl overflow-hidden shadow-lg"
-              >
-                <img
-                  src={preview}
-                  alt="Preview"
-                  className="w-full h-full object-cover"
-                />
-              </motion.div>
+          <div className="p-6">
+            {showCropper ? (
+              <ImageCropper
+                imageSrc={preview}
+                onCrop={handleCropDone}
+                onCancel={() => setShowCropper(false)}
+              />
+            ) : (
+              <>
+                <div className="relative max-w-sm mx-auto">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="aspect-square rounded-xl overflow-hidden shadow-lg"
+                  >
+                    <img
+                      src={preview}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </motion.div>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleClear}
-                className="absolute -top-2 -right-2 bg-white shadow-md hover:bg-gray-50 rounded-full"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleClear}
+                    className="absolute -top-2 -right-2 bg-white shadow-md hover:bg-gray-50 rounded-full"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="flex justify-center gap-3 mt-8"
-            >
-              <Button
-                variant="outline"
-                onClick={handleClear}
-              >
-                Choose Different
-              </Button>
-              <Button
-                onClick={handleConfirm}
-                className="bg-[#ff6b35] hover:bg-[#e55a2b] text-white px-8"
-              >
-                Use This Image
-              </Button>
-            </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="flex justify-center gap-3 mt-8"
+                >
+                  <Button variant="outline" onClick={handleClear}>
+                    Choose Different
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowCropper(true)}>
+                    <Crop className="w-4 h-4 mr-2" />
+                    Crop
+                  </Button>
+                  <Button
+                    onClick={handleConfirm}
+                    className="bg-[#ff6b35] hover:bg-[#e55a2b] text-white px-8"
+                  >
+                    Use This Image
+                  </Button>
+                </motion.div>
+              </>
+            )}
           </div>
         )}
       </Card>

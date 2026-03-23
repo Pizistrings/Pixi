@@ -294,12 +294,13 @@ export default function StringArt() {
     
     // Initialize working data for each color
     const workingData = {};
+    const pixelCount = canvasW * canvasH;
     colors.forEach(color => {
-      workingData[color.id] = new Float32Array(size * size);
+      workingData[color.id] = new Float32Array(pixelCount);
     });
     
     // Generate separation maps with luminance-aware logic
-    for (let i = 0; i < size * size; i++) {
+    for (let i = 0; i < pixelCount; i++) {
       const r = imageData.data[i * 4];
       const g = imageData.data[i * 4 + 1];
       const b = imageData.data[i * 4 + 2];

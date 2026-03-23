@@ -8,6 +8,7 @@ import ImageCropper from './ImageCropper';
 export default function ImageUploader({ onUpload }) {
   const [isDragging, setIsDragging] = useState(false);
   const [preview, setPreview] = useState(null);
+  const [showCropper, setShowCropper] = useState(false);
 
   const handleFile = useCallback((file) => {
     if (file && file.type && file.type.startsWith('image/')) {

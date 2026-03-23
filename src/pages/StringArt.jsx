@@ -183,16 +183,16 @@ export default function StringArt() {
       ctx.putImageData(imageData, 0, 0);
     }
     
-    const imageData = ctx.getImageData(0, 0, size, size);
+    const imageData = ctx.getImageData(0, 0, canvasW, canvasH);
     
     // Generate pin positions based on shape
     const pins = [];
-    const centerX = size / 2;
-    const centerY = size / 2;
+    const centerX = canvasW / 2;
+    const centerY = canvasH / 2;
     const padding = 20;
     
     if (shape === 'circle') {
-      const radius = (size / 2) - padding;
+      const radius = Math.min(canvasW, canvasH) / 2 - padding;
       for (let i = 0; i < numPins; i++) {
         const angle = (2 * Math.PI * i) / numPins;
         pins.push({
@@ -202,30 +202,30 @@ export default function StringArt() {
         });
       }
     } else if (shape === 'square') {
-      const sideLength = size - (padding * 2);
+      const sideLength = Math.min(canvasW, canvasH) - (padding * 2);
       const pinsPerSide = Math.floor(numPins / 4);
+      const ox = (canvasW - sideLength) / 2;
+      const oy = (canvasH - sideLength) / 2;
       
       for (let i = 0; i < numPins; i++) {
         const side = Math.floor(i / pinsPerSide);
         const posOnSide = (i % pinsPerSide) / pinsPerSide;
         
-        if (side === 0) { // Top
-          pins.push({ x: Math.round(padding + posOnSide * sideLength), y: padding, index: i });
-        } else if (side === 1) { // Right
-          pins.push({ x: size - padding, y: Math.round(padding + posOnSide * sideLength), index: i });
-        } else if (side === 2) { // Bottom
-          pins.push({ x: Math.round(size - padding - posOnSide * sideLength), y: size - padding, index: i });
-        } else { // Left
-          pins.push({ x: padding, y: Math.round(size - padding - posOnSide * sideLength), index: i });
+        if (side === 0) {
+          pins.push({ x: Math.round(ox + posOnSide * sideLength), y: oy, index: i });
+        } else if (side === 1) {
+          pins.push({ x: ox + sideLength, y: Math.round(oy + posOnSide * sideLength), index: i });
+        } else if (side === 2) {
+          pins.push({ x: Math.round(ox + sideLength - posOnSide * sideLength), y: oy + sideLength, index: i });
+        } else {
+          pins.push({ x: ox, y: Math.round(oy + sideLength - posOnSide * sideLength), index: i });
         }
       }
     } else if (shape === 'landscape' || shape === 'portrait') {
-      // landscape = 3:2 (wider), portrait = 2:3 (taller)
-      const isLandscape = shape === 'landscape';
-      const rectW = isLandscape ? size - (padding * 2) : Math.round((size - padding * 2) * (2 / 3));
-      const rectH = isLandscape ? Math.round((size - padding * 2) * (2 / 3)) : size - (padding * 2);
-      const offsetX = (size - rectW) / 2;
-      const offsetY = (size - rectH) / 2;
+      const rectW = canvasW - padding * 2;
+      const rectH = canvasH - padding * 2;
+      const offsetX = padding;
+      const offsetY = padding;
       
       const perimeter = 2 * (rectW + rectH);
       const pinsTop = Math.floor((rectW / perimeter) * numPins);

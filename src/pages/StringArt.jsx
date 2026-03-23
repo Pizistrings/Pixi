@@ -69,7 +69,7 @@ export default function StringArt() {
     Y: 800,
     K: 1000
   });
-  const [shape, setShape] = useState('circle'); // 'circle', 'square', 'rectangle'
+  const [shape, setShape] = useState('circle'); // 'circle', 'square', 'landscape', 'portrait'
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
   const [sharpness, setSharpness] = useState(0);
@@ -215,29 +215,32 @@ export default function StringArt() {
           pins.push({ x: padding, y: Math.round(size - padding - posOnSide * sideLength), index: i });
         }
       }
-    } else if (shape === 'rectangle') {
-      const width = size - (padding * 2);
-      const height = (size * 0.7) - (padding * 2);
-      const offsetY = (size - height - padding * 2) / 2;
+    } else if (shape === 'landscape' || shape === 'portrait') {
+      // landscape = 3:2 (wider), portrait = 2:3 (taller)
+      const isLandscape = shape === 'landscape';
+      const rectW = isLandscape ? size - (padding * 2) : Math.round((size - padding * 2) * (2 / 3));
+      const rectH = isLandscape ? Math.round((size - padding * 2) * (2 / 3)) : size - (padding * 2);
+      const offsetX = (size - rectW) / 2;
+      const offsetY = (size - rectH) / 2;
       
-      const perimeter = 2 * (width + height);
-      const pinsTop = Math.floor((width / perimeter) * numPins);
-      const pinsRight = Math.floor((height / perimeter) * numPins);
+      const perimeter = 2 * (rectW + rectH);
+      const pinsTop = Math.floor((rectW / perimeter) * numPins);
+      const pinsRight = Math.floor((rectH / perimeter) * numPins);
       const pinsBottom = pinsTop;
       const pinsLeft = numPins - pinsTop - pinsRight - pinsBottom;
       
       let pinIndex = 0;
       for (let i = 0; i < pinsTop; i++, pinIndex++) {
-        pins.push({ x: Math.round(padding + (i / pinsTop) * width), y: padding + offsetY, index: pinIndex });
+        pins.push({ x: Math.round(offsetX + (i / pinsTop) * rectW), y: offsetY, index: pinIndex });
       }
       for (let i = 0; i < pinsRight; i++, pinIndex++) {
-        pins.push({ x: size - padding, y: Math.round(padding + offsetY + (i / pinsRight) * height), index: pinIndex });
+        pins.push({ x: offsetX + rectW, y: Math.round(offsetY + (i / pinsRight) * rectH), index: pinIndex });
       }
       for (let i = 0; i < pinsBottom; i++, pinIndex++) {
-        pins.push({ x: Math.round(size - padding - (i / pinsBottom) * width), y: padding + offsetY + height, index: pinIndex });
+        pins.push({ x: Math.round(offsetX + rectW - (i / pinsBottom) * rectW), y: offsetY + rectH, index: pinIndex });
       }
       for (let i = 0; i < pinsLeft; i++, pinIndex++) {
-        pins.push({ x: padding, y: Math.round(padding + offsetY + height - (i / pinsLeft) * height), index: pinIndex });
+        pins.push({ x: offsetX, y: Math.round(offsetY + rectH - (i / pinsLeft) * rectH), index: pinIndex });
       }
     }
     

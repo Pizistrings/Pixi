@@ -395,8 +395,8 @@ export default function StringArt() {
         for (let t = 0; t < steps; t++) {
           const x = Math.floor(x1 + (x2 - x1) * t / steps);
           const y = Math.floor(y1 + (y2 - y1) * t / steps);
-          if (x >= 0 && x < size && y >= 0 && y < size) {
-            score += workingData[colorId][y * size + x];
+          if (x >= 0 && x < canvasW && y >= 0 && y < canvasH) {
+            score += workingData[colorId][y * canvasW + x];
           }
         }
         score /= steps;

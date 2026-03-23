@@ -20,15 +20,19 @@ const StringArtCanvas = forwardRef(({
 
   useImperativeHandle(ref, () => canvasRef.current);
 
+  // Actual canvas pixel dimensions
+  const cW = shape === 'landscape' ? size : shape === 'portrait' ? Math.round(size * 2 / 3) : size;
+  const cH = shape === 'landscape' ? Math.round(size * 2 / 3) : shape === 'portrait' ? size : size;
+
   // Generate pin positions
   useEffect(() => {
     const newPins = [];
-    const centerX = size / 2;
-    const centerY = size / 2;
+    const centerX = cW / 2;
+    const centerY = cH / 2;
     const padding = 15;
 
     if (shape === 'circle') {
-      const radius = (size / 2) - padding;
+      const radius = Math.min(cW, cH) / 2 - padding;
       for (let i = 0; i < numPins; i++) {
         const angle = (2 * Math.PI * i) / numPins;
         newPins.push({
@@ -38,29 +42,30 @@ const StringArtCanvas = forwardRef(({
         });
       }
     } else if (shape === 'square') {
-      const sideLength = size - (padding * 2);
+      const sideLength = Math.min(cW, cH) - (padding * 2);
       const pinsPerSide = Math.floor(numPins / 4);
+      const ox = (cW - sideLength) / 2;
+      const oy = (cH - sideLength) / 2;
       
       for (let i = 0; i < numPins; i++) {
         const side = Math.floor(i / pinsPerSide);
         const posOnSide = (i % pinsPerSide) / pinsPerSide;
         
         if (side === 0) {
-          newPins.push({ x: padding + posOnSide * sideLength, y: padding, index: i });
+          newPins.push({ x: ox + posOnSide * sideLength, y: oy, index: i });
         } else if (side === 1) {
-          newPins.push({ x: size - padding, y: padding + posOnSide * sideLength, index: i });
+          newPins.push({ x: ox + sideLength, y: oy + posOnSide * sideLength, index: i });
         } else if (side === 2) {
-          newPins.push({ x: size - padding - posOnSide * sideLength, y: size - padding, index: i });
+          newPins.push({ x: ox + sideLength - posOnSide * sideLength, y: oy + sideLength, index: i });
         } else {
-          newPins.push({ x: padding, y: size - padding - posOnSide * sideLength, index: i });
+          newPins.push({ x: ox, y: oy + sideLength - posOnSide * sideLength, index: i });
         }
       }
     } else if (shape === 'landscape' || shape === 'portrait') {
-      const isLandscape = shape === 'landscape';
-      const rectW = isLandscape ? size - (padding * 2) : Math.round((size - padding * 2) * (2 / 3));
-      const rectH = isLandscape ? Math.round((size - padding * 2) * (2 / 3)) : size - (padding * 2);
-      const offsetX = (size - rectW) / 2;
-      const offsetY = (size - rectH) / 2;
+      const rectW = cW - padding * 2;
+      const rectH = cH - padding * 2;
+      const offsetX = padding;
+      const offsetY = padding;
 
       const perimeter = 2 * (rectW + rectH);
       const pinsTop = Math.floor((rectW / perimeter) * numPins);
@@ -84,7 +89,7 @@ const StringArtCanvas = forwardRef(({
     }
     
     setPins(newPins);
-  }, [numPins, size, shape]);
+  }, [numPins, size, shape, cW, cH]);
 
   // Draw string art
   useEffect(() => {

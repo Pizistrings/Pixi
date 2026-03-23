@@ -110,11 +110,13 @@ const StringArtCanvas = forwardRef(({
     } else if (shape === 'square') {
       const sideLength = size - 20;
       ctx.rect(10, 10, sideLength + 10, sideLength + 10);
-    } else if (shape === 'rectangle') {
-      const width = size - 20;
-      const height = (size * 0.7);
-      const offsetY = (size - height) / 2;
-      ctx.rect(10, offsetY, width + 10, height + 10);
+    } else if (shape === 'landscape' || shape === 'portrait') {
+      const isLandscape = shape === 'landscape';
+      const rectW = isLandscape ? size - 30 : Math.round((size - 30) * (2 / 3));
+      const rectH = isLandscape ? Math.round((size - 30) * (2 / 3)) : size - 30;
+      const offsetX = (size - rectW) / 2;
+      const offsetY = (size - rectH) / 2;
+      ctx.rect(offsetX, offsetY, rectW, rectH);
     }
     ctx.stroke();
 

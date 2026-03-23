@@ -201,8 +201,24 @@ const StringArtCanvas = forwardRef(({
     }
   }, [stringPaths, currentStep, pins, colors, size, lineWidth, lineOpacity, shape]);
 
+  // Compute display aspect ratio based on shape
+  const aspectClass =
+    shape === 'landscape' ? 'aspect-[3/2]' :
+    shape === 'portrait'  ? 'aspect-[2/3]' :
+    'aspect-square';
+
+  // Canvas pixel dimensions match shape
+  const canvasW =
+    shape === 'landscape' ? size :
+    shape === 'portrait'  ? Math.round(size * 2 / 3) :
+    size;
+  const canvasH =
+    shape === 'landscape' ? Math.round(size * 2 / 3) :
+    shape === 'portrait'  ? size :
+    size;
+
   return (
-    <div ref={containerRef} className="relative aspect-square w-full max-w-[500px] mx-auto">
+    <div ref={containerRef} className={`relative ${aspectClass} w-full max-w-[500px] mx-auto`}>
       {/* Background pattern */}
       <div 
         className="absolute inset-0 rounded-lg"
@@ -228,8 +244,8 @@ const StringArtCanvas = forwardRef(({
       
       <canvas
         ref={canvasRef}
-        width={size}
-        height={size}
+        width={canvasW}
+        height={canvasH}
         className="w-full h-full rounded-lg shadow-inner relative z-10"
         style={{ background: '#fafafa' }}
       />

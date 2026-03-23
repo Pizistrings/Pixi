@@ -60,6 +60,12 @@ export default function ImageUploader({ onUpload }) {
 
   const handleClear = () => {
     setPreview(null);
+    setShowCropper(false);
+  };
+
+  const handleCropDone = (croppedDataUrl) => {
+    setPreview(croppedDataUrl);
+    setShowCropper(false);
   };
 
   return (

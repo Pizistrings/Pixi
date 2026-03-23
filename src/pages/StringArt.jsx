@@ -129,11 +129,15 @@ export default function StringArt() {
     // Simulate processing delay
     await new Promise(resolve => setTimeout(resolve, 500));
     
+    // Canvas size matches shape aspect ratio
+    const baseSize = 400;
+    const canvasW = shape === 'portrait' ? Math.round(baseSize * 2 / 3) : baseSize;
+    const canvasH = shape === 'landscape' ? Math.round(baseSize * 2 / 3) : baseSize;
+
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    const size = 400;
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width = canvasW;
+    canvas.height = canvasH;
     
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -143,15 +147,15 @@ export default function StringArt() {
       img.onerror = reject;
       img.src = image;
     });
-    
-    // Apply crop
-    const cropX = (img.width * cropArea.x) / 100;
-    const cropY = (img.height * cropArea.y) / 100;
-    const cropW = (img.width * cropArea.width) / 100;
-    const cropH = (img.height * cropArea.height) / 100;
-    
+
+    // Draw image filling canvas, maintaining object-cover behavior (no stretch)
     ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
-    ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, size, size);
+    const scale = Math.max(canvasW / img.naturalWidth, canvasH / img.naturalHeight);
+    const drawW = img.naturalWidth * scale;
+    const drawH = img.naturalHeight * scale;
+    const drawX = (canvasW - drawW) / 2;
+    const drawY = (canvasH - drawH) / 2;
+    ctx.drawImage(img, drawX, drawY, drawW, drawH);
     
     // Apply sharpness
     if (sharpness > 0) {

@@ -1400,10 +1400,13 @@ export default function StringArt() {
                   <div>
                     <Label className="text-xs text-gray-500 mb-2 block">Shape</Label>
                     <Tabs value={shape} onValueChange={setShape}>
-                      <TabsList className="grid w-full grid-cols-3">
+                      <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="circle">Circle</TabsTrigger>
                         <TabsTrigger value="square">Square</TabsTrigger>
-                        <TabsTrigger value="rectangle">Rectangle</TabsTrigger>
+                      </TabsList>
+                      <TabsList className="grid w-full grid-cols-2 mt-1">
+                        <TabsTrigger value="landscape">Landscape 3:2</TabsTrigger>
+                        <TabsTrigger value="portrait">Portrait 2:3</TabsTrigger>
                       </TabsList>
                     </Tabs>
                   </div>

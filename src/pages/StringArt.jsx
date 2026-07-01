@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Download, Settings, RefreshCw, FileText, QrCode, Mic, MicOff, Save, FolderOpen } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
-import { toast } from 'sonner';
+import { Upload, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Download, Settings, RefreshCw, FileText, QrCode, Mic, MicOff } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -83,9 +81,6 @@ export default function StringArt() {
   const [minPinDistance, setMinPinDistance] = useState(30);
   const [currentPhase, setCurrentPhase] = useState(null);
   const [lastAnnouncedPhase, setLastAnnouncedPhase] = useState(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [showLoadMenu, setShowLoadMenu] = useState(false);
-  const [savedProjects, setSavedProjects] = useState([]);
   
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -589,9 +584,12 @@ export default function StringArt() {
       pdf.text(`Steps ${run.startStep}-${run.endStep}`, margin + 5, currentY);
       currentY += 10;
       
-      // Display steps in single vertical column
+      // Display step pairs in grid format: "stepNum - toPin"
       pdf.setFontSize(11);
       pdf.setTextColor(60, 60, 60);
+      
+      const stepsPerRow = 5;
+      const columnWidth = 38;
       
       for (let i = 0; i < run.steps.length; i++) {
         const stepNumber = run.startStep + i;
@@ -617,15 +615,19 @@ export default function StringArt() {
           pdf.setTextColor(60, 60, 60);
         }
         
-        // Single column at left margin
-        pdf.text(`${stepNumber} - ${toPin}`, margin + 15, currentY);
+        const col = i % stepsPerRow;
+        const xPos = margin + 5 + (col * columnWidth);
         
-        // Move to next row
-        currentY += 5.5;
+        pdf.text(`${stepNumber} - ${toPin}`, xPos, currentY);
+        
+        // Move to next row after completing a row
+        if ((i + 1) % stepsPerRow === 0 && i < run.steps.length - 1) {
+          currentY += 6.5;
+        }
       }
       
-      // Add spacing after steps
-      currentY += 8;
+      // Add spacing after last row
+      currentY += 12;
     });
     
     // Add QR code on last page
@@ -938,78 +940,6 @@ export default function StringArt() {
     setColorLayers(updatedLayers);
   };
 
-  const saveProject = async () => {
-    if (!isGenerated || !canvasRef.current) {
-      toast.error('Generate a pattern first');
-      return;
-    }
-
-    const projectName = prompt('Enter project name:');
-    if (!projectName) return;
-
-    setIsSaving(true);
-    try {
-      // Convert canvas to blob and upload
-      const blob = await new Promise(resolve => canvasRef.current.toBlob(resolve, 'image/jpeg', 0.8));
-      const imageFile = new File([blob], 'preview.jpg', { type: 'image/jpeg' });
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: imageFile });
-
-      // Save project
-      await base44.entities.StringArtProject.create({
-        title: projectName,
-        preview_image: file_url,
-        pattern_data: {
-          paths: stringPaths,
-          colors: colorLayers,
-          numPins: numPins,
-          totalSteps: totalSteps,
-          shape: shape,
-          lineWidth: lineWidth,
-          lineOpacity: lineOpacity,
-          minPinDistance: minPinDistance
-        }
-      });
-
-      toast.success('Project saved!');
-      loadSavedProjects();
-    } catch (error) {
-      console.error('Save error:', error);
-      toast.error('Failed to save project');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const loadSavedProjects = async () => {
-    try {
-      const projects = await base44.entities.StringArtProject.list('-created_date', 20);
-      setSavedProjects(projects);
-    } catch (error) {
-      console.error('Load error:', error);
-    }
-  };
-
-  const loadProject = (project) => {
-    const data = project.pattern_data;
-    setStringPaths(data.paths);
-    setColorLayers(data.colors);
-    setNumPins(data.numPins);
-    setTotalSteps(data.totalSteps);
-    setShape(data.shape);
-    setLineWidth(data.lineWidth || 1);
-    setLineOpacity(data.lineOpacity || 0.08);
-    setMinPinDistance(data.minPinDistance || 30);
-    setIsGenerated(true);
-    setCurrentStep(0);
-    setImage(project.preview_image);
-    setShowLoadMenu(false);
-    toast.success(`Loaded: ${project.title}`);
-  };
-
-  useEffect(() => {
-    loadSavedProjects();
-  }, []);
-
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -1030,9 +960,9 @@ export default function StringArt() {
         {!image ? (
           <ImageUploader onUpload={handleImageUpload} />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Canvas Area - LEFT */}
-            <div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Canvas Area */}
+            <div className="lg:col-span-2">
               <Card className="bg-white border-0 shadow-sm overflow-hidden">
                 <div className="p-6">
                   <StringArtCanvas
@@ -1048,45 +978,114 @@ export default function StringArt() {
                     shape={shape}
                   />
                 </div>
+                
+                {/* Progress bar */}
+                {isGenerated && (
+                  <div className="px-6 pb-2">
+                    <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full bg-[#ff6b35]"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(currentStep / totalSteps) * 100}%` }}
+                        transition={{ duration: 0.1 }}
+                      />
+                    </div>
+                    <div className="flex justify-between mt-2 text-xs text-gray-400">
+                      <span className="text-[#ff6b35] font-medium">{currentStep.toLocaleString()} / {totalSteps.toLocaleString()}</span>
+                      <span>⏱ {getElapsedTime()}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Controls */}
+                <div className="px-6 pb-6">
+                  <div className="flex items-center justify-center gap-2 bg-gray-50 rounded-lg p-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleReset}
+                      disabled={!isGenerated}
+                      className="hover:bg-white"
+                    >
+                      <SkipBack className="w-4 h-4" />
+                    </Button>
+                    
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handlePlayPause}
+                      disabled={!isGenerated}
+                      className="hover:bg-white w-12 h-12"
+                    >
+                      {isPlaying ? (
+                        <Pause className="w-5 h-5" />
+                      ) : (
+                        <Play className="w-5 h-5 ml-0.5" />
+                      )}
+                    </Button>
+                    
+                    <Select value={speed.toString()} onValueChange={(v) => setSpeed(Number(v))}>
+                      <SelectTrigger className="w-24 bg-white border-gray-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">⏱ 1x</SelectItem>
+                        <SelectItem value="5">⏱ 5x</SelectItem>
+                        <SelectItem value="10">⏱ 10x</SelectItem>
+                        <SelectItem value="25">⏱ 25x</SelectItem>
+                        <SelectItem value="50">⏱ 50x</SelectItem>
+                        <SelectItem value="100">⏱ 100x</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSoundEnabled(!soundEnabled)}
+                      disabled={!isGenerated}
+                      className="hover:bg-white"
+                    >
+                      {soundEnabled ? (
+                        <Volume2 className="w-4 h-4" />
+                      ) : (
+                        <VolumeX className="w-4 h-4" />
+                      )}
+                    </Button>
+
+                    <div className="relative">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setVoiceEnabled(!voiceEnabled)}
+                        disabled={!isGenerated}
+                        className={`hover:bg-white ${voiceEnabled ? 'bg-[#ff6b35] text-white hover:bg-[#e55a2b]' : ''}`}
+                      >
+                        {voiceEnabled ? (
+                          <Mic className="w-4 h-4" />
+                        ) : (
+                          <MicOff className="w-4 h-4" />
+                        )}
+                      </Button>
+                      {voiceEnabled && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                      )}
+                    </div>
+                    
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleSkipToEnd}
+                      disabled={!isGenerated}
+                      className="hover:bg-white"
+                    >
+                      <SkipForward className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               </Card>
 
               {/* Action buttons */}
               <div className="flex gap-3 mt-4">
-                <div className="relative">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowLoadMenu(!showLoadMenu)}
-                  >
-                    <FolderOpen className="w-4 h-4 mr-2" />
-                    Load
-                  </Button>
-                  {showLoadMenu && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="absolute top-full mt-2 left-0 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10 min-w-[280px] max-h-[400px] overflow-y-auto"
-                    >
-                      {savedProjects.length > 0 ? (
-                        savedProjects.map((project) => (
-                          <button
-                            key={project.id}
-                            onClick={() => loadProject(project)}
-                            className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 flex items-center gap-3 border-b border-gray-100 last:border-0"
-                          >
-                            <img src={project.preview_image} alt="" className="w-12 h-12 object-cover rounded" />
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate">{project.title}</div>
-                              <div className="text-xs text-gray-500">{project.pattern_data.totalSteps?.toLocaleString()} steps</div>
-                            </div>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-4 py-3 text-sm text-gray-500">No saved projects</div>
-                      )}
-                    </motion.div>
-                  )}
-                </div>
-
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -1119,24 +1118,14 @@ export default function StringArt() {
                 </Button>
                 
                 {isGenerated && (
-                  <>
+                  <div className="relative">
                     <Button
                       variant="outline"
-                      onClick={saveProject}
-                      disabled={isSaving}
+                      onClick={() => setShowExportMenu(!showExportMenu)}
                     >
-                      <Save className="w-4 h-4 mr-2" />
-                      {isSaving ? 'Saving...' : 'Save'}
+                      <Download className="w-4 h-4 mr-2" />
+                      Export
                     </Button>
-                    
-                    <div className="relative">
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowExportMenu(!showExportMenu)}
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Export
-                      </Button>
                     {showExportMenu && (
                       <motion.div
                         initial={{ opacity: 0, y: -10 }}
@@ -1185,17 +1174,16 @@ export default function StringArt() {
                         </button>
                       </motion.div>
                     )}
-                    </div>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
 
-            {/* Right Panel - Current Step & Step List */}
+            {/* Side Panel */}
             <div className="space-y-4">
               {/* Current Step Info */}
               <Card className="bg-white border-0 shadow-sm p-6">
-                <h3 className="text-sm font-semibold text-gray-700 mb-4">Current step</h3>
+                <h3 className="text-sm text-gray-500 mb-3">Current step</h3>
                 
                 {isGenerated ? (
                   <AnimatePresence mode="wait">
@@ -1206,106 +1194,36 @@ export default function StringArt() {
                       exit={{ opacity: 0, y: -10 }}
                       className="space-y-4"
                     >
-                      <div className="text-center">
-                        <span className="text-7xl font-light text-gray-900">
-                          {stringPaths[currentStep - 1]?.to || 0}
-                        </span>
+                      <span className="text-5xl font-light text-gray-900">
+                        {currentStep}
+                      </span>
+                      
+                      <div className="text-xs text-gray-500 pt-2 border-t">
+                        Total Pins: <span className="font-medium text-gray-700">{numPins}</span>
                       </div>
                       
-                      {getCurrentColor() && currentStep > 0 && stringPaths[currentStep - 1] && stringPaths[currentStep - 2]?.color !== stringPaths[currentStep - 1]?.color && (
-                        <div className="flex items-center gap-2 text-[#ff6b35] text-sm bg-orange-50 p-3 rounded-lg">
-                          <span className="text-lg">⚠️</span>
-                          <span className="font-semibold">Change color!</span>
-                        </div>
-                      )}
-                      
                       {getCurrentColor() && (
-                        <div className="flex items-center justify-center gap-3 py-3">
-                          <div
-                            className="w-14 h-14 rounded-full shadow-lg"
-                            style={{ backgroundColor: getCurrentColor()?.hex }}
-                          />
-                          <div className="text-left">
-                            <div className="text-xs text-gray-500">Color</div>
-                            <span className="font-semibold text-lg text-gray-900">
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 text-[#ff6b35] text-sm">
+                            <span className="text-lg">⚠</span>
+                            <span className="font-medium">Change color!</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-10 h-10 rounded-full shadow-inner"
+                              style={{ backgroundColor: getCurrentColor()?.hex }}
+                            />
+                            <span className="font-medium text-gray-700">
                               {getCurrentColor()?.name}
                             </span>
                           </div>
                         </div>
                       )}
-
-                      {/* Controls */}
-                      <div className="flex items-center justify-center gap-2 border-t pt-4">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleReset}
-                          className="hover:bg-gray-100"
-                        >
-                          <SkipBack className="w-4 h-4" />
-                        </Button>
-                        
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handlePlayPause}
-                          className="hover:bg-gray-100 w-12 h-12"
-                        >
-                          {isPlaying ? (
-                            <Pause className="w-5 h-5" />
-                          ) : (
-                            <Play className="w-5 h-5 ml-0.5" />
-                          )}
-                        </Button>
-                        
-                        <Select value={speed.toString()} onValueChange={(v) => setSpeed(Number(v))}>
-                          <SelectTrigger className="w-20 h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1">1x</SelectItem>
-                            <SelectItem value="5">5x</SelectItem>
-                            <SelectItem value="10">10x</SelectItem>
-                            <SelectItem value="25">25x</SelectItem>
-                            <SelectItem value="50">50x</SelectItem>
-                            <SelectItem value="100">100x</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setSoundEnabled(!soundEnabled)}
-                          className="hover:bg-gray-100"
-                        >
-                          {soundEnabled ? (
-                            <Volume2 className="w-4 h-4" />
-                          ) : (
-                            <VolumeX className="w-4 h-4" />
-                          )}
-                        </Button>
-                        
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleSkipToEnd}
-                          className="hover:bg-gray-100"
-                        >
-                          <SkipForward className="w-4 h-4" />
-                        </Button>
-                      </div>
-
-                      {/* Progress */}
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-xs text-gray-500">
-                          <span className="text-[#ff6b35] font-semibold">{currentStep}</span>
-                          <span className="text-gray-400">⏱ {getElapsedTime()}</span>
-                        </div>
-                      </div>
                     </motion.div>
                   </AnimatePresence>
                 ) : (
-                  <div className="text-gray-400 text-sm text-center py-8">
+                  <div className="text-gray-400 text-sm">
                     Generate string art to see progress
                   </div>
                 )}

@@ -314,7 +314,7 @@ export default function StringArt() {
       });
     }
     
-    const minLinesPerColor = 100;
+    let lastAngle = 0;
     
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
@@ -323,34 +323,58 @@ export default function StringArt() {
       if (totalStringsDrawn < initialBlackEnd) {
         colorId = 'K';
       }
-      // ALTERNATING COLOR BLOCKS AND BLACK INTERRUPTIONS
-      else {
+      // DETAIL PHASE (last 15% - Black only for sharpening)
+      else if (totalStringsDrawn > numStrings - Math.floor(numStrings * 0.15)) {
+        colorId = 'K';
+      }
+      // COLOR BUILD PHASE - Error-driven color selection
+      else if (mode === 'color') {
         const remainingStrings = totalStringsDrawn - initialBlackEnd;
         const blockCycleSize = colorBlockSize + blackInterruptionSize;
         const positionInCycle = remainingStrings % blockCycleSize;
         
         if (positionInCycle < colorBlockSize) {
-          // COLOR BLOCK: 70% current color, 30% black
-          const shouldUseColor = Math.random() < 0.7;
+          // ERROR-DRIVEN: Pick color with highest residual at current pin
+          const cx = pins[currentPin].x;
+          const cy = pins[currentPin].y;
+          let bestColorScore = -1;
+          let bestColorId = 'K';
           
-          if (shouldUseColor && mode === 'color') {
-            // Determine which color based on which cycle we're in
-            const cycleNumber = Math.floor(remainingStrings / blockCycleSize);
-            currentColorIndex = cycleNumber % activeColors.length;
-            colorId = activeColors[currentColorIndex];
-          } else {
-            colorId = 'K';
+          for (let ci = 0; ci < activeColors.length; ci++) {
+            const cId = activeColors[ci];
+            let colorResidual = 0;
+            let sampleCount = 0;
+            for (let dy = -3; dy <= 3; dy++) {
+              for (let dx = -3; dx <= 3; dx++) {
+                const sx = cx + dx;
+                const sy = cy + dy;
+                if (sx >= 0 && sx < size && sy >= 0 && sy < size) {
+                  colorResidual += workingData[cId][sy * size + sx];
+                  sampleCount++;
+                }
+              }
+            }
+            const avgResidual = sampleCount > 0 ? colorResidual / sampleCount : 0;
+            if (avgResidual > bestColorScore) {
+              bestColorScore = avgResidual;
+              bestColorId = cId;
+            }
           }
+          
+          // Use best-scoring color 70%, black 30%
+          colorId = Math.random() < 0.7 ? bestColorId : 'K';
         } else {
-          // BLACK INTERRUPTION: 100% black
+          // BLACK INTERRUPTION
           colorId = 'K';
         }
+      } else {
+        colorId = 'K';
       }
       
       let bestPin = -1;
       let bestScore = -Infinity;
       
-      // Find the best next pin
+      // Find the best next pin with enhanced scoring
       for (let nextPin = 0; nextPin < numPins; nextPin++) {
         if (nextPin === currentPin) continue;
         
@@ -369,14 +393,28 @@ export default function StringArt() {
         const steps = Math.ceil(dist);
         
         let score = 0;
+        let saturatedCount = 0;
         for (let t = 0; t < steps; t++) {
           const x = Math.floor(x1 + (x2 - x1) * t / steps);
           const y = Math.floor(y1 + (y2 - y1) * t / steps);
           if (x >= 0 && x < size && y >= 0 && y < size) {
-            score += workingData[colorId][y * size + x];
+            const val = workingData[colorId][y * size + x];
+            score += val;
+            if (val < 0.05) saturatedCount++;
           }
         }
         score /= steps;
+        
+        // Angle diversity bonus - avoid parallel clustering
+        const lineAngle = Math.atan2(y2 - y1, x2 - x1);
+        let angleDiff = Math.abs(lineAngle - lastAngle);
+        if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+        const angleBonus = 0.15 * Math.min(angleDiff, Math.PI - angleDiff) / (Math.PI / 2);
+        
+        // Saturation penalty - discourage over-saturated zones
+        const satPenalty = 0.10 * (saturatedCount / steps);
+        
+        score = score + angleBonus - satPenalty;
         
         if (score > bestScore) {
           bestScore = score;
@@ -395,7 +433,7 @@ export default function StringArt() {
       });
       layerCounts[colorId] = (layerCounts[colorId] || 0) + 1;
       
-      // Subtract the drawn line from working data
+      // Subtract the drawn line from working data (adaptive attenuation)
       const x1 = pins[currentPin].x;
       const y1 = pins[currentPin].y;
       const x2 = pins[bestPin].x;
@@ -403,13 +441,19 @@ export default function StringArt() {
       const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
       const steps = Math.ceil(dist);
       
+      // Black attenuates more (structural), colors attenuate less (softer buildup)
+      const subtractAmount = colorId === 'K' ? 0.08 : 0.04;
+      
       for (let t = 0; t < steps; t++) {
         const x = Math.floor(x1 + (x2 - x1) * t / steps);
         const y = Math.floor(y1 + (y2 - y1) * t / steps);
         if (x >= 0 && x < size && y >= 0 && y < size) {
-          workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
+          workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - subtractAmount);
         }
       }
+      
+      // Update last angle for diversity scoring
+      lastAngle = Math.atan2(y2 - y1, x2 - x1);
       
       currentPin = bestPin;
     }

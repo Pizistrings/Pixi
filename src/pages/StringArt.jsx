@@ -314,6 +314,11 @@ export default function StringArt() {
       });
     }
     
+    // Pin usage tracking for spatial scattering
+    const pinUsage = new Int32Array(numPins);
+    const recentPins = [];
+    const recentPinSet = new Set();
+    
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
@@ -372,7 +377,7 @@ export default function StringArt() {
       let bestPin = -1;
       let bestScore = -Infinity;
       
-      // Find the best next pin with enhanced scoring
+      // Find the best next pin with enhanced scoring + spatial scattering
       for (let nextPin = 0; nextPin < numPins; nextPin++) {
         if (nextPin === currentPin) continue;
         
@@ -380,6 +385,9 @@ export default function StringArt() {
         const pinDist = Math.abs(nextPin - currentPin);
         const wrappedDist = Math.min(pinDist, numPins - pinDist);
         if (wrappedDist < minPinDistance) continue;
+        
+        // Skip recently-used pins to force scattering
+        if (recentPinSet.has(nextPin)) continue;
         
         // Calculate line score
         const x1 = pins[currentPin].x;
@@ -410,7 +418,10 @@ export default function StringArt() {
         // Saturation penalty - discourage over-saturated zones
         const satPenalty = 0.15 * (saturatedCount / steps);
         
-        score = score - lengthPenalty - satPenalty;
+        // Pin over-use penalty - scatter away from frequently-used pins
+        const overUsePenalty = 0.10 * Math.min(1, pinUsage[nextPin] / 5);
+        
+        score = score - lengthPenalty - satPenalty - overUsePenalty;
         
         if (score > bestScore) {
           bestScore = score;
@@ -428,6 +439,15 @@ export default function StringArt() {
         step: paths.length
       });
       layerCounts[colorId] = (layerCounts[colorId] || 0) + 1;
+      
+      // Update pin usage tracking for scattering
+      pinUsage[bestPin]++;
+      recentPins.push(bestPin);
+      recentPinSet.add(bestPin);
+      if (recentPins.length > Math.floor(numPins * 0.3)) {
+        const removed = recentPins.shift();
+        recentPinSet.delete(removed);
+      }
       
       // Subtract the drawn line from working data (adaptive attenuation)
       const x1 = pins[currentPin].x;

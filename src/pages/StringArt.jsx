@@ -669,6 +669,47 @@ export default function StringArt() {
     } : { r: 0, g: 0, b: 0 };
   };
 
+  const computePinCoordinates = (count, shapeType) => {
+    const size = 400;
+    const cx = size / 2;
+    const cy = size / 2;
+    const padding = 20;
+    const result = [];
+    if (shapeType === 'circle') {
+      const radius = (size / 2) - padding;
+      for (let i = 0; i < count; i++) {
+        const angle = (2 * Math.PI * i) / count;
+        result.push({ x: Math.round(cx + radius * Math.cos(angle)), y: Math.round(cy + radius * Math.sin(angle)), index: i });
+      }
+    } else if (shapeType === 'square') {
+      const sideLength = size - (padding * 2);
+      const pinsPerSide = Math.floor(count / 4);
+      for (let i = 0; i < count; i++) {
+        const side = Math.floor(i / pinsPerSide);
+        const pos = (i % pinsPerSide) / pinsPerSide;
+        if (side === 0) result.push({ x: Math.round(padding + pos * sideLength), y: padding, index: i });
+        else if (side === 1) result.push({ x: size - padding, y: Math.round(padding + pos * sideLength), index: i });
+        else if (side === 2) result.push({ x: Math.round(size - padding - pos * sideLength), y: size - padding, index: i });
+        else result.push({ x: padding, y: Math.round(size - padding - pos * sideLength), index: i });
+      }
+    } else {
+      const width = size - (padding * 2);
+      const height = (size * 0.7) - (padding * 2);
+      const offsetY = (size - height - padding * 2) / 2;
+      const perimeter = 2 * (width + height);
+      const pinsTop = Math.floor((width / perimeter) * count);
+      const pinsRight = Math.floor((height / perimeter) * count);
+      const pinsBottom = pinsTop;
+      const pinsLeft = count - pinsTop - pinsRight - pinsBottom;
+      let idx = 0;
+      for (let i = 0; i < pinsTop; i++, idx++) result.push({ x: Math.round(padding + (i / pinsTop) * width), y: Math.round(padding + offsetY), index: idx });
+      for (let i = 0; i < pinsRight; i++, idx++) result.push({ x: size - padding, y: Math.round(padding + offsetY + (i / pinsRight) * height), index: idx });
+      for (let i = 0; i < pinsBottom; i++, idx++) result.push({ x: Math.round(size - padding - (i / pinsBottom) * width), y: Math.round(padding + offsetY + height), index: idx });
+      for (let i = 0; i < pinsLeft; i++, idx++) result.push({ x: padding, y: Math.round(padding + offsetY + height - (i / pinsLeft) * height), index: idx });
+    }
+    return result;
+  };
+
   const generateQRCode = async () => {
     if (!canvasRef.current) return;
     
@@ -692,7 +733,7 @@ export default function StringArt() {
         board_shape: shape,
         board_size: numPins > 500 ? '100-120cm' : numPins > 350 ? '70-90cm' : '40-60cm',
         pin_count: numPins,
-        pin_coordinates: pins,
+        pin_coordinates: computePinCoordinates(numPins, shape),
         total_lines: totalSteps,
         colors: colorLayers.map(c => ({ n: c.name, h: c.hex, c: c.count, id: c.id })),
         pin_sequence: stringPaths.map(p => ({ f: p.from, t: p.to, c: p.color, s: p.step })),

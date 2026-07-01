@@ -255,10 +255,10 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // MUZO-STYLE BLOCK DISTRIBUTION
-    const initialBlackEnd = Math.floor(numStrings * 0.15); // Initial Black Foundation: 15%
-    const colorBlockSize = Math.floor((numStrings - initialBlackEnd) / (activeColors.length * 2)); // Divide remaining among color blocks and black interruptions
-    const blackInterruptionSize = Math.floor(colorBlockSize * 0.4); // Black interruption is 40% of color block size
+    // MUZO-STYLE BLOCK DISTRIBUTION (reduced black for realism)
+    const initialBlackEnd = Math.floor(numStrings * 0.08); // Initial Black Foundation: 8%
+    const colorBlockSize = Math.floor((numStrings - initialBlackEnd) / (activeColors.length * 2));
+    const blackInterruptionSize = Math.floor(colorBlockSize * 0.2); // Black interruption: 20% of color block
     
     // Initialize working data for each color
     const workingData = {};
@@ -314,8 +314,6 @@ export default function StringArt() {
       });
     }
     
-    let lastAngle = 0;
-    
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
@@ -323,8 +321,8 @@ export default function StringArt() {
       if (totalStringsDrawn < initialBlackEnd) {
         colorId = 'K';
       }
-      // DETAIL PHASE (last 15% - Black only for sharpening)
-      else if (totalStringsDrawn > numStrings - Math.floor(numStrings * 0.15)) {
+      // DETAIL PHASE (last 5% - Black only for sharpening)
+      else if (totalStringsDrawn > numStrings - Math.floor(numStrings * 0.05)) {
         colorId = 'K';
       }
       // COLOR BUILD PHASE - Error-driven color selection
@@ -361,8 +359,8 @@ export default function StringArt() {
             }
           }
           
-          // Use best-scoring color 70%, black 30%
-          colorId = Math.random() < 0.7 ? bestColorId : 'K';
+          // Use best-scoring color 85%, black 15%
+          colorId = Math.random() < 0.85 ? bestColorId : 'K';
         } else {
           // BLACK INTERRUPTION
           colorId = 'K';
@@ -405,16 +403,14 @@ export default function StringArt() {
         }
         score /= steps;
         
-        // Angle diversity bonus - avoid parallel clustering
-        const lineAngle = Math.atan2(y2 - y1, x2 - x1);
-        let angleDiff = Math.abs(lineAngle - lastAngle);
-        if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-        const angleBonus = 0.15 * Math.min(angleDiff, Math.PI - angleDiff) / (Math.PI / 2);
+        // Line length penalty - discourage diameter-spanning artifacts
+        const maxDist = size;
+        const lengthPenalty = 0.08 * (dist / maxDist);
         
         // Saturation penalty - discourage over-saturated zones
-        const satPenalty = 0.10 * (saturatedCount / steps);
+        const satPenalty = 0.15 * (saturatedCount / steps);
         
-        score = score + angleBonus - satPenalty;
+        score = score - lengthPenalty - satPenalty;
         
         if (score > bestScore) {
           bestScore = score;
@@ -441,8 +437,8 @@ export default function StringArt() {
       const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
       const steps = Math.ceil(dist);
       
-      // Black attenuates more (structural), colors attenuate less (softer buildup)
-      const subtractAmount = colorId === 'K' ? 0.08 : 0.04;
+      // Black attenuates gently, colors slightly more to prevent muddy buildup
+      const subtractAmount = colorId === 'K' ? 0.06 : 0.05;
       
       for (let t = 0; t < steps; t++) {
         const x = Math.floor(x1 + (x2 - x1) * t / steps);
@@ -451,9 +447,6 @@ export default function StringArt() {
           workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - subtractAmount);
         }
       }
-      
-      // Update last angle for diversity scoring
-      lastAngle = Math.atan2(y2 - y1, x2 - x1);
       
       currentPin = bestPin;
     }

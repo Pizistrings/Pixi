@@ -31,12 +31,11 @@ export default function StringArt() {
   const [lineOpacity, setLineOpacity] = useState(0.08);
   const [numColors, setNumColors] = useState(3);
   const [selectedColors, setSelectedColors] = useState([
-    { name: 'Yellow', hex: '#ffd60a', id: 'Y' },
-    { name: 'Red', hex: '#dc2626', id: 'R' },
-    { name: 'White', hex: '#ffffff', id: 'W' },
-    { name: 'Black', hex: '#1a1a1a', id: 'K' },
     { name: 'Cyan', hex: '#00b4d8', id: 'C' },
     { name: 'Magenta', hex: '#e63946', id: 'M' },
+    { name: 'Yellow', hex: '#ffd60a', id: 'Y' },
+    { name: 'Black', hex: '#1a1a1a', id: 'K' },
+    { name: 'Red', hex: '#dc2626', id: 'R' },
     { name: 'Green', hex: '#16a34a', id: 'G' },
     { name: 'Blue', hex: '#2563eb', id: 'B' },
     { name: 'Orange', hex: '#ea580c', id: 'O' },
@@ -256,17 +255,10 @@ export default function StringArt() {
     let stringsInCurrentRun = 0;
     let currentPin = Math.floor(Math.random() * numPins);
     
-    // STANDARD COLOR DISTRIBUTION
-    // Order: Yellow, Red, White, Black (100 lines each cycle)
-    // Find colors by ID, fallback to available colors if not found
-    const findColorById = (id) => colors.find(c => c.id === id);
-    const yellowColor = findColorById('Y') || colors[0];
-    const redColor = findColorById('R') || colors[1] || colors[0];
-    const whiteColor = findColorById('W') || colors[2] || colors[1] || colors[0];
-    const blackColor = findColorById('K') || colors[colors.length - 1];
-    
-    const colorOrder = [yellowColor.id, redColor.id, whiteColor.id, blackColor.id];
-    const linesPerColor = 100;
+    // MUZO-STYLE BLOCK DISTRIBUTION
+    const initialBlackEnd = Math.floor(numStrings * 0.15); // Initial Black Foundation: 15%
+    const colorBlockSize = Math.floor((numStrings - initialBlackEnd) / (activeColors.length * 2)); // Divide remaining among color blocks and black interruptions
+    const blackInterruptionSize = Math.floor(colorBlockSize * 0.4); // Black interruption is 40% of color block size
     
     // Initialize working data for each color
     const workingData = {};
@@ -327,22 +319,32 @@ export default function StringArt() {
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      if (totalStringsDrawn < 6500) {
-        // 0-6500: Alternate Yellow, Red, White, Black (100 lines each)
-        const cyclePosition = totalStringsDrawn % (linesPerColor * 4);
-        const colorIndex = Math.floor(cyclePosition / linesPerColor);
-        colorId = colorOrder[colorIndex];
-      } else if (totalStringsDrawn >= 7000 && totalStringsDrawn < 8000) {
-        // 7000-8000: Alternate 100 lines per color
-        const adjustedPosition = (totalStringsDrawn - 7000) % (linesPerColor * 4);
-        const colorIndex = Math.floor(adjustedPosition / linesPerColor);
-        colorId = colorOrder[colorIndex];
-      } else if (totalStringsDrawn >= 8000) {
-        // 8000-9000: Solid black
+      // INITIAL BLACK FOUNDATION (15% - Black only)
+      if (totalStringsDrawn < initialBlackEnd) {
         colorId = 'K';
-      } else {
-        // 6500-7000: Transition with black
-        colorId = 'K';
+      }
+      // ALTERNATING COLOR BLOCKS AND BLACK INTERRUPTIONS
+      else {
+        const remainingStrings = totalStringsDrawn - initialBlackEnd;
+        const blockCycleSize = colorBlockSize + blackInterruptionSize;
+        const positionInCycle = remainingStrings % blockCycleSize;
+        
+        if (positionInCycle < colorBlockSize) {
+          // COLOR BLOCK: 70% current color, 30% black
+          const shouldUseColor = Math.random() < 0.7;
+          
+          if (shouldUseColor && mode === 'color') {
+            // Determine which color based on which cycle we're in
+            const cycleNumber = Math.floor(remainingStrings / blockCycleSize);
+            currentColorIndex = cycleNumber % activeColors.length;
+            colorId = activeColors[currentColorIndex];
+          } else {
+            colorId = 'K';
+          }
+        } else {
+          // BLACK INTERRUPTION: 100% black
+          colorId = 'K';
+        }
       }
       
       let bestPin = -1;

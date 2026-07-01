@@ -29,8 +29,8 @@ export default function StringArt() {
   const [colorLayers, setColorLayers] = useState([]);
   const [numPins, setNumPins] = useState(370);
   const [numStrings, setNumStrings] = useState(9000);
-  const [lineWidth, setLineWidth] = useState(0.5);
-  const [lineOpacity, setLineOpacity] = useState(0.20);
+  const [lineWidth, setLineWidth] = useState(1);
+  const [lineOpacity, setLineOpacity] = useState(0.08);
   const [numColors, setNumColors] = useState(3);
   const [selectedColors, setSelectedColors] = useState([
     { name: 'Yellow', hex: '#ffd60a', id: 'Y' },
@@ -38,7 +38,7 @@ export default function StringArt() {
     { name: 'White', hex: '#ffffff', id: 'W' },
     { name: 'Black', hex: '#1a1a1a', id: 'K' },
     { name: 'Cyan', hex: '#00b4d8', id: 'C' },
-    { name: 'Blue', hex: '#2563eb', id: 'B' },
+    { name: 'Magenta', hex: '#e63946', id: 'M' },
     { name: 'Green', hex: '#16a34a', id: 'G' },
     { name: 'Blue', hex: '#2563eb', id: 'B' },
     { name: 'Orange', hex: '#ea580c', id: 'O' },
@@ -69,7 +69,7 @@ export default function StringArt() {
     Y: 800,
     K: 1000
   });
-  const [shape, setShape] = useState('circle'); // 'circle', 'square', 'landscape', 'portrait'
+  const [shape, setShape] = useState('circle'); // 'circle', 'square', 'rectangle'
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
   const [sharpness, setSharpness] = useState(0);
@@ -129,15 +129,11 @@ export default function StringArt() {
     // Simulate processing delay
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    // Canvas size matches shape aspect ratio
-    const baseSize = 400;
-    const canvasW = shape === 'portrait' ? Math.round(baseSize * 2 / 3) : baseSize;
-    const canvasH = shape === 'landscape' ? Math.round(baseSize * 2 / 3) : baseSize;
-
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    canvas.width = canvasW;
-    canvas.height = canvasH;
+    const size = 400;
+    canvas.width = size;
+    canvas.height = size;
     
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -147,35 +143,35 @@ export default function StringArt() {
       img.onerror = reject;
       img.src = image;
     });
-
-    // Draw image filling canvas, maintaining object-cover behavior (no stretch)
+    
+    // Apply crop
+    const cropX = (img.width * cropArea.x) / 100;
+    const cropY = (img.height * cropArea.y) / 100;
+    const cropW = (img.width * cropArea.width) / 100;
+    const cropH = (img.height * cropArea.height) / 100;
+    
     ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
-    const scale = Math.max(canvasW / img.naturalWidth, canvasH / img.naturalHeight);
-    const drawW = img.naturalWidth * scale;
-    const drawH = img.naturalHeight * scale;
-    const drawX = (canvasW - drawW) / 2;
-    const drawY = (canvasH - drawH) / 2;
-    ctx.drawImage(img, drawX, drawY, drawW, drawH);
+    ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, size, size);
     
     // Apply sharpness
     if (sharpness > 0) {
-      const imageData = ctx.getImageData(0, 0, canvasW, canvasH);
+      const imageData = ctx.getImageData(0, 0, size, size);
       const data = imageData.data;
       const factor = sharpness / 10;
       
       for (let i = 0; i < data.length; i += 4) {
         const index = i / 4;
-        const x = index % canvasW;
-        const y = Math.floor(index / canvasW);
+        const x = index % size;
+        const y = Math.floor(index / size);
         
-        if (x > 0 && x < canvasW - 1 && y > 0 && y < canvasH - 1) {
+        if (x > 0 && x < size - 1 && y > 0 && y < size - 1) {
           for (let c = 0; c < 3; c++) {
             const center = data[i + c];
             const neighbors = 
-              data[((y - 1) * canvasW + x) * 4 + c] +
-              data[((y + 1) * canvasW + x) * 4 + c] +
-              data[(y * canvasW + (x - 1)) * 4 + c] +
-              data[(y * canvasW + (x + 1)) * 4 + c];
+              data[((y - 1) * size + x) * 4 + c] +
+              data[((y + 1) * size + x) * 4 + c] +
+              data[(y * size + (x - 1)) * 4 + c] +
+              data[(y * size + (x + 1)) * 4 + c];
             data[i + c] = Math.max(0, Math.min(255, center + factor * (center - neighbors / 4)));
           }
         }
@@ -183,16 +179,16 @@ export default function StringArt() {
       ctx.putImageData(imageData, 0, 0);
     }
     
-    const imageData = ctx.getImageData(0, 0, canvasW, canvasH);
+    const imageData = ctx.getImageData(0, 0, size, size);
     
     // Generate pin positions based on shape
     const pins = [];
-    const centerX = canvasW / 2;
-    const centerY = canvasH / 2;
+    const centerX = size / 2;
+    const centerY = size / 2;
     const padding = 20;
     
     if (shape === 'circle') {
-      const radius = Math.min(canvasW, canvasH) / 2 - padding;
+      const radius = (size / 2) - padding;
       for (let i = 0; i < numPins; i++) {
         const angle = (2 * Math.PI * i) / numPins;
         pins.push({
@@ -202,49 +198,46 @@ export default function StringArt() {
         });
       }
     } else if (shape === 'square') {
-      const sideLength = Math.min(canvasW, canvasH) - (padding * 2);
+      const sideLength = size - (padding * 2);
       const pinsPerSide = Math.floor(numPins / 4);
-      const ox = (canvasW - sideLength) / 2;
-      const oy = (canvasH - sideLength) / 2;
       
       for (let i = 0; i < numPins; i++) {
         const side = Math.floor(i / pinsPerSide);
         const posOnSide = (i % pinsPerSide) / pinsPerSide;
         
-        if (side === 0) {
-          pins.push({ x: Math.round(ox + posOnSide * sideLength), y: oy, index: i });
-        } else if (side === 1) {
-          pins.push({ x: ox + sideLength, y: Math.round(oy + posOnSide * sideLength), index: i });
-        } else if (side === 2) {
-          pins.push({ x: Math.round(ox + sideLength - posOnSide * sideLength), y: oy + sideLength, index: i });
-        } else {
-          pins.push({ x: ox, y: Math.round(oy + sideLength - posOnSide * sideLength), index: i });
+        if (side === 0) { // Top
+          pins.push({ x: Math.round(padding + posOnSide * sideLength), y: padding, index: i });
+        } else if (side === 1) { // Right
+          pins.push({ x: size - padding, y: Math.round(padding + posOnSide * sideLength), index: i });
+        } else if (side === 2) { // Bottom
+          pins.push({ x: Math.round(size - padding - posOnSide * sideLength), y: size - padding, index: i });
+        } else { // Left
+          pins.push({ x: padding, y: Math.round(size - padding - posOnSide * sideLength), index: i });
         }
       }
-    } else if (shape === 'landscape' || shape === 'portrait') {
-      const rectW = canvasW - padding * 2;
-      const rectH = canvasH - padding * 2;
-      const offsetX = padding;
-      const offsetY = padding;
+    } else if (shape === 'rectangle') {
+      const width = size - (padding * 2);
+      const height = (size * 0.7) - (padding * 2);
+      const offsetY = (size - height - padding * 2) / 2;
       
-      const perimeter = 2 * (rectW + rectH);
-      const pinsTop = Math.floor((rectW / perimeter) * numPins);
-      const pinsRight = Math.floor((rectH / perimeter) * numPins);
+      const perimeter = 2 * (width + height);
+      const pinsTop = Math.floor((width / perimeter) * numPins);
+      const pinsRight = Math.floor((height / perimeter) * numPins);
       const pinsBottom = pinsTop;
       const pinsLeft = numPins - pinsTop - pinsRight - pinsBottom;
       
       let pinIndex = 0;
       for (let i = 0; i < pinsTop; i++, pinIndex++) {
-        pins.push({ x: Math.round(offsetX + (i / pinsTop) * rectW), y: offsetY, index: pinIndex });
+        pins.push({ x: Math.round(padding + (i / pinsTop) * width), y: padding + offsetY, index: pinIndex });
       }
       for (let i = 0; i < pinsRight; i++, pinIndex++) {
-        pins.push({ x: offsetX + rectW, y: Math.round(offsetY + (i / pinsRight) * rectH), index: pinIndex });
+        pins.push({ x: size - padding, y: Math.round(padding + offsetY + (i / pinsRight) * height), index: pinIndex });
       }
       for (let i = 0; i < pinsBottom; i++, pinIndex++) {
-        pins.push({ x: Math.round(offsetX + rectW - (i / pinsBottom) * rectW), y: offsetY + rectH, index: pinIndex });
+        pins.push({ x: Math.round(size - padding - (i / pinsBottom) * width), y: padding + offsetY + height, index: pinIndex });
       }
       for (let i = 0; i < pinsLeft; i++, pinIndex++) {
-        pins.push({ x: offsetX, y: Math.round(offsetY + rectH - (i / pinsLeft) * rectH), index: pinIndex });
+        pins.push({ x: padding, y: Math.round(padding + offsetY + height - (i / pinsLeft) * height), index: pinIndex });
       }
     }
     
@@ -276,31 +269,18 @@ export default function StringArt() {
     const redColor = findColorById('R') || colors[1] || colors[0];
     const whiteColor = findColorById('W') || colors[2] || colors[1] || colors[0];
     const blackColor = findColorById('K') || colors[colors.length - 1];
-    const cyanColor = findColorById('C');
-    const blueColor = findColorById('B');
-    const greenColor = findColorById('G');
     
-    // Base order: Yellow, Red, [Cyan if present], [Blue if present], [Green if present], White, Black
-    const colorOrder = [
-      yellowColor.id,
-      redColor.id,
-      ...(cyanColor ? [cyanColor.id] : []),
-      ...(blueColor ? [blueColor.id] : []),
-      ...(greenColor ? [greenColor.id] : []),
-      whiteColor.id,
-      blackColor.id,
-    ];
+    const colorOrder = [yellowColor.id, redColor.id, whiteColor.id, blackColor.id];
     const linesPerColor = 100;
     
     // Initialize working data for each color
     const workingData = {};
-    const pixelCount = canvasW * canvasH;
     colors.forEach(color => {
-      workingData[color.id] = new Float32Array(pixelCount);
+      workingData[color.id] = new Float32Array(size * size);
     });
     
     // Generate separation maps with luminance-aware logic
-    for (let i = 0; i < pixelCount; i++) {
+    for (let i = 0; i < size * size; i++) {
       const r = imageData.data[i * 4];
       const g = imageData.data[i * 4 + 1];
       const b = imageData.data[i * 4 + 2];
@@ -352,22 +332,22 @@ export default function StringArt() {
     for (let totalStringsDrawn = 0; totalStringsDrawn < numStrings; totalStringsDrawn++) {
       let colorId;
       
-      if (totalStringsDrawn < 1500) {
-        // 0-1500: Solid black
-        colorId = blackColor.id;
-      } else if (totalStringsDrawn < 7000) {
-        // 1500-7000: Alternate through colorOrder (100 lines each)
-        const adjustedPosition = (totalStringsDrawn - 1500) % (linesPerColor * colorOrder.length);
+      if (totalStringsDrawn < 6500) {
+        // 0-6500: Alternate Yellow, Red, White, Black (100 lines each)
+        const cyclePosition = totalStringsDrawn % (linesPerColor * 4);
+        const colorIndex = Math.floor(cyclePosition / linesPerColor);
+        colorId = colorOrder[colorIndex];
+      } else if (totalStringsDrawn >= 7000 && totalStringsDrawn < 8000) {
+        // 7000-8000: Alternate 100 lines per color
+        const adjustedPosition = (totalStringsDrawn - 7000) % (linesPerColor * 4);
         const colorIndex = Math.floor(adjustedPosition / linesPerColor);
         colorId = colorOrder[colorIndex];
-      } else if (totalStringsDrawn < 8000) {
-        // 7000-8000: Alternate White and Black only (100 lines each)
-        const adjustedPosition = (totalStringsDrawn - 7000) % (linesPerColor * 2);
-        const colorIndex = Math.floor(adjustedPosition / linesPerColor);
-        colorId = colorIndex === 0 ? whiteColor.id : blackColor.id;
-      } else {
+      } else if (totalStringsDrawn >= 8000) {
         // 8000-9000: Solid black
-        colorId = blackColor.id;
+        colorId = 'K';
+      } else {
+        // 6500-7000: Transition with black
+        colorId = 'K';
       }
       
       let bestPin = -1;
@@ -395,8 +375,8 @@ export default function StringArt() {
         for (let t = 0; t < steps; t++) {
           const x = Math.floor(x1 + (x2 - x1) * t / steps);
           const y = Math.floor(y1 + (y2 - y1) * t / steps);
-          if (x >= 0 && x < canvasW && y >= 0 && y < canvasH) {
-            score += workingData[colorId][y * canvasW + x];
+          if (x >= 0 && x < size && y >= 0 && y < size) {
+            score += workingData[colorId][y * size + x];
           }
         }
         score /= steps;
@@ -429,8 +409,8 @@ export default function StringArt() {
       for (let t = 0; t < steps; t++) {
         const x = Math.floor(x1 + (x2 - x1) * t / steps);
         const y = Math.floor(y1 + (y2 - y1) * t / steps);
-        if (x >= 0 && x < canvasW && y >= 0 && y < canvasH) {
-          workingData[colorId][y * canvasW + x] = Math.max(0, workingData[colorId][y * canvasW + x] - 0.05);
+        if (x >= 0 && x < size && y >= 0 && y < size) {
+          workingData[colorId][y * size + x] = Math.max(0, workingData[colorId][y * size + x] - 0.05);
         }
       }
       
@@ -1405,13 +1385,10 @@ export default function StringArt() {
                   <div>
                     <Label className="text-xs text-gray-500 mb-2 block">Shape</Label>
                     <Tabs value={shape} onValueChange={setShape}>
-                      <TabsList className="grid w-full grid-cols-2">
+                      <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="circle">Circle</TabsTrigger>
                         <TabsTrigger value="square">Square</TabsTrigger>
-                      </TabsList>
-                      <TabsList className="grid w-full grid-cols-2 mt-1">
-                        <TabsTrigger value="landscape">Landscape 3:2</TabsTrigger>
-                        <TabsTrigger value="portrait">Portrait 2:3</TabsTrigger>
+                        <TabsTrigger value="rectangle">Rectangle</TabsTrigger>
                       </TabsList>
                     </Tabs>
                   </div>
@@ -1568,14 +1545,14 @@ export default function StringArt() {
                         <div>
                           <div className="flex justify-between mb-2">
                             <Label className="text-xs text-gray-500">Line Thickness</Label>
-                            <span className="text-xs text-gray-700 font-medium">{lineWidth.toFixed(2)}px</span>
+                            <span className="text-xs text-gray-700 font-medium">{lineWidth.toFixed(1)}px</span>
                           </div>
                           <Slider
                             value={[lineWidth]}
                             onValueChange={([v]) => setLineWidth(v)}
-                            min={0.25}
-                            max={1.00}
-                            step={0.05}
+                            min={0.1}
+                            max={2}
+                            step={0.1}
                             className="w-full"
                           />
                         </div>
@@ -1589,8 +1566,8 @@ export default function StringArt() {
                           <Slider
                             value={[lineOpacity]}
                             onValueChange={([v]) => setLineOpacity(v)}
-                            min={0.10}
-                            max={0.50}
+                            min={0.05}
+                            max={0.5}
                             step={0.05}
                             className="w-full"
                           />
